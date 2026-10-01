@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.ipynb_checkpoints/
+.DS_Store
+.pytest_cache/
+
+# Large / generated content
+data/*
+results/*
+references/*
+!data/.gitkeep
+!results/.gitkeep
+!references/.gitkeep
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.fdb_latexmk
+*.fls
