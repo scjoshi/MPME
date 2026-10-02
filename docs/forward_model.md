@@ -1,9 +1,8 @@
 # MPME forward signal model
 
-Derived from standard steady-state MR physics (extended phase graphs, EPG). It is
-consistent with the 2019 paper's figure captions (B0 from multi-echo phase, T2/T2* from
-echo decay, B1+/T1 from two flip angles). The paper's Methods section was not available
-when this was written, so its notation, sign conventions and equation numbers may differ.
+Derived from standard steady-state MR physics (extended phase graphs, EPG) and checked
+against the paper (Cheng et al. 2019, author manuscript nihms-986644). See
+"Consistency with the paper" at the end.
 
 ```
 θ(r) = {C·M0, T1, T2, R2′, Δω, B1⁺, (D)}      tissue + field parameters per voxel
@@ -139,3 +138,30 @@ larger than the readout kx extent, motion between the two scans.
 | Non-Lorentzian lineshape | exp(−R2′\|τ\|) is approximate | Sensitivity tests; Gaussian option |
 | Magnetisation transfer, finite RF pulses | T1 bias (the paper used a calibration β ≈ 1.24; MT as a cause is a guess) | Optional MT term; phantom calibration |
 | Approach to steady state, flow, motion | Corrupts echo pathways | Assume steady state; robustness tests |
+
+## 6. Consistency with the paper
+
+Checked numerically (tests in `tests/test_paper.py`):
+
+- **Eq. 1** (S = F⁺ e^{−(R2 ± R2′)TE}, + for k ≥ 0, − for k < 0) has the same echo-time
+  slopes as Layer 2. The paper's F⁺_k is this model's a_k · e^{−R2′|k|TR}: the R2′
+  factor depends only on |k|, so every relation between ±k states (Eqs. 4–7, 10–13) and
+  the mixing factor X are unchanged. Eq. 17 uses k = 0, where the factor is 1.
+- **Eq. 7** holds to 1e-17, and **Eqs. 16–17** recover T1 and M0 exactly from simulated
+  steady states, for α = 15° and 330°, k = ±1. Eq. 16 must be read as
+  T1 = TR / ln[(Xc − 1)/(X − c)] (consistent with Z⁺/Z⇒ = e^{TR/T1}).
+- **Eq. 18** (real-valued states, +|F| for k ≥ 0, −|F| for k < 0) matches the simulator's
+  phases: k ≥ 0 states share one phase, k < 0 states the opposite one.
+- Protocol from the paper: TR 25 ms, α 15°/330°, hard pulses, [1, 0, −1] scheme,
+  3 readout windows of alternating polarity, Gx lobes +1.5 : −3 : +3 : −3 : +0.5 (units of
+  −A_Gx), pathway spacing 2 ms in vivo (1/BW per pixel, 501 Hz). Each readout window visits
+  all three pathways; the order reverses in alternate windows (`sequence.mpme_echo_times`).
+  The time from the RF pulse to the first echo is not stated; 4.5 ms is assumed.
+
+Not modelled (yet):
+
+- **Eq. 8** nutation function ν(α, Δf): off-resonance during the finite hard pulse changes
+  cos α. Our RF pulses are instantaneous. Pulse duration is not given in the paper.
+- **Eq. 19** β = 1.24 in vivo (unexplained by the authors; β = 1 in phantoms) is available
+  as a reconstruction parameter but is not part of the forward model.
+- The paper states diffusion effects were negligible for its gradient areas.

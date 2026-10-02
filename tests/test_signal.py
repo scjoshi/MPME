@@ -43,10 +43,11 @@ def test_fid_and_echo_log_slopes():
 def test_amplitude_at_zero_decay_is_steady_state():
     # With T2 decay and R2′ removed analytically, S/M0 must equal a_p.
     S = mpme_signal(PR, **{**TISSUE, "dw": 0.0, "M0": 2.5})[1]
+    scan = PR.scans[1]
     t = PR.echo_times(1)
     p = torch.tensor(PR.pathways, dtype=torch.float64)[:, None]
-    undo = torch.exp(t / TISSUE["T2"] + TISSUE["R2p"] * (t + p * 22.0).abs())
-    a = steady_state_isochromat(math.radians(30), 850.0, 65.0, 22.0, PR.pathways, n_iso=512)
+    undo = torch.exp(t / TISSUE["T2"] + TISSUE["R2p"] * (t + p * scan.TR).abs())
+    a = steady_state_isochromat(scan.alpha, 850.0, 65.0, scan.TR, PR.pathways, n_iso=512)
     torch.testing.assert_close(S * undo / 2.5, a[:, None].expand(-1, 3))
 
 

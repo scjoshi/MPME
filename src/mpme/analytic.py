@@ -33,6 +33,7 @@ def fid_echo_amplitudes(alpha, T1, T2, TR) -> tuple[Tensor, Tensor]:
     """Closed-form |F_0| and |F_−1| just after the RF pulse (unit M0, fully dephased).
 
     F_0 is the FISP steady state; |F_−1| is the PSIF echo signal (at t = TR) divided by E2.
+    Absolute values are returned, so any flip angle (e.g. 330°) is allowed.
     """
     E1, E2 = torch.exp(-TR / T1), torch.exp(-TR / T2)
     ca = torch.cos(alpha)
@@ -42,19 +43,31 @@ def fid_echo_amplitudes(alpha, T1, T2, TR) -> tuple[Tensor, Tensor]:
     t = torch.tan(alpha / 2)
     fid = t * (1 - (E1 - ca) * (1 - E2**2) / r)
     echo = t * (1 - (1 - E1 * ca) * (1 - E2**2) / r) / E2
-    return fid, echo
+    return fid.abs(), echo.abs()
 
 
 def estimate_b0(S: Tensor, protocol: Protocol, scan: int = 0) -> Tensor:
-    """Off-resonance Δω (rad/ms) from consecutive-echo phase differences.
+    """Off-resonance Δω (rad/ms) from the phase evolution between echoes of each pathway.
 
-    Unambiguous for |Δω| < π / (echo spacing).
+    All pathways share the same Δω (paper, step 1). Every pair of echoes within a pathway
+    contributes a phase difference. A coarse estimate from the most closely spaced pairs
+    (unambiguous for |Δω| < π / min spacing) unwraps the longer-spaced pairs, then a
+    weighted least-squares fit Δφ ≈ Δω·Δt uses all pairs.
     """
-    s = S[..., scan, :, :]
-    z = s[..., 1:] * torch.conj(s[..., :-1])                               # [..., P, J−1]
-    dt = protocol.echo_times(scan, s.real.dtype).diff(dim=-1)               # [P, J−1]
+    s = S[..., scan, :, :]                                                  # [..., P, J]
+    t = protocol.echo_times(scan, s.real.dtype)                             # [P, J]
+    J = t.shape[-1]
+    a, b = torch.triu_indices(J, J, offset=1)
+    z = s[..., b] * torch.conj(s[..., a])                                   # [..., P, pairs]
+    dt = t[:, b] - t[:, a]                                                  # [P, pairs]
     w = z.abs()
-    return (w * torch.angle(z) / dt).sum((-2, -1)) / w.sum((-2, -1)).clamp_min(_TINY)
+    phi = torch.angle(z)
+
+    close = (dt <= dt.min() * (1 + 1e-9)).to(w.dtype)
+    coarse = (w * close * phi / dt).sum((-2, -1)) / (w * close).sum((-2, -1)).clamp_min(_TINY)
+    k = torch.round((coarse[..., None, None] * dt - phi) / (2 * math.pi))
+    phi = phi + 2 * math.pi * k
+    return (w * dt * phi).sum((-2, -1)) / (w * dt**2).sum((-2, -1)).clamp_min(_TINY)
 
 
 def _decay_design(protocol: Protocol, scan: int, dtype) -> tuple[Tensor, Tensor]:
@@ -114,10 +127,25 @@ def _profiled_residual(u: Tensor, T2: Tensor, logA: Tensor, protocol: Protocol) 
     return d - d.mean(-1, keepdim=True)
 
 
+def _branch_ok(logB1: Tensor, protocol: Protocol, fid_sign: Tensor | None) -> Tensor:
+    """True where sign(sin B1α1 · sin B1α2) matches the observed FID phase relation.
+
+    |F| is even and 2π-periodic in α, so magnitudes alone cannot tell α2 = 360° − x from
+    360° + x. The sign of F_0 follows sin α, so the relative phase of the two scans' FIDs
+    (paper, text after Eq. 15) selects the branch.
+    """
+    if fid_sign is None:
+        return torch.ones_like(logB1, dtype=torch.bool)
+    a1, a2 = (s.alpha for s in protocol.scans[:2])
+    B1 = logB1.exp()
+    return torch.sign(torch.sin(B1 * a1) * torch.sin(B1 * a2)) == fid_sign
+
+
 def estimate_b1_t1(
     logA: Tensor,
     T2: Tensor,
     protocol: Protocol,
+    fid_sign: Tensor | None = None,
     *,
     b1_range=(0.4, 1.6),
     t1_range=(100.0, 6000.0),
@@ -125,9 +153,15 @@ def estimate_b1_t1(
     n_iter: int = 30,
     chunk: int = 1024,
 ) -> tuple[Tensor, Tensor, Tensor]:
-    """B1, T1 (ms) and M0 from FID/echo amplitudes ``logA`` [..., n_scans·2] (scan-major)."""
+    """B1, T1 (ms) and M0 from FID/echo amplitudes ``logA`` [..., n_scans·2] (scan-major).
+
+    ``fid_sign`` (±1 per voxel, sign of Re(F0_scan1 · conj F0_scan2)) restricts B1 to the
+    flip-angle branch consistent with the data; see ``_branch_ok``.
+    """
     shape = T2.shape
     logA, T2 = logA.reshape(-1, logA.shape[-1]), T2.reshape(-1)
+    if fid_sign is not None:
+        fid_sign = fid_sign.reshape(-1)
     dtype = logA.dtype
 
     # Coarse grid search, chunked over voxels.
@@ -138,7 +172,11 @@ def estimate_b1_t1(
     for s in range(0, len(T2), chunk):
         sl = slice(s, s + chunk)
         r = _profiled_residual(G[None], T2[sl, None], logA[sl, None], protocol)
-        u[sl] = G[(r**2).sum(-1).argmin(-1)]
+        cost = (r**2).sum(-1)
+        if fid_sign is not None:
+            cost = torch.where(_branch_ok(G[None, :, 0], protocol, fid_sign[sl, None]),
+                               cost, torch.inf)
+        u[sl] = G[cost.argmin(-1)]
 
     # Levenberg–Marquardt refinement (voxels are independent, so the batched gradient of
     # each residual component gives that component's Jacobian row for every voxel).
@@ -156,7 +194,7 @@ def estimate_b1_t1(
         u_new = torch.minimum(torch.maximum(u - torch.linalg.solve(A, Jtr), lo), hi)
         with torch.no_grad():
             better = ((_profiled_residual(u_new, T2, logA, protocol) ** 2).sum(-1)
-                      < (r**2).sum(-1))
+                      < (r**2).sum(-1)) & _branch_ok(u_new[:, 0], protocol, fid_sign)
         u = torch.where(better[:, None], u_new, u)
         lam = torch.where(better, lam * 0.3, lam * 10).clamp(1e-9, 1e9)
 
@@ -192,6 +230,10 @@ def analytic_reconstruction(
         logA = decay_free_amplitudes(S, protocol, R2, R2p)
         idx = [protocol.index(0), protocol.index(-1)]
         logA = logA[..., idx].flatten(-2)                                   # [..., n_scans·2]
-    B1, T1, M0 = estimate_b1_t1(logA, 1 / R2, protocol, **b1_t1_kwargs)
+        fid_sign = None
+        if len(protocol.scans) == 2:
+            F0 = S[..., protocol.index(0), :]
+            fid_sign = torch.sign((F0[..., 0, :] * F0[..., 1, :].conj()).sum(-1).real)
+    B1, T1, M0 = estimate_b1_t1(logA, 1 / R2, protocol, fid_sign, **b1_t1_kwargs)
     return {"M0": M0, "T1": T1, "T2": 1 / R2, "T2star": 1 / (R2 + R2p),
             "R2p": R2p, "dw": dw, "B1": B1}

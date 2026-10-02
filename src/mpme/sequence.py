@@ -1,7 +1,8 @@
 """MPME protocol definition.
 
-Default values are placeholders chosen to be plausible, not the values used by
-Cheng et al. 2019; replace them once the real protocol is known.
+``paper_protocol`` reproduces the in-vivo protocol of Cheng et al. 2019 (Table 1 and the
+Gx waveform of Fig. 1). The time from the RF pulse to the first pathway echo is not given
+in the paper and is an assumption here.
 """
 
 from __future__ import annotations
@@ -62,13 +63,43 @@ class Protocol:
         return self.pathways.index(p)
 
 
-def default_protocol() -> Protocol:
-    """Three-pathway [1, 0, −1], three-echo protocol with α₂ = 10·α₁ (placeholder values)."""
-    echoes = ((3.0, 5.0, 7.0),     # p = +1: Gx moment −1
-              (9.0, 11.0, 13.0),   # p =  0: moment 0 (FID)
-              (15.0, 17.0, 19.0))  # p = −1: moment +1 (echo)
+def mpme_echo_times(
+    scheme: tuple[int, int, int] = (1, 0, -1),
+    n_te: int = 3,
+    spacing: float = 2.0,
+    t_first: float = 4.5,
+) -> tuple[tuple[float, ...], ...]:
+    """Echo times (ms) per pathway for the Fig. 1 Gx waveform, in ``scheme`` order.
+
+    Each of the ``n_te`` readout windows (alternating polarity) sweeps the gradient moment
+    across all three pathways, ``spacing`` ms apart (= 1 / BW per pixel). Odd windows visit
+    the pathways in ``scheme`` order, even windows in reverse; consecutive windows share an
+    extra ``spacing`` for the turn-around. ``t_first`` is the first echo after the RF pulse.
+    Gradient ramps are ignored.
+    """
+    times: dict[int, list[float]] = {p: [] for p in scheme}
+    for w in range(n_te):
+        order = scheme if w % 2 == 0 else scheme[::-1]
+        for n, p in enumerate(order):
+            times[p].append(t_first + spacing * (3 * w + n))
+    return tuple(tuple(times[p]) for p in scheme)
+
+
+def paper_protocol(scheme: tuple[int, int, int] = (1, 0, -1), spacing: float = 2.0,
+                   t_first: float = 4.5) -> Protocol:
+    """Cheng et al. 2019 in-vivo protocol: TR 25 ms, α 15°/330°, 3 readout windows.
+
+    Pathway spacing 2.0 ms in vivo (1.86 ms in the phantom). The paper's scan 2 covers only
+    the central 25% × 25% of ky–kz; that is handled by the imaging layer, not here.
+    """
+    echoes = mpme_echo_times(scheme, 3, spacing, t_first)
     return Protocol(
-        pathways=(1, 0, -1),
-        scans=(Scan(flip_deg=3.0, TR=22.0, echo_times=echoes),
-               Scan(flip_deg=30.0, TR=22.0, echo_times=echoes)),
+        pathways=tuple(scheme),
+        scans=(Scan(flip_deg=15.0, TR=25.0, echo_times=echoes),
+               Scan(flip_deg=330.0, TR=25.0, echo_times=echoes)),
     )
+
+
+def default_protocol() -> Protocol:
+    """The paper's in-vivo protocol with the [1, 0, −1] scheme."""
+    return paper_protocol()

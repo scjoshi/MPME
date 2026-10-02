@@ -130,23 +130,37 @@ src/mpme/
 
 ## Findings so far
 
-### B1⁺/T1 are poorly conditioned with the placeholder protocol (2026-10-02)
+### Paper protocol and conditioning (updated 2026-10-02, after reading the paper)
 
-Default protocol (`sequence.default_protocol`: α = 3°/30°, TR = 22 ms, pathways [1, 0, −1],
-3 echoes each, both scans treated as full resolution), white-matter-like voxel
-(T1 850, T2 65 ms, R2′ 0.02/ms).
+An earlier analysis with placeholder flip angles (3°/30°) concluded that B1⁺/T1 were
+hopelessly ill-conditioned. With the paper's protocol (`sequence.paper_protocol`: TR 25 ms,
+α 15°/330°, [1, 0, −1], 3 readout windows, 2 ms pathway spacing) that is no longer true:
+the near-360° second pulse makes the data very sensitive to B1⁺.
 
-- The analytic baseline is exact on noise-free data (relative error ≤ 1e-7).
-- T2, T2* and B0 are reasonably robust to noise, much more so when the decay fit also
-  uses the high-flip scan (`decay_scans=(0, 1)`), whose echo pathway is ~20× stronger.
-- B1⁺ and T1 are not: the Cramér–Rao bound for log T1 is ≈ 2800·σ/M0 even when the full
-  model is fitted jointly to every pathway and echo (≈ 3600·σ/M0 for the FID/echo-only
-  analytic step). 10% T1 precision would need SNR(M0) of order 10⁴.
-- Larger flip angles help a lot (α = 10°/100°: ≈ 375·σ/M0 joint), and including the
-  p = +1 pathway helps by 1.3–4×.
+Cramér–Rao bound, full joint model, T1/T2/T2* = 1500/70/60 ms (paper's Fig. 3b tissue),
+sd of log-parameter per unit σ/M0 (both scans at full resolution):
 
-Implications: the real protocol values matter a great deal and should be confirmed from
-the paper; protocol optimisation by CRLB belongs early in Phase 3; a neural network cannot
-beat the CRLB, so its gains must come from spatial priors (Level B) or better protocols.
-The low-resolution second scan (16× larger voxels) has higher SNR per voxel, which is
-not yet modelled here.
+| α1/α2 | B1 | T1 | T2 |
+|---|---|---|---|
+| 15/330 (paper) | 2.9 | 40.5 | 23.1 |
+| 15/30 | 1020 | 2110 | 23.1 |
+| 3/30 (old placeholder) | 1500 | 3070 | 34.5 |
+| 30/350 | 1.2 | 55.8 | 22.0 |
+
+Noisy simulations, same tissue, B1 = 1, σ = M0/SNR (peak signal ≈ 0.088·M0):
+
+| SNR(M0) | Paper method: T1 spread, NaN | Model fit: T1 spread | CRLB T1 |
+|---|---|---|---|
+| 300 | ~80% (34% with known B1), 1.7% NaN | ~70% | 13.5% |
+| 1000 | ~13%, 0% NaN | ~12% | 4.1% |
+
+- Both baselines are exact on noise-free data (paper method ≤ 1e-11 relative error, both
+  pathway schemes, B1 0.7–1.4, Δω ±100 Hz).
+- The sequential analytic chain sits ~3× above the CRLB for T1 even at high SNR, and the
+  paper's Eq. 16 returns NaN when noise pushes the log-ratio below zero. This is the noise
+  amplification the paper reports, and the room a joint / learned estimator can recover.
+  Further gains beyond the CRLB must come from spatial priors (Level B).
+- The paper's low-resolution second scan (25% × 25% of ky–kz) and B1 smoothing are not yet
+  modelled; with known B1 the paper's T1 spread drops roughly 2× at SNR 300.
+- α2 = 360° exactly (B1 ≈ 1.09) is a true degeneracy: the scan-2 FID vanishes and its sign
+  cannot select the flip-angle branch.
