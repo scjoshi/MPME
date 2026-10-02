@@ -91,3 +91,25 @@ def test_broadcasting_and_gradients():
 def test_n_iso_guard():
     with pytest.raises(ValueError):
         steady_state_isochromat(0.1, 1000.0, 80.0, 20.0, (0, -8), n_iso=16)
+
+
+def _leading_order(alpha, T1, T2, TR, paths, N=4096):
+    """Proposition 2: m⊥(ψ) ≈ −iα / ((1 − E2 e^{iψ}) [1 + c H(ψ)]), c = α²/(2ρ)."""
+    rho, E2 = TR / T1, math.exp(-TR / T2)
+    z = torch.exp(2j * math.pi * torch.arange(N, dtype=torch.float64) / N)
+    H = (1 - E2**2) / (1 - E2 * z).abs() ** 2
+    m = -1j * alpha / ((1 - E2 * z) * (1 + alpha**2 / (2 * rho) * H))
+    spec = torch.fft.fft(m) / N
+    return torch.stack([spec[p % N] for p in paths])
+
+
+def test_small_angle_leading_order_for_all_pathways():
+    paths, T2, TR, errs = (2, 1, 0, -1, -2, -3), 70.0, 25.0, []
+    for deg in (8.0, 4.0, 2.0):
+        a = math.radians(deg)
+        T1 = TR / (a**2 / 1.5)                                   # α²/ρ fixed
+        ex = steady_state_isochromat(a, T1, T2, TR, paths, n_iso=4096)
+        errs.append(((ex - _leading_order(a, T1, T2, TR, paths)).abs().max() / ex[2].abs()).item())
+    # O(α²) relative remainder: error drops ~4× per halving of α
+    assert errs[0] / errs[1] == pytest.approx(4.0, rel=0.15)
+    assert errs[1] / errs[2] == pytest.approx(4.0, rel=0.15)

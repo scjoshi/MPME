@@ -10,12 +10,16 @@ T1/T2/T2* = 1500/70/60 ms, B1⁺ = 1, paper protocol (TR 25 ms, α 15°/330°, p
 1. **The core problem is a near-symmetry of the signal model.** For small flip angles and
    TR ≪ T1, every pathway amplitude is almost unchanged by
    **(M0, B1⁺, T1) → (M0/k, k·B1⁺, T1/k²)**. Because B1⁺ scales *all* flip angles, two
-   scans with small nominal angles (e.g. 15°/30°) cannot break it: T1 and B1⁺ come out
-   with correlation −0.9999 and a T1 bound ~50× worse than with B1⁺ known.
-2. **The paper's 330° pulse breaks the symmetry through the 360° wrap.** Physically
-   330° ≡ −30° (with B1⁺ known, the two protocols carry *identical* information), but a B1⁺
-   change moves the effective angle 330·B1⁺ − 360° eleven times faster than proportional
-   and in the opposite direction. The condition number drops from 5×10⁵ to 173.
+   scans with small nominal angles (e.g. 15°/30°) cannot remove this *leading-order*
+   degeneracy: T1 and B1⁺ come out with correlation −0.9999 and a T1 bound ~75× worse than
+   with B1⁺ known. Higher-order terms keep the information matrix nonsingular, so the
+   parameters are identifiable in principle, but separation is extremely noise-sensitive.
+2. **The paper's 330° pulse breaks the symmetry through the 360° wrap.** At B1⁺ = 1,
+   330° ≡ −30° (with B1⁺ known, the two protocols carry identical information there; at
+   other B1⁺ the actual angles differ, e.g. 363° vs 33° at B1⁺ = 1.1). A B1⁺ change moves
+   the effective angle 330·B1⁺ − 360° much faster than proportional and in the opposite
+   direction (log-derivative 330B1⁺/(330B1⁺ − 360) = −11 at B1⁺ = 1). The condition number
+   drops from 5×10⁵ to 173.
 3. **What remains is ordinary confounding, not degeneracy.** With the paper protocol the T1
    bound is 40.5·σ/M0. It is built up as: 7.9 (T1 alone) → 21.1 (+ T2, T2*, Δω, φ0) →
    28 (+ M0) → 40.5 (+ B1⁺). B1⁺ now costs a factor 1.45, M0 and the transverse
@@ -43,7 +47,8 @@ Jacobians come from autograd through the differentiable EPG/isochromat model and
 checked against finite differences in `tests/test_crlb.py`.
 
 **Units.** σ is expressed in units of M0, so every bound scales as σ/M0 = 1/SNR(M0).
-Numbers below are "relative sd per unit σ/M0": divide by SNR(M0). The brightest MPME image
+Numbers below are bounds on the sd of log θ per unit σ/M0: divide by SNR(M0). They read as
+relative sd only when small; a log-sd s means a one-sigma factor e^{±s}. The brightest MPME image
 has |S| ≈ 0.088·M0, so **image SNR ≈ 0.088 × SNR(M0)** (e.g. image SNR 50 ↔ SNR(M0) ≈ 570).
 
 **Conditioning tools.**
@@ -108,12 +113,14 @@ variable-flip-angle T1 mapping (T1_apparent ∝ T1/B1²).
 
 ### Why 330° works
 
-|F(α)| is even and 2π-periodic in α, so 330° produces the same magnitudes as 30° (only the
-sign of the k ≥ 0 / k < 0 states flips). With B1⁺ known, **15°/330° and 15°/30° give
-identical bounds for every parameter** (tested). The difference appears only in the B1⁺
-derivative:
+|F(α)| is even and 2π-periodic in α, and F_k(−α) = −F_k(α) (a global sign). So protocols
+whose *actual* angles agree up to sign and 2π carry identical information when B1⁺ is
+known. At B1⁺ = 1, **15°/330° and 15°/30° give identical bounds for every parameter**
+(tested); at B1⁺ = 1.1 the actual angles are 363° and 33°, and the known-B1⁺ T1 bounds are
+29.6 vs 29.0. Near B1⁺ = 1 the difference is therefore mainly in the B1⁺ derivative:
 
-    α2,eff = 330°·B1⁺ − 360°  ≈ −30°,      d log|α2,eff| / d log B1⁺ = 330/(330 − 360) = −11,
+    α2,eff = 330°·B1⁺ − 360°,      d log|α2,eff| / d log B1⁺ = 330·B1⁺/(330·B1⁺ − 360)
+                                                             (= −11 at B1⁺ = 1),
 
 while α1 scales with exponent +1. The symmetry needs every angle to scale by the same k;
 here α2,eff moves 11× faster and in the opposite direction, so the null direction is
@@ -121,7 +128,7 @@ lifted. The near-360° pulse is effectively a built-in B1⁺ measurement.
 
 ## 3. Bounds
 
-Per unit σ/M0 (relative sd; Δω in rad/ms).
+Per unit σ/M0 (sd of log θ; Δω in rad/ms).
 
 | Protocol | Tissue (T1/T2/T2*) | Scenario | M0 | B1⁺ | T1 | T2 | T2* | Δω |
 |---|---|---|---|---|---|---|---|---|
@@ -149,10 +156,12 @@ T2 = 70 ms); T2 and Δω do not depend on the B1⁺ question at all.
 
 ![Eigenvalues and weakest direction](figures/crlb_eigen.png)
 
-The weakest direction of the paper protocol is still mostly **M0 and T1 moving together**
-(components 0.56 and 0.78, B1⁺ only 0.25): a longer T1 lowers all steady-state amplitudes,
-which a larger M0 can largely compensate. The hierarchy of the T1 bound shows where
-precision goes:
+Mapped back to the original log coordinates (w ∝ D^{-1/2}u, where u is the eigenvector
+of the normalised information D^{-1/2}FD^{-1/2}), the weakest direction of 15°/30° is
+exactly (−1, 1, −2)/√6. For the paper protocol it is dominated by **T1** (−0.85), with
+M0 and T2* (−0.36 each) and T2 (+0.15); the B1⁺ component is only −0.05. (An earlier
+version plotted u itself, which mixes in the scaling D^{1/2}.) The hierarchy of the T1
+bound shows where precision goes (factors depend on the order in which groups are freed):
 
 | Unknown | T1 bound |
 |---|---|
@@ -234,9 +243,11 @@ simulation, see `docs/plan.md`.)
 
 Implications for the neural-network work:
 
-1. **No per-voxel estimator can beat these numbers.** The realistic per-voxel gain over the
-   analytic chain is the ~3× gap to the bound, which a well-trained network (or a joint
-   maximum-likelihood fit) can close.
+1. **No unbiased per-voxel estimator can beat these numbers.** The realistic gain of an
+   unbiased estimator over the analytic chain is the gap to the bound, which the joint
+   maximum-likelihood fit closes (see the LaTeX note, Table 3). Biased estimators,
+   including networks trained with a tissue prior, can have lower variance or MSE; that
+   benefit comes from the prior, and the resulting bias must be characterised.
 2. **Spatial priors are where larger gains are.** B1⁺ is smooth: estimating it at low
    resolution and treating it as nearly known removes its factor 1.45. M0 and T1 are not
    smooth, so their confounding (factor ~1.3 from M0, ~2.7 from T2/T2*) must be handled by

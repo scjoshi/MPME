@@ -110,7 +110,9 @@ def steady_state_isochromat(
     eye = torch.eye(3, dtype=alpha.dtype, device=alpha.device)
     A = eye - R @ P @ E
     rhs = R[..., 2] * (1 - E1)[..., None, None]                        # R · [0, 0, 1−E1]
-    M = torch.linalg.solve(A, rhs.expand(A.shape[:-1]))                # [..., N, 3]
+    M, info = torch.linalg.solve_ex(A, rhs.expand(A.shape[:-1]))      # [..., N, 3]
+    if (info != 0).any():                                              # singular: e.g. E1 = E2 = 1
+        M = torch.where((info != 0)[..., None], torch.nan, M)
 
     Mxy = torch.complex(M[..., 0], M[..., 1])
     spec = torch.fft.fft(Mxy, dim=-1) / n_iso                          # spec[k] = F_k (k mod N)

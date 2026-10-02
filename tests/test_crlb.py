@@ -83,3 +83,22 @@ def test_joint_ml_recovers_noise_free_parameters():
     fit = joint_fit(S, PR, init, n_iso=512, n_iter=30)
     torch.testing.assert_close(fit["T1"], torch.full((4,), 1500.0, dtype=torch.float64), rtol=1e-6, atol=0)
     torch.testing.assert_close(fit["B1"], torch.ones(4, dtype=torch.float64), rtol=1e-6, atol=0)
+
+
+def test_330_and_30_differ_when_actual_angles_differ():
+    # Proposition 3 is about actual angles: at B1 = 1.1 they are 363° vs 33°.
+    tis = {**TIS, "B1": 1.1}
+    a = crlb(fisher_information(PR, tis), known=("B1",))["T1"]
+    b = crlb(fisher_information(with_flip2(30.0), tis), known=("B1",))["T1"]
+    assert abs(a - b) / b > 0.01
+
+
+def test_joint_ml_respects_r2p_nonnegative():
+    from mpme.analytic import analytic_reconstruction
+    from mpme.mle import joint_fit
+    from mpme.signal import add_noise
+    S = mpme_signal(PR, 1.0, 1500.0, 70.0, 1 / 60 - 1 / 70, 0.05, 1.0, 0.3).expand(32, 2, 3, 3)
+    Sn = add_noise(S, 1 / 200, torch.Generator().manual_seed(2))
+    fit = joint_fit(Sn, PR, analytic_reconstruction(Sn, PR), n_iter=15)
+    assert (fit["T2star"] <= fit["T2"] * (1 + 1e-12)).all()
+    assert fit["at_r2p_bound"].dtype == torch.bool

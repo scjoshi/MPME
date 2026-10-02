@@ -240,13 +240,18 @@ def main():
     ax = axes[1]
     x = np.arange(len(PARAMS))
     w = 0.38
-    for n, ((pname, (_, c)), col) in enumerate(zip(cond.items(), (BLUE, ORANGE))):
-        v = c["eigenvectors"][:, 0].numpy()
-        v = v * np.sign(v[PARAMS.index("T1")])
+    for n, ((pname, (F, c)), col) in enumerate(zip(cond.items(), (BLUE, ORANGE))):
+        # Eigenvector u of the normalised information D^-1/2 F D^-1/2 corresponds to the
+        # direction D^-1/2 u in the original log coordinates.
+        v = c["eigenvectors"][:, 0].numpy() / F.diagonal().sqrt().numpy()
+        v = v / np.linalg.norm(v)
+        v = v * -np.sign(v[PARAMS.index("T1")])
         ax.bar(x + (n - 0.5) * w, v, w * 0.92, color=col, label=pname)
+    sym = np.array([-1, 1, -2, 0, 0, 0, 0]) / math.sqrt(6)
+    ax.plot(x[:3], sym[:3], "_", ms=22, mew=2.5, color=INK, label="(−1, 1, −2)/√6")
     ax.axhline(0, color=AXIS, linewidth=1)
     ax.set_xticks(x, [LABELS[p] for p in PARAMS])
-    style(ax, "Weakest direction (normalised coordinates)", None, "component")
+    style(ax, "Weakest direction in log coordinates", None, "component")
     ax.legend(frameon=False, fontsize=9, labelcolor=INK2)
     save(fig, "crlb_eigen.png")
 

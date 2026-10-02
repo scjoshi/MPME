@@ -170,3 +170,14 @@ Noisy simulations, same tissue, B1 = 1, σ = M0/SNR (peak signal ≈ 0.088·M0):
 See `docs/crlb_analysis.md`: the small-flip scaling symmetry (M0/k, k·B1⁺, T1/k²), how
 the 330° pulse breaks it, the conditioning of the information matrix, the T1 confounding
 hierarchy (7.9 → 21.1 → 28 → 40.5 · σ/M0), and the cost of the paper's two-stage design.
+
+### Estimator efficiency, revised after review (2026-10-02)
+
+`scripts/estimator_efficiency.py` now reports SD, mean bias, RMSE, robust spread and
+undefined/boundary rates on log θ̂. The joint ML fit enforces R2′ ≥ 0 (projected LM) and
+uses four starts; with two starts, 2% of voxels at SNR 300 were optimiser failures (cost
+above the true-parameter cost), which caused heavy tails. Paper protocol: ML SD/CRLB =
+0.99–1.02 at SNR(M0) ≥ 1000; at SNR 300 the R2′ = 0 constraint is active in 19.5% of voxels,
+so the comparison is approximate (T1 0.95, B1 1.00). Analytic inverse: T1 SD 3.2–7.1× the
+bound. The 15°/30° control cannot support an efficiency claim (ML on a box bound in 10–35%
+of voxels, biased). See docs/latex/mpme_b1_t1_limits.pdf, Section 5.

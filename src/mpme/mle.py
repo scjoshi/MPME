@@ -5,9 +5,17 @@ echoes of the complex data at once (Gaussian noise ⇒ nonlinear least squares),
 voxel-wise Levenberg–Marquardt. Same parameterisation as ``crlb.py``, so its spread can be
 compared directly with the Cramér–Rao bound. Needs a starting point, e.g. the output of
 ``analytic.analytic_reconstruction``.
+
+Constraints (projected Levenberg–Marquardt): the Lorentzian model needs R2′ ≥ 0, i.e.
+T2* ≤ T2, enforced by projecting log T2* ≤ log T2 after every step. Safeguard box:
+B1 ∈ [e⁻¹, e], T1 ∈ [10, 20000] ms, T2 ∈ [1, 5000] ms. Active constraints are reported per
+voxel, because an estimate on a constraint is not covered by the interior, unbiased
+Cramér–Rao bound.
 """
 
 from __future__ import annotations
+
+import math
 
 import torch
 from torch import Tensor
@@ -16,6 +24,24 @@ from .sequence import Protocol
 from .signal import mpme_signal
 
 _LOG = (0, 1, 2, 3, 4)  # indices of log-parameters in θ
+_BOX = {1: (-1.0, 1.0),                                  # log B1
+        2: (math.log(10.0), math.log(20000.0)),          # log T1 (ms)
+        3: (math.log(1.0), math.log(5000.0))}            # log T2 (ms)
+
+
+def _project(th: Tensor) -> Tensor:
+    th = th.clone()
+    for i, (lo, hi) in _BOX.items():
+        th[:, i] = th[:, i].clamp(lo, hi)
+    th[:, 4] = torch.minimum(th[:, 4], th[:, 3])                            # T2* ≤ T2
+    return th
+
+
+def _at_box(th: Tensor) -> Tensor:
+    hit = torch.zeros(th.shape[0], dtype=torch.bool)
+    for i, (lo, hi) in _BOX.items():
+        hit |= (th[:, i] <= lo + 1e-9) | (th[:, i] >= hi - 1e-9)
+    return hit
 
 
 def _model(theta: Tensor, protocol: Protocol, n_iso: int) -> Tensor:
@@ -37,12 +63,16 @@ def joint_fit(
     """ML estimates for voxel signals S [N, n_scans, P, J] (complex).
 
     ``init`` needs M0, B1, T1, T2, T2star, dw; phi0 is initialised from the data.
+
+    Returns estimates plus ``cost`` (final ‖r‖²) and boolean flags ``at_box`` (a safeguard
+    bound is active) and ``at_r2p_bound`` (R2′ = 0).
     """
     N = S.shape[0]
     y = torch.view_as_real(S).flatten(1)
     th = torch.stack([init["M0"].log(), init["B1"].log(), init["T1"].log(),
                       init["T2"].log(), init["T2star"].log(), init["dw"],
                       torch.zeros(N, dtype=y.dtype)], 1)
+    th = _project(th)
     # Global phase: least-squares optimal for the initial magnitudes and Δω.
     th[:, 6] = 0.0
     S0 = torch.view_as_complex(_model(th, protocol, n_iso).reshape(*S.shape, 2))
@@ -58,8 +88,7 @@ def joint_fit(
         JtJ = J.transpose(1, 2) @ J
         g = (J.transpose(1, 2) @ r[..., None])[..., 0]
         A = JtJ + lam[:, None, None] * torch.diag_embed(JtJ.diagonal(dim1=1, dim2=2) + 1e-12)
-        th_new = th - torch.linalg.solve(A, g)
-        th_new[:, 1] = th_new[:, 1].clamp(-1.0, 1.0)                        # B1 in [0.37, 2.7]
+        th_new = _project(th - torch.linalg.solve(A, g))
         r_new = _model(th_new, protocol, n_iso) - y
         cost_new = (r_new**2).sum(1)
         ok = torch.isfinite(cost_new) & (cost_new < cost)
@@ -69,5 +98,7 @@ def joint_fit(
         lam = torch.where(ok, lam * 0.3, lam * 10).clamp(1e-9, 1e9)
 
     out = {k: th[:, i].exp() for k, i in zip(("M0", "B1", "T1", "T2", "T2star"), _LOG)}
-    out.update(dw=th[:, 5], phi0=th[:, 6], cost=cost)
+    out.update(dw=th[:, 5], phi0=th[:, 6], cost=cost,
+               at_box=_at_box(th),
+               at_r2p_bound=th[:, 4] >= th[:, 3] - 1e-12)
     return out
