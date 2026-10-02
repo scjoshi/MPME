@@ -62,10 +62,28 @@ def _model(theta: Tensor, protocol: Protocol, n_iso: int) -> Tensor:
     return torch.view_as_real(_signal(theta, protocol, n_iso)).flatten(1)
 
 
+def _fix_columns(J: Tensor, fixed: Tensor | None) -> Tensor:
+    return J if fixed is None else J * (~fixed).to(J.dtype)
+
+
+def _damped_system(J: Tensor, r: Tensor, lam: Tensor, fixed: Tensor | None):
+    """(JᵀJ + λ diag JᵀJ) Δ = Jᵀr, with fixed parameters given a unit row (Δ = 0)."""
+    JtJ = J.transpose(1, 2) @ J
+    g = (J.transpose(1, 2) @ r[..., None])[..., 0]
+    A = JtJ + lam[:, None, None] * torch.diag_embed(JtJ.diagonal(dim1=1, dim2=2) + 1e-12)
+    if fixed is not None:
+        A = A + torch.diag(fixed.to(A.dtype))
+    return A, g
+
+
 def _levenberg_marquardt(th: Tensor, model: Callable[[Tensor], Tensor], y: Tensor,
                          n_iter: int, h: float,
-                         project: Callable[[Tensor], Tensor] = _project):
-    """Projected LM with Marquardt scaling and forward-difference Jacobian, batched."""
+                         project: Callable[[Tensor], Tensor] = _project,
+                         fixed: Tensor | None = None):
+    """Projected LM with Marquardt scaling and forward-difference Jacobian, batched.
+
+    ``fixed``: boolean mask over parameters held at their initial values.
+    """
     N, n = th.shape
     th = project(th)
     lam = torch.full((N,), 1e-2, dtype=y.dtype)
@@ -73,10 +91,9 @@ def _levenberg_marquardt(th: Tensor, model: Callable[[Tensor], Tensor], y: Tenso
     cost = (r**2).sum(1)
     eye = torch.eye(n, dtype=y.dtype)
     for _ in range(n_iter):
-        J = torch.stack([(model(th + h * eye[k]) - y - r) / h for k in range(n)], 2)
-        JtJ = J.transpose(1, 2) @ J
-        g = (J.transpose(1, 2) @ r[..., None])[..., 0]
-        A = JtJ + lam[:, None, None] * torch.diag_embed(JtJ.diagonal(dim1=1, dim2=2) + 1e-12)
+        J = torch.stack([(model(th + h * eye[k]) - y - r) / h if fixed is None or not fixed[k]
+                         else torch.zeros_like(r) for k in range(n)], 2)
+        A, g = _damped_system(J, r, lam, fixed)
         th_new = project(th - torch.linalg.solve(A, g))
         r_new = model(th_new) - y
         cost_new = (r_new**2).sum(1)
@@ -90,7 +107,8 @@ def _levenberg_marquardt(th: Tensor, model: Callable[[Tensor], Tensor], y: Tenso
 
 def _levenberg_marquardt_exact(th: Tensor, model_jac: Callable[[Tensor], tuple[Tensor, Tensor]],
                                y: Tensor, n_iter: int,
-                               project: Callable[[Tensor], Tensor] = _project):
+                               project: Callable[[Tensor], Tensor] = _project,
+                               fixed: Tensor | None = None):
     """Projected LM with an exact Jacobian supplied together with the model value.
 
     Each trial evaluation returns (value, Jacobian), so an accepted step already provides
@@ -100,14 +118,14 @@ def _levenberg_marquardt_exact(th: Tensor, model_jac: Callable[[Tensor], tuple[T
     th = project(th)
     lam = torch.full((N,), 1e-2, dtype=y.dtype)
     m, J = model_jac(th)
+    J = _fix_columns(J, fixed)
     r = m - y
     cost = (r**2).sum(1)
     for _ in range(n_iter):
-        JtJ = J.transpose(1, 2) @ J
-        g = (J.transpose(1, 2) @ r[..., None])[..., 0]
-        A = JtJ + lam[:, None, None] * torch.diag_embed(JtJ.diagonal(dim1=1, dim2=2) + 1e-12)
+        A, g = _damped_system(J, r, lam, fixed)
         th_new = project(th - torch.linalg.solve(A, g))
         m_new, J_new = model_jac(th_new)
+        J_new = _fix_columns(J_new, fixed)
         r_new = m_new - y
         cost_new = (r_new**2).sum(1)
         ok = torch.isfinite(cost_new) & (cost_new < cost)
@@ -117,6 +135,24 @@ def _levenberg_marquardt_exact(th: Tensor, model_jac: Callable[[Tensor], tuple[T
         cost = torch.where(ok, cost_new, cost)
         lam = torch.where(ok, lam * 0.3, lam * 10).clamp(1e-9, 1e9)
     return th, cost
+
+
+def _b1_projector(base: Callable[[Tensor], Tensor], b1_max: float | None,
+                  fixed_B1: Tensor | None) -> Callable[[Tensor], Tensor]:
+    """Wrap a projection with an upper bound on B1 and/or a fixed (given) B1 map."""
+    if b1_max is None and fixed_B1 is None:
+        return base
+    log_max = None if b1_max is None else math.log(b1_max)
+    log_fix = None if fixed_B1 is None else fixed_B1.log()
+
+    def project(t: Tensor) -> Tensor:
+        t = base(t)
+        if log_max is not None:
+            t[:, 1] = t[:, 1].clamp(max=log_max)
+        if log_fix is not None:
+            t[:, 1] = log_fix.to(t.dtype)
+        return t
+    return project
 
 
 def _init_magnitudes(init: dict[str, Tensor]) -> Tensor:
@@ -141,6 +177,8 @@ def joint_fit(
     h: float = 1e-6,
     jacobian: str = "fd",
     dtype: torch.dtype | None = None,
+    b1_max: float | None = None,
+    fixed_B1: Tensor | None = None,
 ) -> dict[str, Tensor]:
     """ML estimates for complex voxel signals S [N, n_scans, P, J].
 
@@ -148,6 +186,9 @@ def joint_fit(
     ``jacobian``: "fd" (forward differences, step ``h``; needs float64) or "implicit" (exact
     derivatives, ``fastjac.py``; one model+Jacobian evaluation per iteration, works in
     float32). ``dtype`` overrides the working precision.
+    ``b1_max``: upper bound on B1 (e.g. 540/330 for the paper protocol, which excludes the
+    exact complex alias with α2 > 540°). ``fixed_B1``: hold B1 at a given map (two-stage
+    reconstruction); its Jacobian column is removed, the other parameters are fitted.
 
     Returns estimates plus ``cost`` (final ‖r‖²) and boolean flags ``at_box`` (a safeguard
     bound is active) and ``at_r2p_bound`` (R2′ = 0).
@@ -155,20 +196,29 @@ def joint_fit(
     if dtype is not None:
         S = S.to(torch.complex64 if dtype == torch.float32 else torch.complex128)
         init = {k: v.to(dtype) for k, v in init.items()}
+    if fixed_B1 is not None:
+        init = {**init, "B1": fixed_B1.to(init["B1"].dtype)}
+    project = _b1_projector(_project, b1_max, fixed_B1)
+    fixed = None
+    if fixed_B1 is not None:
+        fixed = torch.zeros(7, dtype=torch.bool)
+        fixed[1] = True
     N = S.shape[0]
     y = torch.view_as_real(S).flatten(1)
     th = torch.cat([_init_magnitudes(init), init["dw"][:, None],
                     torch.zeros(N, 1, dtype=y.dtype)], 1)
-    th = _project(th)
+    th = project(th)
     # Global phase: least-squares optimal for the initial magnitudes and Δω.
     S0 = torch.view_as_complex(_model(th, protocol, n_iso).reshape(*S.shape, 2).contiguous())
     th[:, 6] = torch.angle((S * S0.conj()).flatten(1).sum(1))
     if jacobian == "implicit":
         from .fastjac import complex_model_and_jacobian
         th, cost = _levenberg_marquardt_exact(
-            th, lambda t: complex_model_and_jacobian(t, protocol, n_iso), y, n_iter)
+            th, lambda t: complex_model_and_jacobian(t, protocol, n_iso), y, n_iter,
+            project, fixed)
     elif jacobian == "fd":
-        th, cost = _levenberg_marquardt(th, lambda t: _model(t, protocol, n_iso), y, n_iter, h)
+        th, cost = _levenberg_marquardt(th, lambda t: _model(t, protocol, n_iso), y, n_iter, h,
+                                        project, fixed)
     else:
         raise ValueError("jacobian must be 'fd' or 'implicit'")
     return _output(th, cost)
@@ -230,12 +280,14 @@ def magnitude_fit(
     h: float = 1e-6,
     jacobian: str = "fd",
     dtype: torch.dtype | None = None,
+    b1_max: float | None = None,
 ) -> dict[str, Tensor]:
     """Gaussian least squares on magnitudes M [N, n_scans, P, J] (real, ≥ 0).
 
     ``jacobian``: "fd" (forward differences, step ``h``; needs float64) or "implicit" (exact
     derivatives of the steady state, ``fastjac.py``; one model+Jacobian evaluation per
-    iteration, works in float32). ``dtype`` overrides the working precision.
+    iteration, works in float32). ``dtype`` overrides the working precision. ``b1_max``: upper
+    bound on B1 (see ``joint_fit``).
 
     ``init`` needs M0, B1, T1, T2, T2star. ``fid_sign`` (±1 per voxel, from
     ``fid_phase_sign`` on the complex images) restricts B1 to the flip-angle branch on which
@@ -253,8 +305,9 @@ def magnitude_fit(
             fid_sign = fid_sign.to(dtype)
     y = M.flatten(1)
     model = lambda t: _signal(t, protocol, n_iso).abs().flatten(1)
-    th = _project(_init_magnitudes(init))
-    project = _project
+    base = _b1_projector(_project, b1_max, None)
+    th = base(_init_magnitudes(init))
+    project = base
     if fid_sign is not None:
         zeros = _branch_zeros(protocol, math.exp(_BOX[1][1])).to(th.dtype)
         th[:, 1] = _branch_feasible_start(th[:, 1].exp(), fid_sign, protocol, zeros).log()
@@ -264,7 +317,7 @@ def magnitude_fit(
                              torch.full_like(hi, math.inf))
 
         def project(t: Tensor) -> Tensor:
-            t = _project(t)
+            t = base(t)
             t[:, 1] = torch.minimum(torch.maximum(t[:, 1], log_lo), log_hi)
             return t
 

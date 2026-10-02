@@ -173,3 +173,29 @@ def fisher_information_magnitude(
     sigma = tissue["M0"] / snr
     g = torch.ones_like(A) if gaussian else rician_information_factor(A / sigma)
     return (dA.T * g) @ dA / sigma**2
+
+
+def voxel_uncertainty(est: Mapping[str, Tensor], protocol: Protocol, sigma: float,
+                      *, magnitude: bool = False, fixed_B1: bool = False,
+                      n_iso: int = 128) -> dict[str, Tensor]:
+    """Local CRLB standard deviations at the estimates, per voxel (uncertainty maps).
+
+    Evaluates the exact Jacobian (``fastjac``) at the estimated parameters and returns
+    sqrt(diag((JᵀJ)⁻¹))·σ for each fitted parameter: log-parameter SDs for M0, B1, T1, T2,
+    T2*, and rad/ms for Δω (complex only). ``fixed_B1`` drops B1 from the inversion.
+    """
+    from .fastjac import complex_model_and_jacobian, magnitude_model_and_jacobian
+
+    names = ["M0", "B1", "T1", "T2", "T2star"]
+    th = torch.stack([est[k].double().log() for k in names], 1)
+    if magnitude:
+        _, J = magnitude_model_and_jacobian(th, protocol, n_iso)
+    else:
+        th = torch.cat([th, est["dw"].double()[:, None], est["phi0"].double()[:, None]], 1)
+        names = names + ["dw", "phi0"]
+        _, J = complex_model_and_jacobian(th, protocol, n_iso)
+    keep = [i for i, n in enumerate(names) if not (fixed_B1 and n == "B1")]
+    J = J[..., keep]
+    C = torch.linalg.inv(J.transpose(1, 2) @ J) * sigma**2
+    sd = C.diagonal(dim1=1, dim2=2).clamp_min(0).sqrt()
+    return {names[i]: sd[:, n] for n, i in enumerate(keep)}

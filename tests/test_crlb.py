@@ -205,3 +205,32 @@ def test_implicit_joint_fit_recovers_parameters(dtype, tol):
                                rtol=tol, atol=0)
     torch.testing.assert_close(fit["dw"].double(), torch.full((4,), 0.05, dtype=torch.float64),
                                rtol=tol, atol=tol * 0.05)
+
+
+def test_fixed_B1_scan1_only_fit_and_b1_cap():
+    from mpme.analytic import analytic_reconstruction
+    from mpme.mle import joint_fit
+    S = mpme_signal(PR, 1.0, 1500.0, 70.0, 1 / 60 - 1 / 70, 0.05, 0.95, 0.3).expand(4, 2, 3, 3)
+    init = analytic_reconstruction(S, PR)
+    scan1 = Protocol(PR.pathways, (PR.scans[0],))
+    B1 = torch.full((4,), 0.95, dtype=torch.float64)
+    init1 = {**init, "T1": init["T1"] * 1.2}
+    fit = joint_fit(S[:, :1].contiguous(), scan1, init1, jacobian="implicit", n_iso=256,
+                    n_iter=40, fixed_B1=B1)
+    torch.testing.assert_close(fit["B1"], B1)
+    torch.testing.assert_close(fit["T1"], torch.full((4,), 1500.0, dtype=torch.float64),
+                               rtol=1e-6, atol=0)
+    capped = joint_fit(S, PR, {**init, "B1": init["B1"] * 3}, jacobian="implicit",
+                       n_iter=5, b1_max=540 / 330)
+    assert (capped["B1"] <= 540 / 330 + 1e-9).all()
+
+
+def test_voxel_uncertainty_equals_crlb_at_truth():
+    from mpme.crlb import voxel_uncertainty
+    one = torch.ones(1, dtype=torch.float64)
+    est = {"M0": one, "B1": one, "T1": 1500 * one, "T2": 70 * one, "T2star": 60 * one,
+           "dw": 0.05 * one, "phi0": 0.3 * one}
+    u = voxel_uncertainty(est, PR, sigma=1 / 1000, n_iso=512)
+    b = crlb(fisher_information(PR, TIS))
+    for k in ("T1", "B1", "T2"):
+        assert u[k].item() == pytest.approx(b[k] / 1000, rel=1e-4)
