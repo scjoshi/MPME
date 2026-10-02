@@ -7,11 +7,13 @@ name = "mpme"
 version = "0.1.0"
 description = "Multi-Pathway Multi-Echo (MPME) MRI simulation and parameter mapping"
 requires-python = ">=3.10"
-dependencies = ["numpy", "scipy", "matplotlib"]
+dependencies = ["numpy", "scipy", "matplotlib", "torch"]
 
 [project.optional-dependencies]
 dev = ["pytest", "jupyter"]
-nn = ["torch"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
