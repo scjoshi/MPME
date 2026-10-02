@@ -16,7 +16,9 @@ ML. Exact Jacobians obtained by implicit differentiation of the steady state mak
 10--34 times faster, so that a $256\times256$ slice is fitted in seconds to minutes on a laptop
 CPU. A two-dimensional digital phantom with simulated acquisitions demonstrates all
 estimators, including the published low-resolution second scan, and validates per-voxel
-uncertainty maps.
+uncertainty maps; the BrainWeb phantom quantifies how partial volume with CSF biases every
+single-compartment estimator while leaving the residual and the uncertainty maps
+deceptively benign.
 \end{abstract}
 
 \section*{Summary of findings}
@@ -54,6 +56,11 @@ uncertainty maps.
   estimators behave as the voxel-wise analysis predicts, the published low-resolution design
   costs precision in $\Tone$ that a two-stage ML pipeline recovers in part, and the per-voxel
   uncertainty maps are calibrated (\cref{sec:phantom}).
+\item \textbf{Partial volume.} On BrainWeb, WM/GM mixtures are harmless (second-order model
+  error), but voxels containing CSF are biased by far more than the noise, with uncertainty
+  intervals that cover the truth in as few as $0.5\%$ of voxels and residuals that a $\chi^2$ test
+  flags in only $3$--$15\%$ at SNR 1000; the analytic inverse additionally jumps to a wrong flip-angle
+  root in up to $38\%$ of them (\cref{sec:pv}).
 \end{enumerate}
 
 \section*{How to read this note}
@@ -64,7 +71,8 @@ its structural properties. \Cref{sec:paper} presents and verifies the published 
 and globally (aliases). \Cref{sec:ml,sec:magnitude} develop and evaluate maximum-likelihood
 estimation for complex data and least squares for magnitude data. \Cref{sec:jacobian}
 derives exact Jacobians and their consequences. \Cref{sec:phantom} demonstrates everything
-on a digital phantom. \Cref{sec:discussion} summarises which limitations belong to the
+on a digital phantom, and \cref{sec:pv} measures the effect of partial volume on the
+BrainWeb phantom. \Cref{sec:discussion} summarises which limitations belong to the
 forward model and which to an inverse, and lists future work (model mismatch, Rician ML,
 hierarchical estimation, learned estimators). Longer proofs are in \cref{app:proofs},
 algorithms in \cref{app:algorithms}, and reproduction instructions in \cref{app:repro}.

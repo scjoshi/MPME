@@ -12,7 +12,11 @@ technote: technote-results technote-pdf
 technote-results:
 	$(PY) scripts/crlb_analysis.py
 	$(PY) scripts/start_count.py
-	$(PY) scripts/phantom_experiment.py
+	$(PY) scripts/phantom_experiment.py --snr 1000
+	$(PY) scripts/phantom_experiment.py --snr 300
+	PYTHONPATH=src:scripts python3 scripts/brainweb_experiment.py --case pv_clean
+	PYTHONPATH=src:scripts python3 scripts/brainweb_experiment.py --case pv
+	PYTHONPATH=src:scripts python3 scripts/brainweb_experiment.py --case crisp
 	$(PY) scripts/technote_figures.py
 
 technote-pdf:

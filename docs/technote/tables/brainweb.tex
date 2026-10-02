@@ -1,0 +1,42 @@
+\begin{table}[!htbp]
+\centering
+\caption{BrainWeb, noise-free: median of $\log(\hat\theta/\theta_{\rm eff})$ per voxel category, where $\theta_{\rm eff}$ is the PD-weighted geometric mean of the compartment values ($\Bone$: relative to the true field). Last columns: RMS mismatch residual per measurement in units of $\sigma$ at SNR 1000, and the probability that a $\chi^2$ test (99.9\,\%) flags the voxel at SNR 1000 and 3000.}
+\label{tab:bwclean}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrcccccccc}
+\toprule
+ & & \multicolumn{3}{c}{Complex ML} & \multicolumn{3}{c}{Analytic inverse} & & \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}
+Category & voxels & $\Tone$ & $\Ttwo$ & $\Bone$ & $\Tone$ & $\Ttwo$ & $\Bone$ & RMS/$\sigma$ & flagged 1000 / 3000\\
+\midrule
+pure CSF & 1823 & +0.000 & +0.000 & +0.000 & +0.000 & +0.000 & +0.000 & 0.00 & 0.1\,\% / 0.1\,\%\\
+pure GM & 3931 & +0.000 & +0.000 & +0.000 & +0.000 & +0.000 & +0.000 & 0.00 & 0.1\,\% / 0.1\,\%\\
+pure WM & 7504 & +0.000 & +0.000 & +0.000 & +0.000 & +0.000 & +0.000 & 0.00 & 0.1\,\% / 0.1\,\%\\
+WM/GM mixed & 2818 & -0.013 & -0.009 & +0.000 & -0.017 & -0.006 & +0.000 & 0.01 & 0.1\,\% / 0.1\,\%\\
+CSF 5-25\% & 1069 & -0.133 & -0.038 & +0.005 & -0.042 & -0.142 & -0.007 & 0.35 & 3.4\,\% / 59.2\,\%\\
+CSF 25-50\% & 580 & -0.324 & -0.103 & +0.009 & -0.113 & -0.428 & -0.032 & 0.61 & 12.4\,\% / 95.7\,\%\\
+CSF 50-95\% & 943 & -0.251 & -0.113 & +0.002 & -0.029 & -0.503 & -0.012 & 0.29 & 2.2\,\% / 48.1\,\%\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[!htbp]
+\centering
+\caption{BrainWeb at SNR$(\Mzero)=1000$, complex ML: SD of $\log(\hat\Tone/T_{1,\rm eff})$ with partial volume and in the control without it, coverage of $95\%$ uncertainty intervals, and the fraction of voxels flagged by the $\chi^2$ test.}
+\label{tab:bwnoisy}
+\footnotesize
+\begin{tabular}{lccccc}
+\toprule
+Category & $\Tone$ SD (PV) & $\Tone$ SD (control) & median (PV) & coverage (PV) & flagged (PV)\\
+\midrule
+pure CSF & 0.077 & 0.077 & -0.003 & 94.7\,\% & 0.0\,\%\\
+pure GM & 0.060 & 0.060 & +0.000 & 94.6\,\% & 0.2\,\%\\
+pure WM & 0.084 & 0.084 & +0.000 & 94.9\,\% & 0.1\,\%\\
+WM/GM mixed & 0.057 & 0.049 & -0.012 & 93.8\,\% & 0.1\,\%\\
+CSF 5-25\% & 0.085 & 0.063 & -0.138 & 21.9\,\% & 4.0\,\%\\
+CSF 25-50\% & 0.058 & 0.052 & -0.318 & 0.5\,\% & 15.2\,\%\\
+CSF 50-95\% & 0.139 & 0.079 & -0.243 & 26.8\,\% & 3.1\,\%\\
+\bottomrule
+\end{tabular}
+\end{table}

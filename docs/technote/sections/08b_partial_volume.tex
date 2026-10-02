@@ -1,0 +1,175 @@
+\section{Partial volume: the BrainWeb phantom}\label{sec:pv}
+
+The forward model assumes one tissue per voxel. Real voxels at 1--1.2\,mm often contain
+several, and the cortex, two to three voxels thick, borders CSF almost everywhere. This
+section measures the consequences with the BrainWeb anatomical model and the unchanged
+estimators of \cref{sec:ml,sec:magnitude,sec:paper}, and explains them from the structure of
+the model.
+
+\subsection{The mixed-voxel signal}
+
+If a voxel contains compartments $c$ with volume fractions $f_c$, proton densities $\mathrm{PD}_c$ and
+relaxation parameters $\theta_c$, and shares the location-dependent quantities $\Bone$, $\dw$, $\phi_0$
+and the receive sensitivity $C$, its signal is
+\begin{equation}
+  S^{\rm mix}_{ijk}=C\sum_cf_c\,\mathrm{PD}_c\;s_{ijk}(\theta_c),\qquad
+  s_{ijk}(\theta_c)=v_{i,c}\,G_k(u_{i,c},E_{2,c},\dw)\,\E^{-t/T_{2,c}}\E^{-R'_{2,c}|t+k\TR|}\E^{i\Phi},
+  \label{eq:mix}
+\end{equation}
+by \cref{thm:uv} applied to each compartment. A single-compartment estimator returns the
+$\hat\theta$ whose model $S(\hat\theta)$ is closest to $S^{\rm mix}$ (in the sense of its own cost function).
+Two questions follow: how far $S^{\rm mix}$ lies from the set of single-compartment signals (the
+model manifold), which determines bias and detectability, and where on the manifold the
+closest point lies, which determines the reported values.
+
+\paragraph{Nearby compartments: a second-order effect.} If the compartments are close in
+parameter space, write $\theta_c=\bar\theta+\delta_c$ with $\bar\theta$ the weighted mean (weights
+$w_c=f_c\mathrm{PD}_c/\sum f\mathrm{PD}$, in log coordinates). Then
+\begin{equation}
+  \frac{S^{\rm mix}}{C\sum f\mathrm{PD}}=\sum_cw_cS(\theta_c)
+  =S(\bar\theta)+\tfrac12\sum_cw_c\,\delta_c^{\mathsf T}\nabla^2S(\bar\theta)\,\delta_c+O(|\delta|^3),
+  \label{eq:mix2}
+\end{equation}
+because the first-order terms cancel ($\sum w_c\delta_c=0$). The mixture is a single-compartment
+signal at the weighted mean, up to a second-order term whose size is set by the curvature of
+the model and the spread of the compartments. White and grey matter are close
+($\Tone$ 850 vs 1350\,ms, $\Ttwo$ 66 vs 90\,ms): a WM/GM mixture is fitted to within $0.01\sigma$ per
+measurement at SNR 1000 and reported at the weighted mean (median deviation $-0.013$ in
+$\log\Tone$, \cref{tab:bwclean}). Such voxels are harmless: they look like an intermediate tissue,
+which is what they are.
+
+\paragraph{CSF: a first-order mismatch.} CSF is far from tissue ($\Tone=4000$\,ms, $\Ttwo=1500$\,ms),
+so \eqref{eq:mix2} does not apply, and its signal contribution is strongly pathway- and
+scan-dependent. Per unit volume, CSF produces $1.4$--$1.7$ times the grey-matter signal in the
+FID of scan 1, but $2.6$--$3.4$ times in the echo pathways of scan 1 and $6.5$--$7.8$ times in
+pathway $+1$ of scan 2 (proton-density ratio $1.22$): long $\Ttwo$ preserves the higher-order
+configuration states that the echo pathways sample, and the large second pulse feeds them. A
+voxel with $10\%$ CSF by volume therefore takes about $13\%$ of its FID but up to about $46\%$ of
+its scan-2, $k=+1$ signal from CSF. No single $(\Tone,\Ttwo,\Ttwos)$ reproduces this pattern: the mixture
+lies off the manifold, the residual is first order in the CSF fraction, and the fitted values
+depend on which measurements an estimator weights most.
+
+\paragraph{Consequences.} (i) Apparent parameters are not any simple average: relative to the
+PD-weighted mean they are biased in a direction and by an amount that depend on the
+parameter and the estimator (\cref{fig:bwcurves,tab:bwclean}). (ii) Different estimators no
+longer agree, because they project the same off-manifold point differently: complex ML
+weights all 36 measurements, the analytic inverse estimates $\Ttwo$ from scan 1 alone and $\Bone$
+from closed-form ratios. (iii) The shared $\Bone$ absorbs part of the mismatch: the two scans see
+the CSF admixture differently, and an estimator that ties them by a common $\Bone$ may shift
+$\Bone$ to reconcile them. (iv) The residual grows only linearly with the CSF fraction while the
+noise is fixed, so detectability depends on SNR: the noise-free cost $\|r\|^2$ makes the
+residual $\chi^2$ non-central with parameter $\lambda=\|r\|^2/\sigma^2$, which grows as SNR$^2$.
+(v) Uncertainty maps describe noise, not model error, so their coverage must drop wherever
+the bias is comparable to the noise.
+
+\subsection{Phantom and protocol}
+
+We use the BrainWeb normal-brain anatomical model~\cite{collins1998,kwan1999,cocosco1997}: fuzzy
+tissue-membership volumes at 1\,mm isotropic resolution ($181\times217\times181$). An axial slice through
+the lateral ventricles (index 95, Talairach $z=23$\,mm) is zero-padded to $256\times256$. Voxels whose
+discrete label is CSF, grey or white matter are kept (\,18\,668 voxels\,); fat, skin and skull are
+excluded, since fat would require a chemical-shift model. Each compartment takes the tissue
+values of \cref{tab:tissues} with a $3\%$ smooth texture, and the fields $\Bone$, $\dw$, $C$, $\phi_0$ are
+those of \cref{sec:phantom}, rescaled to the head. Signals follow \eqref{eq:mix}. Of the
+brain voxels, 13\,258 are pure (one tissue $\ge95\%$), 2818 are WM/GM mixtures and 2592 contain
+5--95\% CSF (\cref{fig:bwphantom}).
+
+Three cases are reconstructed with the estimators unchanged (four starts plus the spatial
+restart for the two least-squares fits): \emph{noise-free with partial volume} (model error
+alone), \emph{SNR 1000 with partial volume}, and a \emph{control} at SNR 1000 in which each
+voxel is assigned entirely to its dominant tissue (same anatomy, no partial volume). For a
+mixed voxel we report errors against the PD-weighted geometric mean
+$\theta_{\rm eff}=\exp(\sum_cw_c\log\theta_c)$, and show the dominant-tissue value alongside, since a mixed
+voxel has no single true value.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{brainweb_phantom.png}
+\caption{BrainWeb slice: tissue fractions, the PD-weighted effective $\Tone$ and $\Ttwo$, and voxel
+categories (pure; WM/GM mixed; containing $\ge5\%$ CSF).}
+\label{fig:bwphantom}
+\end{figure}
+
+\subsection{Results}
+
+\input{tables/brainweb.tex}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{brainweb_mixture_curves.png}
+\caption{Noise-free GM/CSF voxels ($<5\%$ WM): values returned by the single-compartment
+estimators versus the CSF volume fraction, with the PD-weighted mean and the grey-matter value
+(nominal, without texture). Right: $\Bone$ error.}
+\label{fig:bwcurves}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{brainweb_maps.png}
+\caption{Complex ML at SNR$(\Mzero)=1000$. From left: estimate with partial volume; log-ratio to the
+dominant tissue's value; log-ratio to the PD-weighted mean; the same anatomy without partial
+volume (control). Rows: $\Tone$ and $\Ttwo$.}
+\label{fig:bwmaps}
+\end{figure}
+
+\paragraph{Pure tissue and WM/GM mixtures.} Pure voxels are reconstructed without bias by all
+estimators, and complex ML has the same spread and $94.6$--$94.9\%$ coverage as in the control
+(\cref{tab:bwnoisy}). WM/GM mixtures are fitted to $0.01\sigma$ per measurement, reported at the
+PD-weighted mean to within $-0.013$ in $\log\Tone$ and $-0.009$ in $\log\Ttwo$ for complex ML, and their
+coverage ($93.8\%$) is close to nominal: the second-order picture of \eqref{eq:mix2} holds.
+
+\paragraph{CSF-mixed voxels: biased, confidently.} In the 2592 voxels with $5$--$95\%$ CSF all
+estimators are biased by far more than the noise (\cref{tab:bwclean,fig:bwcurves,fig:bwmaps}).
+For complex ML the deviation of $\log\Tone$ from the PD-weighted mean is $-0.13$, $-0.32$ and $-0.24$
+in the three CSF bins; $\Ttwo$ deviates by $-0.04$ to $-0.11$ from the mean but lies far above the
+grey-matter value (\cref{fig:bwcurves}: at $10\%$ CSF the apparent $\Ttwo$ is about $40\%$ above that of
+grey matter). Against the dominant tissue, the cortex therefore appears with elevated $\Ttwo$ and,
+where CSF dominates, depressed $\Tone$ (\cref{fig:bwmaps}). The noise spread in these voxels is
+similar to the control (\cref{tab:bwnoisy}), so the uncertainty maps report small intervals
+around a biased value: coverage of $95\%$ intervals drops to $21.9\%$, $0.5\%$ and $26.8\%$, against
+$94$--$95.5\%$ in the control. The residual does not reveal the problem at this SNR: the mismatch
+is $0.29$--$0.61\sigma$ per measurement, and a $\chi^2$ test at $99.9\%$ flags $3$--$15\%$ of these voxels at
+SNR 1000 (predicted $2.2$--$12.4\%$ from the noise-free residual), rising to $48$--$96\%$ only at SNR
+3000.
+
+\paragraph{The estimators disagree.} Complex ML and magnitude least squares return the same
+values (both fit all measurements), but the analytic inverse does not: its $\Ttwo$ deviates by
+$-0.14$ to $-0.50$ from the mean (it uses scan 1 only), and in $19.5$--$38\%$ of the CSF-mixed voxels
+the mismatch moves its flip-angle equation onto a different root, with $\Bone$ about $40\%$ too low
+and $\Tone$ of $4$--$9$\,s even without noise (\cref{fig:bwcurves}, right). Complex ML's $\Bone$ stays within
+$+4\%$ in every mixed voxel; its error is confined to the relaxation times.
+
+\subsection{What partial volume does to the model and the estimators}
+
+\begin{enumerate}
+\item \textbf{Partial volume is a model error, not noise.} It biases every single-compartment
+  estimator, does not average out with more data, and is invisible to the CRLB, which assumes
+  the model is correct. Efficiency comparisons (\cref{sec:ml}) remain valid in pure voxels,
+  where they were made.
+\item \textbf{Its size is governed by distance on the model manifold.} Mixtures of nearby
+  tissues are, to second order, single-compartment signals at the weighted mean \eqref{eq:mix2};
+  they are harmless and should be read as intermediate tissue. Mixtures with CSF are far from the
+  manifold because CSF's long $\Ttwo$ inflates its contribution to the echo pathways and to the
+  second scan, up to eight times its volume share: the reported values then depend on the
+  measurements an estimator weights most, and no estimator returns a well-defined average.
+\item \textbf{It is hard to detect per voxel.} The mismatch residual grows linearly with the
+  CSF fraction while the noise is fixed, so a $\chi^2$ test detects partial volume only at high SNR
+  or after averaging. Per-voxel uncertainty maps become falsely confident where it acts; they
+  should be reported together with a partial-volume indicator, e.g.\ the distance to a tissue
+  boundary from a segmentation, or the fit of a mixture model.
+\item \textbf{The shared $\Bone$ matters.} Because $\Bone$ couples the two scans, an estimator that uses the
+  scans in separate closed-form steps (the analytic inverse) can resolve the mismatch by a large
+  $\Bone$ error, whereas the joint fit keeps $\Bone$ nearly unbiased and pushes the error into the
+  relaxation times. For the two-stage design this favours estimating $\Bone$ from robustly smoothed
+  maps, which the polynomial fit already provides: partial-volume errors are local and are
+  rejected as outliers.
+\item \textbf{Remedy.} A two-compartment model,
+  $S=C\,[f\,\mathrm{PD}_as(\theta_a)+(1-f)\,\mathrm{PD}_bs(\theta_b)]$ with shared $\Bone$, $\dw$, $\phi_0$, is the natural
+  correction. Fitting both compartments freely is ill-conditioned (13 parameters, near-collinear
+  signals), but with class parameters fixed from pure voxels or a population estimate (the
+  hierarchical model of \cref{sec:future}) the signal is linear in the fractions given $\Bone$, $\dw$,
+  $\phi_0$, and variable projection reduces the fit to a small nonlinear problem. CSF fractions should
+  then be well determined, because CSF's signature is distinct, whereas WM/GM fractions will be
+  poorly determined---and, by item 2, need not be. The implicit Jacobian, the CRLB machinery and
+  the FID-sign test carry over unchanged (every compartment's FID has the sign of $\sin\alpha$).
+\end{enumerate}

@@ -321,8 +321,131 @@ def main():
         fig_scenario_B(D, snr)
         fig_uncertainty(D, snr)
     tables()
+    fig_brainweb()
     print("figures and tables written to", FIG.parent)
 
 
 if __name__ == "__main__":
     main()
+
+
+# ------------------------------------------------------------------------------------------
+# BrainWeb partial volume
+def fig_brainweb():
+    import json as _json
+    paths = {c: RES / f"brainweb_{c}.pt" for c in ("pv_clean", "pv", "crisp")}
+    if not all(p.exists() for p in paths.values()):
+        return
+    D = {c: torch.load(p, weights_only=False) for c, p in paths.items()}
+    ph = D["pv"]["phantom"]; m = ph.mask.numpy(); mt = ph.mask
+    F = ph.fractions.numpy()
+    # Figure 1: fractions and effective truth
+    fig, axes = plt.subplots(2, 3, figsize=(9.6, 6.6))
+    for ax, (c, name) in zip(axes[0], ((0, "CSF fraction"), (1, "GM fraction"), (2, "WM fraction"))):
+        im = show_map(ax, F[c], m, SEQ, 0, 1, name); colorbar(fig, im, ax)
+    im = show_map(axes[1, 0], ph.effective("T1").numpy(), m, SEQ, 500, 4200, "effective T1 (ms)")
+    colorbar(fig, im, axes[1, 0])
+    im = show_map(axes[1, 1], ph.effective("T2").numpy(), m, SEQ, 40, 300, "effective T2 (ms)")
+    colorbar(fig, im, axes[1, 1])
+    mixed = (F.max(0) < 0.95).astype(float)
+    im = show_map(axes[1, 2], np.where(F[0] >= 0.05, 2.0, mixed), m,
+                  matplotlib.colors.ListedColormap(["#f0efec", AQUA, ORANGE]), -0.5, 2.5,
+                  "pure / WM-GM mixed / CSF-mixed")
+    fig.tight_layout(); save(fig, "brainweb_phantom.png")
+
+    # Figure 2: maps — ML estimate and error, PV vs crisp control, T2 and T1
+    fig, axes = plt.subplots(2, 4, figsize=(12.5, 6.4))
+    for r, (key, lo, hi) in enumerate((("T1", 500, 4200), ("T2", 40, 300))):
+        eff = ph.effective(key).numpy()
+        est_pv = to_img(D["pv"]["est"]["complex ML"][key].double().numpy(), m)
+        crisp_ph = D["crisp"]["phantom"]
+        est_cr = to_img(D["crisp"]["est"]["complex ML"][key].double().numpy(), m)
+        im = show_map(axes[r, 0], est_pv, m, SEQ, lo, hi, f"ML {key}, partial volume")
+        colorbar(fig, im, axes[r, 0])
+        dom = F.argmax(0)
+        tissue_val = np.take_along_axis(getattr(ph, key).numpy(), dom[None], 0)[0]
+        ime = show_map(axes[r, 1], np.log(est_pv / tissue_val), m, DIV, -0.5, 0.5,
+                       f"log({key} / dominant tissue)")
+        show_map(axes[r, 2], np.log(est_pv / eff), m, DIV, -0.5, 0.5, f"log({key} / PD-weighted mean)")
+        show_map(axes[r, 3], np.log(est_cr / getattr(crisp_ph, "effective")(key).numpy()), m, DIV,
+                 -0.5, 0.5, f"control (no partial volume)")
+        colorbar(fig, ime, axes[r, 3])
+    fig.suptitle("BrainWeb, complex ML, SNR(M0) = 1000", color=INK, fontsize=11, x=0.01, ha="left")
+    fig.tight_layout(); save(fig, "brainweb_maps.png")
+
+    # Figure 3: apparent parameters vs CSF fraction in GM/CSF voxels (noise-free)
+    clean = D["pv_clean"]; e = clean["est"]; phc = clean["phantom"]
+    Fv = phc.fractions[:, mt]
+    sel = (Fv[2] < 0.05) & (Fv[0] > 0.0) & (Fv[1] > 0.0)
+    fcsf = Fv[0][sel].numpy()
+    order = np.argsort(fcsf)
+    fig, axes = plt.subplots(1, 3, figsize=(12, 3.8))
+    for ax, key, ylog in zip(axes, ("T1", "T2", "B1"), (True, True, False)):
+        if key == "B1":
+            truth_b1 = phc.B1[mt][sel].numpy()
+            for name, col in (("complex ML", BLUE), ("analytic inverse", ORANGE)):
+                v = e[name]["B1"][sel].double().numpy() / truth_b1
+                ax.plot(fcsf, 100 * (v - 1), ".", ms=3, color=col, alpha=0.5, label=name)
+            ax.axhline(0, color=INK2, lw=1)
+            style(ax, "B1⁺ error (%) vs CSF fraction", "CSF volume fraction", "B1⁺ error (%)")
+        else:
+            for name, col in (("complex ML", BLUE), ("analytic inverse", ORANGE)):
+                v = e[name][key][sel].double().numpy()
+                ax.plot(fcsf, v, ".", ms=3, color=col, alpha=0.5, label=name)
+            from mpme.phantom import TISSUES as _T
+            nom = {v[0]: v for v in _T.values()}
+            idx = {"T1": 1, "T2": 2}[key]
+            fc = np.linspace(0.0, 1.0, 200)
+            w = fc * nom["CSF"][4] / (fc * nom["CSF"][4] + (1 - fc) * nom["GM"][4])
+            eff = np.exp(w * np.log(nom["CSF"][idx]) + (1 - w) * np.log(nom["GM"][idx]))
+            ax.plot(fc, eff, color=INK, lw=1.8, label="PD-weighted mean (nominal)")
+            ax.axhline(nom["GM"][idx], color=MUTED, lw=1.5, ls="--", label="GM value (nominal)")
+            ax.set_yscale("log")
+            style(ax, f"apparent {key} (ms) vs CSF fraction", "CSF volume fraction", f"{key} (ms)")
+        ax.legend(frameon=True, facecolor=SURFACE, edgecolor=GRID, framealpha=0.9, fontsize=7,
+                  labelcolor=INK2, markerscale=3, loc="lower right" if key == "B1" else "upper left")
+    fig.suptitle("BrainWeb GM/CSF voxels, noise-free: the single-compartment fit of a mixture",
+                 color=INK, fontsize=11, x=0.01, ha="left")
+    fig.tight_layout(); save(fig, "brainweb_mixture_curves.png")
+
+    # Tables
+    S = _json.loads((RES / "brainweb_summary.json").read_text())
+    cats = ["pure CSF", "pure GM", "pure WM", "WM/GM mixed", "CSF 5-25%", "CSF 25-50%", "CSF 50-95%"]
+    lines = [r"\begin{table}[!htbp]", r"\centering",
+             r"\caption{BrainWeb, noise-free: median of $\log(\hat\theta/\theta_{\rm eff})$ per voxel category, "
+             r"where $\theta_{\rm eff}$ is the PD-weighted geometric mean of the compartment values "
+             r"($\Bone$: relative to the true field). Last columns: RMS mismatch residual per "
+             r"measurement in units of $\sigma$ at SNR 1000, and the probability that a $\chi^2$ test "
+             r"(99.9\,\%) flags the voxel at SNR 1000 and 3000.}",
+             r"\label{tab:bwclean}", r"\footnotesize", r"\setlength{\tabcolsep}{3pt}",
+             r"\begin{tabular}{lrcccccccc}", r"\toprule",
+             r" & & \multicolumn{3}{c}{Complex ML} & \multicolumn{3}{c}{Analytic inverse} & & \\",
+             r"\cmidrule(lr){3-5}\cmidrule(lr){6-8}",
+             r"Category & voxels & $\Tone$ & $\Ttwo$ & $\Bone$ & $\Tone$ & $\Ttwo$ & $\Bone$ & RMS/$\sigma$ & flagged 1000 / 3000\\",
+             r"\midrule"]
+    sc = S["pv_clean"]
+    for c in cats:
+        ml, pa = sc["stats"]["complex ML"][c], sc["stats"]["analytic inverse"][c]
+        f = lambda d, k: f"{d[k]['median']:+.3f}".replace("-0.000", "+0.000")
+        det = sc["detection_power_chi2_99.9"]
+        lines.append(f"{c.replace('%', chr(92) + '%')} & {ml['voxels']} & {f(ml, 'T1')} & {f(ml, 'T2')} & {f(ml, 'B1')} & "
+                     f"{f(pa, 'T1')} & {f(pa, 'T2')} & {f(pa, 'B1')} & "
+                     f"{sc['mismatch_rms_over_sigma1000'][c]:.2f} & "
+                     f"{100 * det['SNR 1000'][c]:.1f}\\,\\% / {100 * det['SNR 3000'][c]:.1f}\\,\\%\\\\")
+    lines += [r"\bottomrule", r"\end{tabular}", r"\end{table}", ""]
+    lines += [r"\begin{table}[!htbp]", r"\centering",
+              r"\caption{BrainWeb at SNR$(\Mzero)=1000$, complex ML: SD of $\log(\hat\Tone/\Tone_{\rm eff})$ with "
+              r"partial volume and in the control without it, coverage of $95\%$ uncertainty intervals, "
+              r"and the fraction of voxels flagged by the $\chi^2$ test.}",
+              r"\label{tab:bwnoisy}", r"\footnotesize",
+              r"\begin{tabular}{lccccc}", r"\toprule",
+              r"Category & $\Tone$ SD (PV) & $\Tone$ SD (control) & median (PV) & coverage (PV) & flagged (PV)\\",
+              r"\midrule"]
+    pv, cr = S["pv"], S["crisp"]
+    for c in cats:
+        a, b = pv["stats"]["complex ML"][c]["T1"], cr["stats"]["complex ML"][c]["T1"]
+        lines.append(f"{c.replace('%', chr(92) + '%')} & {a['sd']:.3f} & {b['sd']:.3f} & {a['median']:+.3f} & "
+                     f"{100 * pv['coverage_T1'][c]['coverage95']:.1f}\\,\\% & "
+                     f"{100 * pv['flagged_chi2_99.9'][c]:.1f}\\,\\%\\\\")
+    lines += [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+    (TAB / "brainweb.tex").write_text("\n".join(lines) + "\n")

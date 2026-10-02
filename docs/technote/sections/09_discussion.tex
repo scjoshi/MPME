@@ -20,6 +20,7 @@ Error 3--7$\times$ the bound; bias and undefined $\Tone$ at moderate SNR & analy
 $\Tone$ bound 57.1 instead of 28.0 with $\Bone$ known; $\Tone$ bias $-2\varepsilon$ per $\Bone$ error $\varepsilon$ & design: scan-1-only $\Tone$ step, low-resolution scan 2 & joint estimation; full-resolution scan 2 if affordable\\
 Estimates on $\Rtwop=0$ at low SNR & model domain $+$ small true $\Rtwop$ & report; Bayesian or constrained bounds\\
 One start insufficient & nonconvex likelihood & multiple starts (affordable with exact Jacobians)\\
+Partial volume with CSF: biased, confidently wrong estimates; estimators disagree (\cref{sec:pv}) & forward model (single compartment) & two-compartment model with class parameters; PV indicator\\
 In-vivo calibration $\beta=1.24$ & model mismatch (not variance) & richer forward model (\cref{sec:future})\\
 \bottomrule
 \end{tabular}
@@ -42,7 +43,7 @@ design, and their bias must be measured rather than ignored.
 
 The forward model assumes instantaneous RF pulses, a Lorentzian intravoxel frequency
 distribution, no diffusion, no magnetisation transfer, no flow or motion, a single
-compartment per voxel, and perfect steady state; the time from the pulse to the first echo
+compartment per voxel (whose consequences \cref{sec:pv} quantifies), and perfect steady state; the time from the pulse to the first echo
 is assumed (4.5\,ms). The CRLB is local and assumes an exact model, Gaussian noise, an interior
 true parameter and locally unbiased estimators. The digital phantom is noise-only and
 model-consistent: it validates estimators and uncertainty maps but not the model itself.
@@ -58,7 +59,7 @@ non-Lorentzian intravoxel frequency distributions (e.g.\ Gaussian or susceptibil
 which change $\exp(-\Rtwop|\tau|)$; (iii) diffusion attenuation of the higher-order pathways
 under the unbalanced gradient (already available in the EPG simulator); (iv) magnetisation
 transfer, which lowers the effective longitudinal magnetisation under the large pulse; (v)
-partial volume (two compartments per voxel); (vi) $B_0$ drift or motion between the sequential
+partial volume, quantified in \cref{sec:pv}, where a two-compartment remedy is outlined; (vi) $B_0$ drift or motion between the sequential
 scans, which corrupts the relative phase used by the branch test and by complex ML. The
 measure of interest is the bias each effect induces in $\Tone$ and $\Bone$ relative to the noise
 spread, and whether a single global factor like $\beta$ can absorb it.

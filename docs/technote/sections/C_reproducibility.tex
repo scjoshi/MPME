@@ -26,6 +26,7 @@ Complex ML, magnitude LS, branch test & \texttt{src/mpme/mle.py}\\
 Exact Jacobians & \texttt{src/mpme/fastjac.py}\\
 Fisher information, CRLB, Rician, uncertainty maps & \texttt{src/mpme/crlb.py}\\
 Digital phantom, low-resolution scan 2, polynomial fit & \texttt{src/mpme/phantom.py}\\
+BrainWeb partial-volume phantom & \texttt{src/mpme/brainweb.py}\\
 \midrule
 CRLB tables and figures (\cref{sec:information}) & \texttt{scripts/crlb\_analysis.py}\\
 Estimator efficiency (\cref{tab:mc,tab:mcb1,tab:mcdiag}) & \texttt{scripts/estimator\_efficiency.py}\\
@@ -33,6 +34,7 @@ Magnitude comparison (\cref{tab:mag}) & \texttt{scripts/magnitude\_comparison.py
 One start vs four (\cref{sec:ml}) & \texttt{scripts/start\_count.py}\\
 Jacobian benchmark (\cref{tab:bench}) & \texttt{scripts/benchmark\_fit.py}\\
 Phantom experiment (\cref{sec:phantom}) & \texttt{scripts/phantom\_experiment.py}\\
+Partial volume (\cref{sec:pv}) & \texttt{scripts/brainweb\_experiment.py}\\
 Figures and tables of this note & \texttt{scripts/technote\_figures.py}\\
 Unit tests & \texttt{tests/} (\texttt{pytest})\\
 \bottomrule
@@ -43,6 +45,10 @@ Unit tests & \texttt{tests/} (\texttt{pytest})\\
 seed 1 for noise, seed 0 for the phantom). Software: Python 3.12.2, PyTorch 2.6.0, NumPy 2.3.5,
 SciPy 1.16.3, Matplotlib 3.10.7; laptop CPU with 8 threads, no GPU. Run times quoted in the note
 refer to this machine.
+
+\paragraph{BrainWeb data.} The four BrainWeb volumes (normal brain, 1\,mm, fuzzy CSF, grey and white
+matter, and the discrete model; raw bytes, gzip) are downloaded from the BrainWeb site (\texttt{brainweb.bic.mni.mcgill.ca}) into \texttt{data/brainweb/}; they are not
+redistributed with the repository.
 
 \paragraph{Assumptions not stated in~\cite{cheng2019}.} The time from the RF pulse to the first
 echo (4.5\,ms), instantaneous RF pulses, and the polynomial degree used to smooth the flip-angle
