@@ -149,3 +149,31 @@ def test_branch_constraint_recovers_from_wrong_branch_start():
     torch.testing.assert_close(fit["B1"], ones, rtol=1e-6, atol=0)
     torch.testing.assert_close(fit["T1"], 1500.0 * ones, rtol=1e-6, atol=0)
     assert not fit["at_branch_bound"].any()
+
+
+def test_implicit_jacobian_matches_autograd():
+    from mpme.fastjac import magnitude_model_and_jacobian
+    from mpme.mle import _signal
+    th = torch.tensor([[0.1, -0.05, math.log(1200.0), math.log(80.0), math.log(60.0)],
+                       [-0.2, 0.08, math.log(700.0), math.log(50.0), math.log(45.0)]],
+                      dtype=torch.float64)
+    m, J = magnitude_model_and_jacobian(th, PR, n_iso=256)
+    ref = _signal(th, PR, 256).abs().flatten(1)
+    Ja = torch.autograd.functional.jacobian(
+        lambda t: _signal(t, PR, 256).abs().flatten(1).sum(0), th, vectorize=True).permute(1, 0, 2)
+    torch.testing.assert_close(m, ref, rtol=1e-12, atol=1e-15)
+    torch.testing.assert_close(J, Ja, rtol=1e-10, atol=1e-13)
+
+
+@pytest.mark.parametrize("dtype,tol", [(torch.float64, 1e-6), (torch.float32, 1e-3)])
+def test_implicit_magnitude_fit_recovers_parameters(dtype, tol):
+    from mpme.analytic import analytic_reconstruction
+    from mpme.mle import fid_phase_sign, magnitude_fit
+    S = mpme_signal(PR, 1.0, 1500.0, 70.0, 1 / 60 - 1 / 70, 0.05, 1.0, 0.3).expand(4, 2, 3, 3)
+    init = {k: v * (1.05 if k in ("T1", "M0", "B1") else 1.0)
+            for k, v in analytic_reconstruction(S, PR).items()}
+    fit = magnitude_fit(S.abs(), PR, init, fid_sign=fid_phase_sign(S, PR), n_iso=256,
+                        n_iter=30, jacobian="implicit", dtype=dtype)
+    assert fit["T1"].dtype == dtype
+    torch.testing.assert_close(fit["T1"].double(), torch.full((4,), 1500.0, dtype=torch.float64),
+                               rtol=tol, atol=0)

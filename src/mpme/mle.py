@@ -88,6 +88,37 @@ def _levenberg_marquardt(th: Tensor, model: Callable[[Tensor], Tensor], y: Tenso
     return th, cost
 
 
+def _levenberg_marquardt_exact(th: Tensor, model_jac: Callable[[Tensor], tuple[Tensor, Tensor]],
+                               y: Tensor, n_iter: int,
+                               project: Callable[[Tensor], Tensor] = _project):
+    """Projected LM with an exact Jacobian supplied together with the model value.
+
+    Each trial evaluation returns (value, Jacobian), so an accepted step already provides
+    the Jacobian for the next iteration: one model+Jacobian evaluation per iteration.
+    """
+    N, n = th.shape
+    th = project(th)
+    lam = torch.full((N,), 1e-2, dtype=y.dtype)
+    m, J = model_jac(th)
+    r = m - y
+    cost = (r**2).sum(1)
+    for _ in range(n_iter):
+        JtJ = J.transpose(1, 2) @ J
+        g = (J.transpose(1, 2) @ r[..., None])[..., 0]
+        A = JtJ + lam[:, None, None] * torch.diag_embed(JtJ.diagonal(dim1=1, dim2=2) + 1e-12)
+        th_new = project(th - torch.linalg.solve(A, g))
+        m_new, J_new = model_jac(th_new)
+        r_new = m_new - y
+        cost_new = (r_new**2).sum(1)
+        ok = torch.isfinite(cost_new) & (cost_new < cost)
+        th = torch.where(ok[:, None], th_new, th)
+        r = torch.where(ok[:, None], r_new, r)
+        J = torch.where(ok[:, None, None], J_new, J)
+        cost = torch.where(ok, cost_new, cost)
+        lam = torch.where(ok, lam * 0.3, lam * 10).clamp(1e-9, 1e9)
+    return th, cost
+
+
 def _init_magnitudes(init: dict[str, Tensor]) -> Tensor:
     return torch.stack([init[k].log() for k in _NAMES], 1)
 
@@ -182,8 +213,14 @@ def magnitude_fit(
     n_iter: int = 40,
     n_iso: int = 256,
     h: float = 1e-6,
+    jacobian: str = "fd",
+    dtype: torch.dtype | None = None,
 ) -> dict[str, Tensor]:
     """Gaussian least squares on magnitudes M [N, n_scans, P, J] (real, ≥ 0).
+
+    ``jacobian``: "fd" (forward differences, step ``h``; needs float64) or "implicit" (exact
+    derivatives of the steady state, ``fastjac.py``; one model+Jacobian evaluation per
+    iteration, works in float32). ``dtype`` overrides the working precision.
 
     ``init`` needs M0, B1, T1, T2, T2star. ``fid_sign`` (±1 per voxel, from
     ``fid_phase_sign`` on the complex images) restricts B1 to the flip-angle branch on which
@@ -194,12 +231,17 @@ def magnitude_fit(
     Returns the same fields as ``joint_fit`` except dw and phi0, plus ``at_branch_bound``
     when a branch constraint was given.
     """
+    if dtype is not None:
+        M = M.to(dtype)
+        init = {k: v.to(dtype) for k, v in init.items()}
+        if fid_sign is not None:
+            fid_sign = fid_sign.to(dtype)
     y = M.flatten(1)
     model = lambda t: _signal(t, protocol, n_iso).abs().flatten(1)
     th = _project(_init_magnitudes(init))
     project = _project
     if fid_sign is not None:
-        zeros = _branch_zeros(protocol, math.exp(_BOX[1][1]))
+        zeros = _branch_zeros(protocol, math.exp(_BOX[1][1])).to(th.dtype)
         th[:, 1] = _branch_feasible_start(th[:, 1].exp(), fid_sign, protocol, zeros).log()
         lo, hi = _branch_interval(th[:, 1].exp(), zeros)
         log_lo = (lo * (1 + 1e-6)).clamp_min(1e-12).log()
@@ -211,7 +253,14 @@ def magnitude_fit(
             t[:, 1] = torch.minimum(torch.maximum(t[:, 1], log_lo), log_hi)
             return t
 
-    th, cost = _levenberg_marquardt(th, model, y, n_iter, h, project)
+    if jacobian == "implicit":
+        from .fastjac import magnitude_model_and_jacobian
+        th, cost = _levenberg_marquardt_exact(
+            th, lambda t: magnitude_model_and_jacobian(t, protocol, n_iso), y, n_iter, project)
+    elif jacobian == "fd":
+        th, cost = _levenberg_marquardt(th, model, y, n_iter, h, project)
+    else:
+        raise ValueError("jacobian must be 'fd' or 'implicit'")
     out = _output(th, cost)
     if fid_sign is not None:
         out["at_branch_bound"] = (th[:, 1] <= log_lo + 1e-9) | (th[:, 1] >= log_hi - 1e-9)
