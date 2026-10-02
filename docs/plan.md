@@ -125,3 +125,28 @@ src/mpme/
 1. What data is available: raw multi-coil k-space, reconstructed images, or none yet?
 2. Primary target: better maps from fully sampled data (Levels A/B) or acceleration (Level C)?
 3. Compute: local GPU / Apple MPS / cluster?
+
+---
+
+## Findings so far
+
+### B1⁺/T1 are poorly conditioned with the placeholder protocol (2026-10-02)
+
+Default protocol (`sequence.default_protocol`: α = 3°/30°, TR = 22 ms, pathways [1, 0, −1],
+3 echoes each, both scans treated as full resolution), white-matter-like voxel
+(T1 850, T2 65 ms, R2′ 0.02/ms).
+
+- The analytic baseline is exact on noise-free data (relative error ≤ 1e-7).
+- T2, T2* and B0 are reasonably robust to noise, much more so when the decay fit also
+  uses the high-flip scan (`decay_scans=(0, 1)`), whose echo pathway is ~20× stronger.
+- B1⁺ and T1 are not: the Cramér–Rao bound for log T1 is ≈ 2800·σ/M0 even when the full
+  model is fitted jointly to every pathway and echo (≈ 3600·σ/M0 for the FID/echo-only
+  analytic step). 10% T1 precision would need SNR(M0) of order 10⁴.
+- Larger flip angles help a lot (α = 10°/100°: ≈ 375·σ/M0 joint), and including the
+  p = +1 pathway helps by 1.3–4×.
+
+Implications: the real protocol values matter a great deal and should be confirmed from
+the paper; protocol optimisation by CRLB belongs early in Phase 3; a neural network cannot
+beat the CRLB, so its gains must come from spatial priors (Level B) or better protocols.
+The low-resolution second scan (16× larger voxels) has higher SNR per voxel, which is
+not yet modelled here.
