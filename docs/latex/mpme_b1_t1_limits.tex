@@ -226,6 +226,117 @@ We use three diagnostics of conditioning:
 Jacobians are obtained by automatic differentiation through \eqref{eq:iso}--\eqref{eq:signal}
 and checked against finite differences.
 
+\subsection{Why logarithmic parameters}\label{sec:log}
+
+The five quantities $\Mzero,\Bone,\Tone,\Ttwo,\Ttwos$ are positive \emph{scale} parameters:
+they carry units (or, for $\Bone$, multiply a quantity that does), are only meaningful
+relative to other scales in the problem, and are naturally compared by ratios. Their
+logarithms are the natural coordinates for five reasons, of different weight.
+
+\paragraph{1. The model depends on them only through dimensionless ratios.} Rewrite
+\eqref{eq:signal} as
+\begin{equation}
+  \frac{S_{ijk}}{\Mzero}=G\Bigl(\Bone\alpha_i^{\rm nom},\ \frac{\TR}{\Tone},\
+  \frac{\TR}{\Ttwo},\ \frac{t_{ijk}}{\Ttwo},\ \Rtwop t_{ijk},\ \dw\, t_{ijk}\Bigr),
+  \label{eq:dimless}
+\end{equation}
+since $E_1=\E^{-\TR/\Tone}$, $E_2=\E^{-\TR/\Ttwo}$ and the echo terms depend only on products
+of rates and times. A change of units, or a common rescaling of all times, is an additive
+shift in log coordinates and leaves $G$ unchanged. The derivatives with respect to the log
+parameters are dimensionless \emph{elasticities}, comparable across parameters:
+\begin{align}
+  \frac{\partial S}{\partial\log\Mzero}&=S, &
+  \frac{\partial S}{\partial\log\Bone}&=\alpha_i\frac{\partial S}{\partial\alpha_i},\\
+  \frac{\partial S}{\partial\log\Tone}&=-\frac{\TR}{\Tone}\,\frac{\partial S}{\partial(\TR/\Tone)}, &
+  \frac{\partial S}{\partial\log\Ttwo}&=\frac{t}{\Ttwo}\,S
+     -\frac{\TR}{\Ttwo}\,\frac{\partial S}{\partial(\TR/\Ttwo)}\Big|_{\rm steady\ state}.
+  \nonumber
+\end{align}
+(The $\Ttwo$ elasticity is written at fixed $\Rtwop$; with $\Ttwos$ held fixed instead, as in
+$\theta$, $\Rtwop=1/\Ttwos-1/\Ttwo$ also changes and contributes a further dimensionless term
+$-\frac{|t+k\TR|}{\Ttwo}\,S$ (since $\partial\Rtwop/\partial\log\Ttwo=1/\Ttwo$), again a ratio of
+times.)
+In linear coordinates the corresponding columns of the Jacobian differ by factors of order
+$\Tone/\Bone\sim10^3$ simply because of units, which says nothing about information.
+
+\paragraph{2. The central symmetry is a straight line.} The invariance \eqref{eq:sym} is the
+action of the multiplicative group $\kappa>0$,
+$(\Mzero,\Bone,\Tone)\mapsto(\kappa^{-1}\Mzero,\kappa\Bone,\kappa^{-2}\Tone)$. In log
+coordinates it is a translation,
+\begin{equation}
+  (\log\Mzero,\log\Bone,\log\Tone)\mapsto(\log\Mzero,\log\Bone,\log\Tone)+\log\kappa\,(-1,+1,-2),
+\end{equation}
+so the near-null direction $v=(-1,1,-2,0,0,0,0)$ of Corollary~\ref{cor:singular} is the
+\emph{same constant vector at every point} of parameter space, and the orbits are straight
+lines. In linear coordinates the orbits are curves $\{(\Mzero/\kappa,\kappa\Bone,\Tone/\kappa^2)\}$
+whose tangent $(-\Mzero,\Bone,-2\Tone)$ changes from voxel to voxel, and the degeneracy can
+only be stated locally. The scaling-type structure of the problem is what makes log
+coordinates the ones in which it looks simplest.
+
+\paragraph{3. The bounds become relative errors.} With $D=\mathrm{diag}(\Mzero,\Bone,\Tone,
+\Ttwo,\Ttwos,1,1)$, the Fisher information in linear coordinates is
+$\Fi_{\rm lin}=D^{-1}\Fi D^{-1}$, hence
+\begin{equation}
+  \sqrt{(\Fi^{-1})_{ll}}=\frac{\sqrt{(\Fi_{\rm lin}^{-1})_{ll}}}{\theta^{\rm lin}_l},
+\end{equation}
+the coefficient of variation. This is the quantity of clinical interest (a 30\,ms error
+matters at $\Tone=300$\,ms, not at 3000\,ms) and is directly comparable across parameters
+with different units. The delta method gives the same for estimates:
+$\operatorname{Var}(\log\hat\theta)\approx\operatorname{Var}(\hat\theta)/\theta^2$.
+
+\paragraph{4. The likelihood is closer to quadratic for the relaxation times.} The CRLB and
+the asymptotic normality of maximum likelihood are second-order statements; they become
+accurate at lower SNR in coordinates where the log-likelihood is closer to quadratic over
+the noise-induced spread. We measured the asymmetry of the noise-free cost
+$\|s(\theta)-s(\theta_0)\|^2$ for equal steps up and down in each coordinate, holding the
+others fixed (reference tissue; a ratio of 1 means symmetric):
+\begin{center}
+\small
+\begin{tabular}{lcccc}
+\toprule
+ & \multicolumn{2}{c}{$\pm20\%$} & \multicolumn{2}{c}{$\pm40\%$}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Parameter & linear & log & linear & log\\
+\midrule
+$\Tone$ & 0.58 & 0.87 & 0.32 & 0.75\\
+$\Ttwo$ & 0.78 & 1.16 & 0.60 & 1.34\\
+$\Bone$ & 8.2 & 8.3 & 1.85 & 1.82\\
+$\Mzero$ & 1.00 & 1.49 & 1.00 & 2.23\\
+\bottomrule
+\end{tabular}
+\end{center}
+The log coordinates are clearly better for $\Tone$, which has the largest bound and hence
+the largest excursions, and somewhat better for $\Ttwo$. For $\Bone$ the asymmetry comes
+from the $360^\circ$ structure of scan 2 and is the same in both coordinates. For $\Mzero$
+linear coordinates are exactly quadratic, because the signal is linear in $\Mzero$. So
+argument 4 does not justify $\log\Mzero$; arguments 2 and 3 do. Consistently, estimates of
+relaxation times are right-skewed in linear units (for example $\Tone=\TR/\ln(\cdot)$ in
+Eq.~16 has a heavy right tail), and we summarise all Monte Carlo spreads by robust
+statistics of $\log\hat\theta$.
+
+\paragraph{5. Optimisation.} Log coordinates make positivity automatic, so the
+maximum-likelihood fit (Section~\ref{sec:ml}) needs no constraints. A step of size 0.1 is
+a $10\%$ change whatever the magnitude of the parameter, and the Jacobian columns have
+comparable norms, so the damped Gauss--Newton steps are well scaled from the first
+iteration.
+
+\paragraph{What does not depend on the choice.} The change from linear to log coordinates
+has a diagonal Jacobian $D$. Therefore the correlation matrix of $\Fi^{-1}$, the
+normalised information $\tilde\Fi$ (and its eigenvalues and condition number), the
+variance inflation factors, and every statement of the form ``parameter $l$ is (not)
+determined'' are \emph{identical} in both parameterisations at a given point. The
+conclusions of Sections~\ref{sec:symmetry}--\ref{sec:inverse} do not rest on this
+choice. What the logarithm adds is a global picture (straight symmetry orbits), unit-free
+and relative error measures, better-behaved statistics, and easier optimisation.
+
+\paragraph{Which parameters are not logged.} $\dw$ is a signed frequency and $\phi_0$ a
+periodic phase: neither is a scale parameter, and both enter \eqref{eq:signal} linearly in
+the exponent, so they stay linear. For the reversible decay we use $\log\Ttwos$ rather than
+$\log\Rtwop$: $\Rtwop$ can be arbitrarily close to zero (here $\Rtwop=1/60-1/70$\,ms$^{-1}$),
+and a relative error on a near-zero rate is large and uninformative. In the same
+coordinates the bound on $\log\Rtwop$ is 366 per unit $\sigma/\Mzero$, against 47 for
+$\log\Ttwos$, for exactly the same information.
+
 %=====================================================================================
 \section{The fundamental limitation: a scaling invariance}\label{sec:symmetry}
 %=====================================================================================
