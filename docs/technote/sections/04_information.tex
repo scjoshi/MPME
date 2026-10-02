@@ -1,0 +1,318 @@
+\section{What the data determine}\label{sec:information}
+
+\subsection{Fisher information and the Cram\'er--Rao bound}
+
+For complex data with independent Gaussian noise of variance $\sigma^2$ per component,
+\begin{equation}
+  \Fi(\theta)=\frac{1}{\sigma^2}\sum_{i,j,k}\Re\Bigl[\overline{\partial_\theta S_{ijk}}\;
+  \partial_\theta S_{ijk}^{\mathsf T}\Bigr],\qquad
+  \operatorname{Cov}(\hat\theta)\succeq\Fi^{-1}
+  \label{eq:fisher}
+\end{equation}
+for every estimator that is (locally) unbiased at $\theta$. Biased estimators---constrained,
+regularised or learned ones---are not covered; they can have smaller variance and mean
+squared error, at the price of a bias that the CRLB does not quantify (Bayesian bounds such
+as the van Trees inequality address that case). With $\sigma$ in units of $\Mzero$ every bound
+scales as $\sigma/\Mzero$; we report bounds per unit $\sigma/\Mzero$. Jacobians are computed exactly
+(\cref{sec:jacobian}) and agree with automatic differentiation and finite differences.
+
+Three diagnostics describe conditioning: the condition number and smallest eigenpair
+$(\lambda,u)$ of the normalised information $\tilde\Fi=D^{-1/2}\Fi D^{-1/2}$, $D=\mathrm{diag}\,\Fi$,
+where the direction in original coordinates is $w\propto D^{-1/2}u$ (the generalised eigenvector
+of $\Fi w=\lambda Dw$); the variance inflation factors $(\Fi^{-1})_{ll}\Fi_{ll}$; and the
+fixed-parameter bias $\delta\theta_r=-\Fi_{rr}^{-1}\Fi_{rm}\delta$ that results from holding
+$\theta_m$ at a wrong value.
+
+\subsection{Logarithmic parameters}\label{sec:logparam}
+
+$\Mzero,\Bone,\Tone,\Ttwo,\Ttwos$ are positive scale parameters, and the model depends on them
+through dimensionless combinations: by \cref{thm:uv,lem:absv} and \eqref{eq:signal},
+$S/\Mzero$ is a function of $\Bone\alpha^{\rm nom}$, $\TR/\Tone$, $\TR/\Ttwo$, $t/\Ttwo$, $\Rtwop t$ and
+$\dw\,t$. In log coordinates a change of units is a translation, derivatives are
+dimensionless elasticities, and the central symmetry of \cref{prop:scaling} is a straight
+line with constant direction $(-1,+1,-2)$ in $(\log\Mzero,\log\Bone,\log\Tone)$; in linear
+coordinates its orbits are curves with a direction that varies from voxel to voxel. With
+$D_\theta=\mathrm{diag}(\Mzero,\Bone,\Tone,\Ttwo,\Ttwos,1,1)$, $\Fi_{\rm lin}=D_\theta^{-1}\Fi
+D_\theta^{-1}$, so $\sqrt{(\Fi^{-1})_{ll}}$ is the local coefficient of variation; for large
+spreads it is not ($\mathrm{CV}=\sqrt{\E^{s^2}-1}$ for a Gaussian log-error of SD $s$).
+For the relaxation times the likelihood is closer to quadratic in log coordinates (cost
+asymmetry for $\pm20\%$ steps: $\Tone$ $0.58$ linear vs $0.87$ log; $\Ttwo$ $0.78$ vs $1.16$),
+whereas the signal is exactly linear in $\Mzero$, so for $\Mzero$ the argument for logs is the
+symmetry and relative errors, not curvature. Correlations, normalised eigenvalues and
+variance inflation factors are identical in both coordinates (the change of variables has a
+diagonal Jacobian), so no conclusion below depends on this choice. Positivity is automatic
+in log coordinates, but the ordering $\Ttwos\le\Ttwo$ ($\Rtwop\ge0$) is not and must be enforced
+by an estimator. $\dw$ and $\phi_0$ are not scale parameters and stay linear; $\log\Ttwos$ is
+used rather than $\log\Rtwop$ because $\Rtwop$ may be close to zero.
+
+\subsection{One scan, and small flip angles}
+
+\Cref{cor:onescan} already shows that one scan cannot separate $\Mzero$, $\Bone$ and $\Tone$;
+numerically, the scan-1-only bound on $\log\Tone$ with $\Bone$ unknown is $2.4\times10^8$ per unit
+$\sigma/\Mzero$. Two scans tied by a common $\Bone$ can, unless both flip angles are small.
+
+\begin{proposition}[Small-angle scaling invariance]\label{prop:scaling}
+Fix $\TR$, $\Ttwo$ ($E_2<1$), a pathway $k$ and $\kappa>0$. Let $\alpha\to0$ and $\rho=\TR/\Tone\to0$
+with $c=\alpha^2/(2\rho)$ fixed. Then
+\begin{equation}
+  a_k(\alpha,\Tone)=\alpha\,f_k(c,E_2)+O(\alpha^3+\alpha\rho),\qquad
+  \Mzero a_k(\alpha,\Tone)-\tfrac{\Mzero}{\kappa}\,a_k(\kappa\alpha,\Tone/\kappa^2)=O(\alpha^3+\alpha\rho),
+  \label{eq:scaling}
+\end{equation}
+with $f_k(c,E_2)=G_k\bigl(\tfrac{c-1}{c+1},E_2,0\bigr)/(1+c)$. Hence, through \eqref{eq:b1}, the
+signal of every scan with a small flip angle is invariant to leading order under
+\begin{equation}
+  (\Mzero,\ \Bone,\ \Tone)\longmapsto(\Mzero/\kappa,\ \kappa\Bone,\ \Tone/\kappa^2).
+  \label{eq:sym}
+\end{equation}
+The remainder is additive and not uniform in $\kappa$; $\kappa$ is fixed as the limit is taken.
+\end{proposition}
+\begin{proof}
+With $E_1=1-\rho+O(\rho^2)$ and $\cos\alpha=1-\alpha^2/2+O(\alpha^4)$,
+\begin{align*}
+  u&=\frac{\alpha^2/2-\rho+O(\alpha^4+\rho^2)}{\alpha^2/2+\rho+O(\alpha^4+\rho^2+\alpha^2\rho)}
+   =\frac{c-1}{c+1}+O(\alpha^2+\rho),\\
+  v&=\frac{\alpha\rho+O(\alpha^3\rho+\alpha\rho^2)}{\rho+\alpha^2/2+O(\alpha^4+\rho^2+\alpha^2\rho)}
+   =\frac{\alpha}{1+c}\bigl(1+O(\alpha^2+\rho)\bigr).
+\end{align*}
+$G_k(u,E_2,0)$ is a Fourier coefficient of the solution of \eqref{eq:mperp_lin}, whose matrix
+$I-E_2D_uR(\beta)$ is invertible with inverse bounded by $1/(1-E_2)$ uniformly in $|u|\le1$ and
+$\beta$, and depends smoothly on $u$; hence $G_k$ is Lipschitz in $u$ and
+$G_k(u)=G_k(\tfrac{c-1}{c+1})+O(\alpha^2+\rho)$. By \cref{thm:uv},
+$a_k=v\,G_k(u)=\alpha f_k(c,E_2)+O(\alpha^3+\alpha\rho)$. Under $\alpha\to\kappa\alpha$,
+$\rho\to\kappa^2\rho$, $c$ is unchanged and the leading term scales by $\kappa$, which
+$\Mzero\to\Mzero/\kappa$ compensates; the remainders are of the stated order for fixed $\kappa$.
+Since $\Bone$ multiplies every flip angle, $\alpha\to\kappa\alpha$ is $\Bone\to\kappa\Bone$, and the echo
+factors of \eqref{eq:signal} do not involve $\alpha$ or $\Tone$.
+\end{proof}
+
+A direct expansion of the isochromat solution gives the same leading term in explicit form,
+$m_\perp(\psi)\simeq-i\alpha/\{(1-E_2\E^{i\psi})[1+cH(\psi)]\}$ with
+$H=(1-E_2^2)/|1-E_2\E^{i\psi}|^2$ (\cref{app:scaling}). Numerically, with $c=0.75$, the
+leading-order formula matches the exact solver for pathways $-3\ldots2$ to $2.5\times10^{-3}$,
+$6.2\times10^{-4}$, $1.5\times10^{-4}$, $3.8\times10^{-5}$ (relative to $|a_0|$) at
+$\alpha=15^\circ,7.5^\circ,3.75^\circ,1.875^\circ$: the factor four per halving of an $O(\alpha^2)$
+relative remainder.
+
+\begin{corollary}[Leading-order degeneracy]\label{cor:degenerate}
+If all flip angles are small, the directional derivative of the signal along
+$v=(-1,+1,-2,0,0,0,0)$ vanishes at leading order (it is $O(\alpha^3+\alpha\rho)$ while the others
+are $O(\alpha)$), so $\Fi$ is ill-conditioned. No number of small-angle acquisitions removes this
+leading-order degeneracy, because $\Bone$ scales all of them by the same factor.
+\end{corollary}
+
+The degeneracy is of leading order only: at finite angles $\Fi$ is nonsingular and the
+parameters are identifiable in principle, but separation is very noise-sensitive. For the
+reference tissue the condition number of $\tilde\Fi$ is $2.6\times10^4$ for $30^\circ/60^\circ$,
+$5.0\times10^5$ for $15^\circ/30^\circ$ and $2.5\times10^7$ for $3.75^\circ/7.5^\circ$. Repeated
+acquisitions shrink all bounds as $1/\sqrt N$ but do not improve conditioning. On the full
+model with three pathways, holding $\Bone$ wrong by $\varepsilon$ with $15^\circ/30^\circ$ shifts the
+fit by $\delta\log\Tone=-2.06\varepsilon$ and $\delta\log\Mzero=-1.02\varepsilon$ (predicted $-2$, $-1$).
+
+\subsection{How the published protocol escapes}
+
+\begin{proposition}[Periodicity]\label{prop:period}
+$a_k(-\alpha)=-a_k(\alpha)$ and $a_k(\alpha+2\pi)=a_k(\alpha)$ for all $k$. Hence two protocols whose
+actual flip angles agree up to sign and multiples of $2\pi$ in every scan carry identical
+Fisher information about every parameter when $\Bone$ is known; in particular
+$15^\circ/330^\circ$ and $15^\circ/30^\circ$ at $\Bone=1$.
+\end{proposition}
+\begin{proof}
+$R_x(-\alpha)=R_z(\pi)R_x(\alpha)R_z(-\pi)$, an RF phase of $\pi$. Precession and relaxation commute
+with $R_z$, so the steady state for RF phase $\pi$ is $R_z(\pi)$ applied to the steady state for
+phase $0$, which multiplies every $F_k$ by $-1$. Periodicity is that of $R_x$. A known,
+scan-wide sign changes neither the likelihood's curvature nor $\Fi$; with $\Bone$ known the actual
+angles, not the nominal ones, determine the data.
+\end{proof}
+
+The equivalence concerns actual angles: $330^\circ\Bone$ and $-30^\circ\Bone$ agree modulo $360^\circ$ only
+at $\Bone=1$ in the physiological range (at $\Bone=1.1$: $363^\circ$ vs $33^\circ$, and known-$\Bone$
+$\Tone$ bounds $29.6$ vs $29.0$). Near $\Bone=1$ the value of the large pulse lies in the $\Bone$
+derivative of its effective angle $\alpha_2^{\rm eff}=330^\circ\Bone-360^\circ$:
+\begin{equation}
+  \frac{\partial\log|\alpha_2^{\rm eff}|}{\partial\log\Bone}=\frac{330\,\Bone}{330\,\Bone-360},
+  \qquad\frac{\partial\log\alpha_1}{\partial\log\Bone}=1,
+  \label{eq:lever}
+\end{equation}
+which is $-11$ at $\Bone=1$, $-2.75$ at $\Bone=0.8$, and diverges as $\alpha_2^{\rm eff}\to360^\circ$.
+\Cref{eq:sym} needs all angles to scale alike; under a $\Bone$ change the second moves much
+faster and in the opposite direction, and the near-null direction is lifted.
+
+\subsection{Bounds and conditioning}
+
+\begin{table}[!htbp]
+\centering
+\caption{CRLB per unit $\sigma/\Mzero$ (log-parameter SD; rad/ms for $\dw$), both scans at full
+resolution.}
+\label{tab:crlb}
+\small
+\begin{tabular}{llcccccc}
+\toprule
+Protocol & Tissue ($\Tone/\Ttwo/\Ttwos$) & $\Mzero$ & $\Bone$ & $\Tone$ & $\Ttwo$ & $\Ttwos$ & $\dw$\\
+\midrule
+$15^\circ/330^\circ$ & WM ($850/66/50$) & 12.5 & 2.21 & 27.3 & 16.0 & 27.2 & 0.30\\
+$15^\circ/330^\circ$ & GM ($1350/90/60$) & 14.7 & 2.75 & 33.1 & 20.7 & 38.2 & 0.31\\
+$15^\circ/330^\circ$ & reference ($1500/70/60$) & 19.0 & 2.91 & 40.5 & 23.1 & 47.3 & 0.37\\
+$15^\circ/330^\circ$ & reference, $\Bone$ known & 16.1 & -- & 28.0 & 20.7 & 44.2 & 0.37\\
+$15^\circ/30^\circ$ & reference & 1050 & 1020 & 2110 & 23.1 & 47.3 & 0.37\\
+$15^\circ/30^\circ$ & reference, $\Bone$ known & 16.1 & -- & 28.0 & 20.7 & 44.2 & 0.37\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[!htbp]
+\centering
+\caption{Conditioning (reference tissue).}
+\label{tab:cond}
+\small
+\begin{tabular}{p{0.42\linewidth}p{0.22\linewidth}p{0.26\linewidth}}
+\toprule
+ & $15^\circ/330^\circ$ & $15^\circ/30^\circ$\\
+\midrule
+Eigenvalues of $\tilde\Fi$ & $0.024,0.11,0.22,0.51,$ $0.52,1.49,4.13$ & $7.7{\times}10^{-6},0.11,0.29,$ $0.51,0.76,1.49,3.84$\\
+Condition number & 173 & $5.0\times10^5$\\
+Variance inflation $\Mzero/\Bone/\Tone$ & $16.7/4.6/26.6$ & $51\,000/7\,700/72\,000$\\
+Correlations $(\Bone,\Tone)$, $(\Bone,\Mzero)$, $(\Tone,\Mzero)$ & $0.72,0.53,0.77$ & $-0.9999,-0.9999,$ $0.9999$\\
+$\partial\log\Tone/\partial\log\Bone$, $\Bone$ fixed, both scans & $+10.1$ & $-2.06$\\
+$\partial\log\Tone/\partial\log\Bone$, $\Bone$ fixed, scan 1 only & $-2.02$ & $-2.02$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{crlb_correlation.png}
+\caption{Correlation matrices of $\Fi^{-1}$. The $\Mzero$--$\Bone$--$\Tone$ block of the small-angle
+protocol is perfectly correlated, the signature of \eqref{eq:sym}.}
+\label{fig:corr}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{crlb_eigen.png}
+\caption{Left: eigenvalues of $\tilde\Fi$. Right: the weakest direction in log coordinates,
+$w\propto D^{-1/2}u$. For $15^\circ/30^\circ$ it is the symmetry direction $(-1,1,-2)/\sqrt6$ (black);
+for $15^\circ/330^\circ$ it is dominated by $\Tone$ ($-0.85$), with $\Mzero$ and $\Ttwos$ ($-0.36$ each),
+and its $\Bone$ component is only $-0.05$.}
+\label{fig:eigen}
+\end{figure}
+
+The $\Tone$ bound builds up as groups of parameters are freed: $7.9$ ($\Tone$ only), $21.1$
+($+\Ttwo,\Ttwos,\dw,\phi_0$), $28.0$ ($+\Mzero$), $40.5$ ($+\Bone$, $15^\circ/330^\circ$) and $2110$ ($+\Bone$,
+$15^\circ/30^\circ$); the factors depend on the order, and the variance inflation factors are the
+order-free summary. With the published protocol $\Bone$ is no longer the main source of
+$\Tone$ uncertainty: at $15^\circ$ and $\TR=25$\,ms, $\Tone$ is weakly encoded and confounded mostly
+with the transverse relaxation times and $\Mzero$. Separating which data are used from whether
+$\Bone$ is known gives $\Tone$ bounds of $40.5$ (both scans, $\Bone$ unknown), $28.0$ (both, known),
+$57.1$ (scan 1, known) and $2.4\times10^8$ (scan 1, unknown).
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{crlb_flip_sweep.png}
+\caption{Bounds and condition number versus $\alpha_2^{\rm nom}$ ($\alpha_1^{\rm nom}=15^\circ$).}
+\label{fig:flip}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{crlb_b1_t1_sweeps.png}
+\caption{Left: bounds versus the true $\Bone$; $\Bone$ is locally best determined where
+$\alpha_2^{\rm eff}=360^\circ$. Right: $\Tone$ bound versus $\Tone$.}
+\label{fig:sweeps}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.78\linewidth]{crlb_flip_map.png}
+\caption{$\Tone$ bound with $\Bone$ unknown over nominal $(\alpha_1,\alpha_2)$. The optimum on this grid
+is $10^\circ/340^\circ$ (32.9), $19\%$ better than $15^\circ/330^\circ$.}
+\label{fig:map}
+\end{figure}
+
+Over $\alpha_2^{\rm nom}\ge210^\circ$ the $\Bone$-unknown $\Tone$ bound stays within $1.5\times$ of the
+$\Bone$-known one. Across $\Bone\in[0.7,1.3]$ the $\Tone$ bound is 40--65, and it grows with
+$\Tone$ (15 at 300\,ms, 100 at 4000\,ms). Removing pathway $+1$ raises it from $40.5$ to $67$;
+removing the echo pathway $-1$ raises it to $146$ and the $\Ttwo$ bound from $23$ to $208$.
+
+\subsection{Global aliases}\label{sec:aliases}
+
+Local bounds say nothing about distant parameter values that produce the same data.
+\Cref{thm:uv} characterises them.
+
+\begin{proposition}[Exact data equivalence]\label{prop:equiv}
+Let both scans have the same $\TR$, and let $\Ttwo$, $\Ttwos$ and $\dw$ be fixed. Write
+$u_i,v_i$ for the invariants of scan $i$ at $(\Bone,\Tone)$ and $u_i',v_i'$ at $(B_1^{+\prime},\Tone')$.
+\begin{enumerate}
+\item[(a)] If $u_i'=u_i$ for $i=1,2$ and $\Mzero'=\Mzero\tanh(\TR/2\Tone)/\tanh(\TR/2\Tone')$, then all
+  magnitudes $|S_{ijk}|$ at $(\Mzero',B_1^{+\prime},\Tone')$ equal those at $(\Mzero,\Bone,\Tone)$.
+\item[(b)] If in addition $\sgn(v_1'v_2')=\sgn(v_1v_2)$, the complex signals are equal after
+  replacing $\phi_0$ by $\phi_0$ or $\phi_0+\pi$.
+\item[(c)] Given $u_1,u_2$, the conditions $u_i'=u_i$ are two equations in the two unknowns
+  $(B_1^{+\prime},E_1')$:
+  \begin{equation}
+    \cos(B_1^{+\prime}\alpha_i^{\rm nom})=\frac{E_1'-u_i}{1-u_iE_1'},\qquad i=1,2.
+    \label{eq:aliaseq}
+  \end{equation}
+\end{enumerate}
+\end{proposition}
+\begin{proof}
+(a) By \cref{thm:uv}, $|a_k|=|v|\,|G_k(u,E_2,\dw)|$, and by \cref{lem:absv}
+$|v_i'|=\sqrt{1-u_i^2}\tanh(\TR/2\Tone')$. Hence $\Mzero'|v_i'|=\Mzero|v_i|$ for both scans with the
+single stated $\Mzero'$ (both scans share $\TR$), and $\Mzero'|a_k'|=\Mzero|a_k|$ for every $k$. The echo
+factors in \eqref{eq:signal} depend only on $\Ttwo$, $\Ttwos$, $\dw$ and $\phi_0$. (b) The complex
+signal is $\Mzero v_i\,G_k(u_i,E_2,\dw)$ times echo factors; $v_i$ is real with
+$\sgn v_i=\sgn\sin\alpha_i$ (\eqref{eq:uv}, $1-E_1\cos\alpha>0$). If $\sgn v_i'=\sgn v_i$ for both scans
+the signals are equal; if both signs flip, they differ by a global factor $-1=\E^{i\pi}$,
+absorbed by $\phi_0$. (c) Inverting the M\"obius map \eqref{eq:uv} in $\cos\alpha$ gives
+$\cos\alpha_i=(E_1-u_i)/(1-u_iE_1)$; with $\alpha_i=\Bone\alpha_i^{\rm nom}$ this is \eqref{eq:aliaseq}.
+\end{proof}
+
+Because \eqref{eq:aliaseq} is a square system, its solutions are generically isolated and
+each choice of branch of $\arccos$ in the two equations ($\pm$, plus multiples of $2\pi$) is a
+candidate. Magnitude data can then be matched exactly on branches that complex data exclude
+by the sign condition (b). Solving on each branch from the noise-free data gives
+\cref{tab:aliases}: every alias fits to machine precision.
+
+\begin{table}[!htbp]
+\centering
+\caption{Exact aliases (noise-free; relative residual $<10^{-14}$). Magnitude alias: $\alpha_2$ on
+the other side of $360^\circ$. Complex alias: $\alpha_2>540^\circ$ with the same sign pattern.}
+\label{tab:aliases}
+\small
+\begin{tabular}{cccccc}
+\toprule
+\multicolumn{2}{c}{Truth} & \multicolumn{2}{c}{Magnitude alias} & \multicolumn{2}{c}{Complex alias}\\
+\cmidrule(lr){1-2}\cmidrule(lr){3-4}\cmidrule(lr){5-6}
+$\Bone$ & $\Tone$ (ms) & $\Bone$ & $\Tone$ (ms) & $\Bone$ & $\Tone$ (ms)\\
+\midrule
+1.00 & 1500 & 1.199 & 1038 & 2.008 & 359\\
+0.90 & 1200 & 1.350 & 527 & 1.865 & 271\\
+1.05 & 850 & 1.135 & 726 & 2.100 & 204\\
+0.80 & 2500 & 1.480 & 717 & 1.769 & 497\\
+1.08 & 1000 & 1.102 & 960 & 2.160 & 240\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The complex aliases need $\Bone\approx1.8$--$2.2$ and are excluded by the assumption
+$\alpha_2^{\rm nom}\Bone\le540^\circ$ of~\cite{cheng2019}, i.e.\ $\Bone<1.64$; our fits impose this bound.
+The magnitude aliases lie at $\Bone\approx1.1$--$1.5$, inside the physiological range, and
+require one bit of phase information (\cref{sec:magnitude}). As $\alpha_2^{\rm eff}\to360^\circ$ the
+true and alias solutions merge (last row). None of this is visible in local bounds.
+
+\subsection{Information in magnitude data}\label{sec:rician}
+
+A magnitude $m=|S+n|$ is Rician with amplitude $A=|S|$. Its Fisher information about $A$ is
+$g(A/\sigma)/\sigma^2$ with
+\begin{equation}
+  g(a)=\mathbb E\Bigl[x^2\,\frac{I_1(xa)^2}{I_0(xa)^2}\Bigr]-a^2,\qquad x=m/\sigma
+  \label{eq:rician}
+\end{equation}
+(\cref{app:rician}); $g$ increases from $0$ to $1$ ($g(0.5)=0.20$, $g(2)=0.85$, $g(5)=0.98$). The
+information about the five magnitude parameters is
+$\Fi_{\rm mag}=\sigma^{-2}\sum_jg(A_j/\sigma)\nabla A_j\nabla A_j^{\mathsf T}$ with
+$\nabla A_j=\Re(\overline{S_j}\nabla S_j)/A_j$. For the published protocol and the reference
+tissue the weakest amplitude is $0.0074\,\Mzero$, so even at SNR$(\Mzero)=300$ every measurement has
+$A/\sigma\ge2.2$, and the magnitude bounds equal the complex bounds to within $0.5\%$ for $\Tone$,
+$\Bone$, $\Ttwo$ and $\Mzero$ at SNR 300, 1000 and 3000. Discarding the phase loses essentially no
+local information; it loses the global bit of \cref{prop:equiv}(b).

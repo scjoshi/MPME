@@ -1,0 +1,130 @@
+\section{Exact Jacobians by implicit differentiation}\label{sec:jacobian}
+
+Both least-squares estimators spend nearly all their time forming Jacobians: $36\times7$ per
+voxel for complex data and $18\times5$ for magnitudes. Reverse-mode differentiation
+(back-propagation) produces one \emph{row} per backward pass and would need 36 or 18 passes;
+forward mode produces one \emph{column} per pass, 7 or 5 passes, and forward differences are
+an inexact version of it. The structure of the steady state allows something cheaper.
+
+\subsection{Differentiating the steady state}
+
+With RF phase $0$ the post-pulse steady state of one isochromat solves \eqref{eq:iso},
+\begin{equation}
+  A\mathbf M=\mathbf b,\qquad A=I-RQ,\qquad Q=R_z(\psi)\,\mathrm{diag}(E_2,E_2,E_1),\qquad
+  \mathbf b=(1-E_1)R\hat{\mathbf z},
+\end{equation}
+with $R=R_x(\alpha)$ and $\dw=0$ (\cref{prop:offres}). For $x\in\{\alpha,E_1,E_2\}$,
+\begin{equation}
+  \frac{\partial\mathbf M}{\partial x}=A^{-1}\Bigl(\frac{\partial\mathbf b}{\partial x}-\frac{\partial A}{\partial x}\mathbf M\Bigr),
+  \label{eq:implicit}
+\end{equation}
+so the inverse used for the solution serves all three derivatives. With $R'=\partial R_x/\partial\alpha$,
+$\Pi_z=\mathrm{diag}(0,0,1)$, $\Pi_{xy}=\mathrm{diag}(1,1,0)$ and $R_z\Pi_z=\Pi_z$,
+\begin{align}
+  \frac{\partial A}{\partial\alpha}&=-R'Q, &\frac{\partial\mathbf b}{\partial\alpha}&=(1-E_1)R'\hat{\mathbf z},\nonumber\\
+  \frac{\partial A}{\partial E_1}&=-R\Pi_z, &\frac{\partial\mathbf b}{\partial E_1}&=-R\hat{\mathbf z},\\
+  \frac{\partial A}{\partial E_2}&=-RR_z(\psi)\Pi_{xy}, &\frac{\partial\mathbf b}{\partial E_2}&=\mathbf0,\nonumber
+\end{align}
+and the three right-hand sides of \eqref{eq:implicit} are
+\begin{equation}
+  (1-E_1)R'\hat{\mathbf z}+R'Q\mathbf M,\qquad -R\hat{\mathbf z}+R\hat{\mathbf z}\,M_z,\qquad RR_z(\psi)\Pi_{xy}\mathbf M .
+\end{equation}
+There are $N\times n_{\rm iso}$ systems per scan; batched general solvers carry a large per-matrix
+overhead at size $3\times3$, so $A^{-1}=\mathrm{adj}(A)/\det A$ is formed explicitly (nine cofactors
+and one determinant, elementwise over the batch). $A$ is invertible whenever $E_1,E_2<1$.
+Pathway amplitudes are discrete Fourier coefficients over the isochromats, and the transform
+is linear, so $\partial a_k/\partial x$ is the same FFT of $\partial m_\perp/\partial x$; for magnitudes
+$\partial|a_k|/\partial x=\Re(\overline{a_k}\,\partial a_k/\partial x)/|a_k|$.
+
+\subsection{Chain rule}
+
+With $\tau=t+k\TR$, $\Phi=\phi_0+\dw\tau$, $D=\exp(-t/\Ttwo-\Rtwop|\tau|)$, $\Rtwop=1/\Ttwos-1/\Ttwo$,
+$S=\Mzero a_kD\E^{i\Phi}$ and $\partial\alpha/\partial\log\Bone=\alpha$, $\partial E_1/\partial\log\Tone=E_1\TR/\Tone$,
+$\partial E_2/\partial\log\Ttwo=E_2\TR/\Ttwo$:
+\begin{align}
+  \frac{\partial S}{\partial\log\Mzero}&=S, &
+  \frac{\partial S}{\partial\log\Bone}&=\Mzero D\E^{i\Phi}\alpha\frac{\partial a_k}{\partial\alpha},\nonumber\\
+  \frac{\partial S}{\partial\log\Tone}&=\Mzero D\E^{i\Phi}\frac{E_1\TR}{\Tone}\frac{\partial a_k}{\partial E_1}, &
+  \frac{\partial S}{\partial\log\Ttwo}&=\Mzero D\E^{i\Phi}\frac{E_2\TR}{\Ttwo}\frac{\partial a_k}{\partial E_2}+S\frac{t-|\tau|}{\Ttwo},\\
+  \frac{\partial S}{\partial\log\Ttwos}&=S\frac{|\tau|}{\Ttwos}, &
+  \frac{\partial S}{\partial\dw}&=i\tau S,\qquad\frac{\partial S}{\partial\phi_0}=iS .\nonumber
+\end{align}
+The second term of $\partial S/\partial\log\Ttwo$ combines $\E^{-t/\Ttwo}$ and the coupling through $\Rtwop$
+($\partial\Rtwop/\partial\log\Ttwo=1/\Ttwo$). For magnitudes, $|a_k|$ replaces $a_k$ and the phase terms are dropped.
+
+\subsection{Levenberg--Marquardt with exact Jacobians}
+
+A forward-difference iteration costs one trial evaluation plus one per parameter (8 for
+complex data, 6 for magnitudes). With exact Jacobians each trial evaluation returns the
+residual and its Jacobian; an accepted step thus already carries the Jacobian of the next
+iteration, and a rejected one keeps the current Jacobian. Each iteration costs one explicit
+inverse and four right-hand sides per isochromat. Exact derivatives also make single
+precision usable: forward differences in float32 would need steps of order $10^{-3}$, whereas
+the implicit Jacobian is accurate to about $10^{-6}$. A small Jacobian error changes the
+convergence path but not the solution, which is set by the residual.
+
+\subsection{Verification and benchmark}
+
+The implicit Jacobians agree with automatic differentiation of the reference model to
+$6\times10^{-15}$ (magnitude) and $3\times10^{-16}$ (complex) in double precision and to $10^{-6}$ in single
+precision. \Cref{tab:bench} lists wall times on 4096 voxels with random tissue
+($\Tone$ 600--3000\,ms, $\Ttwo$ 40--120\,ms, $\Bone$ 0.8--1.1), SNR$(\Mzero)=1000$, one start and 15
+iterations (15 and 40 iterations differ by less than $10^{-9}$ in $\log\Tone$), on a laptop CPU with 8
+threads.
+
+\begin{table}[!htbp]
+\centering
+\caption{Fitting time and agreement with the forward-difference float64 reference (largest
+$|\Delta\log\hat\Tone|$ over 4096 voxels; the noise-induced spread is $0.164$ for magnitudes and $0.163$ for
+complex data).}
+\label{tab:bench}
+\small
+\begin{tabular}{llcccc}
+\toprule
+Fit & Jacobian, precision, isochromats & ms/voxel & $256^2$ slice & speed-up & max $|\Delta\log\hat\Tone|$\\
+\midrule
+Magnitude & finite differences, f64, 256 & 15.0 & 16.4 min & 1.0 & reference\\
+ & implicit, f64, 256 & 1.41 & 1.5 min & 10.7 & $1.6\times10^{-5}$\\
+ & implicit, f64, 128 & 0.73 & 0.8 min & 20.6 & $1.6\times10^{-5}$\\
+ & implicit, f32, 256 & 0.74 & 0.8 min & 20.2 & $1.2\times10^{-3}$\\
+ & implicit, f32, 128 & 0.44 & 0.5 min & 33.7 & $1.0\times10^{-3}$\\
+\midrule
+Complex ML & finite differences, f64, 256 & 19.2 & 21.0 min & 1.0 & reference\\
+ & implicit, f64, 256 & 1.55 & 1.7 min & 12.4 & $1.4\times10^{-5}$\\
+ & implicit, f64, 128 & 0.83 & 0.9 min & 23.2 & $1.4\times10^{-5}$\\
+ & implicit, f32, 256 & 0.90 & 1.0 min & 21.3 & $1.2\times10^{-3}$\\
+ & implicit, f32, 128 & 0.56 & 0.6 min & 34.4 & $1.2\times10^{-3}$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The exact Jacobian alone gives a factor of 10--12, more than the reduction from 6--8
+evaluations to one would suggest, because the explicit inverse also avoids per-matrix solver
+overhead. Halving the isochromats and moving to float32 each roughly halve the time again,
+changing estimates by at most $10^{-3}$ in $\log\hat\Tone$ ($<1\%$ of the noise spread). With the full
+Monte Carlo scripts, the implicit Jacobian reproduces the reference results to every
+displayed digit for the published protocol and cuts a 25-minute run to 88\,s (22\,s in float32
+with 128 isochromats and 15 iterations).
+
+\subsection{Implications}
+
+\begin{itemize}
+\item \textbf{Whole-brain feasibility.} With four starts a $256\times256$ slice takes about 2--3 minutes
+  in float64 and about 1 minute in float32 on this CPU; a whole brain (about 160 slices,
+  masked) a few hours, and minutes on a GPU, since every operation is a batched elementwise
+  or FFT operation.
+\item \textbf{Uncertainty maps at no extra cost.} The Jacobian at the solution gives the local CRLB,
+  $\sqrt{\mathrm{diag}(J^{\mathsf T}J)^{-1}}\,\sigma$, per voxel. \Cref{sec:phantom} shows these maps are
+  calibrated where the estimator is efficient.
+\item \textbf{Protocol optimisation.} The Fisher information of a protocol is one Jacobian
+  evaluation; gradients with respect to protocol parameters (TR, flip angles, echo times) can
+  be obtained the same way, enabling direct CRLB-based design rather than grid searches.
+\item \textbf{Training data and learned estimators.} Simulated signals with exact Jacobians and
+  bounds are cheap, for neural networks (\cref{sec:future}) and for evaluating them against
+  the CRLB.
+\item \textbf{Hierarchical estimation.} An empirical-Bayes EM algorithm (\cref{sec:future}) needs a
+  MAP fit and a Laplace covariance per voxel and class at every iteration; both come directly
+  from this machinery.
+\item \textbf{Robust starts.} Because one start is not enough (\cref{sec:ml}), multiple starts are
+  the dominant cost; making each fit 10--34 times cheaper is what makes four starts routine.
+\end{itemize}

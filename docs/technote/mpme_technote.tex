@@ -1,0 +1,88 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[section]{placeins}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric}
+\usepackage[hidelinks]{hyperref}
+\usepackage[capitalise,nameinlink]{cleveref}
+
+\graphicspath{{figures/}{../figures/}}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
+
+\newcommand{\Bone}{B_1^{+}}
+\newcommand{\Tone}{T_1}
+\newcommand{\Ttwo}{T_2}
+\newcommand{\Ttwos}{T_2^{*}}
+\newcommand{\Rtwop}{R_2'}
+\newcommand{\Mzero}{M_0}
+\newcommand{\TR}{T_R}
+\newcommand{\dw}{\Delta\omega}
+\newcommand{\E}{\mathrm{e}}
+\newcommand{\Fi}{\mathcal{I}}
+\renewcommand{\Re}{\operatorname{Re}}
+\renewcommand{\Im}{\operatorname{Im}}
+\newcommand{\sgn}{\operatorname{sign}}
+
+\input{tables/macros.tex}
+\input{../latex/mag_counts.tex}
+
+\title{Multi-pathway multi-echo (MPME) relaxometry:\\
+forward model, information limits, and efficient estimation\\[4pt]
+\large Technical note}
+\author{Sarang Joshi}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\input{sections/00_abstract}
+\tableofcontents
+\clearpage
+\input{sections/01_notation}
+\input{sections/02_model}
+\input{sections/03_paper}
+\input{sections/04_information}
+\input{sections/05_ml}
+\input{sections/06_magnitude}
+\input{sections/07_jacobian}
+\input{sections/08_phantom}
+\input{sections/09_discussion}
+
+\appendix
+\input{sections/A_proofs}
+\input{sections/B_algorithms}
+\input{sections/C_reproducibility}
+
+\begin{thebibliography}{9}
+\bibitem{cheng2019} C.-C.~Cheng, F.~Preiswerk, W.~S.~Hoge, T.-H.~Kuo, B.~Madore.
+  Multipathway multi-echo (MPME) imaging: all main MR parameters mapped based on a single
+  3D scan. \emph{Magn.\ Reson.\ Med.} 81(3):1699--1713, 2019.
+\bibitem{cheng2016} C.-C.~Cheng, C.-S.~Mei, J.~Duryea, H.-W.~Chung, T.-C.~Chao,
+  L.~P.~Panych, B.~Madore. Dual-pathway multi-echo sequence for simultaneous frequency and
+  $T_2$ mapping. \emph{J.\ Magn.\ Reson.} 265:177--187, 2016.
+\bibitem{cheng2020} C.-C.~Cheng, F.~Preiswerk, B.~Madore. Multi-pathway multi-echo acquisition
+  and neural contrast translation to generate a variety of quantitative and qualitative image
+  contrasts. \emph{Magn.\ Reson.\ Med.} 83(6):2310--2321, 2020.
+\bibitem{hennig1991} J.~Hennig. Echoes---how to generate, recognize, use or avoid them in
+  MR-imaging sequences. \emph{Concepts Magn.\ Reson.} 3(3):125--143, 1991.
+\bibitem{weigel2015} M.~Weigel. Extended phase graphs: dephasing, RF pulses, and
+  echoes---pure and simple. \emph{J.\ Magn.\ Reson.\ Imaging} 41(2):266--295, 2015.
+\end{thebibliography}
+
+\end{document}

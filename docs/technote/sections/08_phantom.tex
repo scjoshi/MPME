@@ -1,0 +1,199 @@
+\section{Digital phantom}\label{sec:phantom}
+
+\subsection{Phantom and simulated acquisition}
+
+The phantom is a $256\times256$ axial-slice-like arrangement of tissue classes
+(\cref{fig:phantom}): an outer CSF rim, cortical grey matter with a gyrated boundary, white
+matter, two lateral ventricles, two deep grey-matter nuclei and a white-matter lesion, in
+total \Voxels{} voxels (\cref{tab:tissues}). Each class carries 3\,T-typical relaxation values,
+modulated by a smooth random texture of $3\%$ (log scale) so that tissues are not uniform.
+Smooth fields model the transmit field (centre brightening, $\Bone=0.87$--$1.15$, so that about a
+quarter of the voxels have $\alpha_2>360^\circ$ and a ring of voxels has $\alpha_2\approx360^\circ$), the
+off-resonance (a quadratic background of $\pm20$\,Hz and a frontal hot spot of about $+50$\,Hz),
+the receive sensitivity ($\pm15\%$) and the receive phase.
+
+\begin{table}[!htbp]
+\centering
+\caption{Phantom tissue classes (before the $3\%$ texture).}
+\label{tab:tissues}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+Tissue & $\Tone$ (ms) & $\Ttwo$ (ms) & $\Ttwos$ (ms) & PD & voxels\\
+\midrule
+CSF & 4000 & 1500 & 900 & 1.00 & 5614\\
+GM & 1350 & 90 & 60 & 0.82 & 14\,782\\
+WM & 850 & 66 & 50 & 0.69 & 16\,196\\
+deep GM & 1130 & 58 & 40 & 0.75 & 1104\\
+lesion & 1500 & 120 & 80 & 0.85 & 180\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{phantom_truth.png}
+\caption{True parameter maps. The dashed contour marks $\alpha_2=330^\circ\Bone=360^\circ$.}
+\label{fig:phantom}
+\end{figure}
+
+Images are generated voxel by voxel with the forward model \eqref{eq:signal} (512
+isochromats; no partial volume within a voxel) and complex Gaussian noise with
+$\sigma=1/\mathrm{SNR}(\Mzero)$, for SNR$(\Mzero)=1000$ and $300$ ($\Mzero$ ranges from 0.6 to 1.2). Two
+acquisitions are simulated (\cref{fig:images}):
+\begin{itemize}
+\item \textbf{Scenario A}: both scans at full resolution, the per-voxel setting of
+  \cref{sec:information,sec:ml,sec:magnitude};
+\item \textbf{Scenario B}: the published design, in which scan 2 covers only the central
+  $25\%$ of the phase-encoding lines ($k_y$), with zero filling. (In 3D the published design
+  keeps $25\%\times25\%$ of $k_y$--$k_z$, a factor 16; in 2D only one phase-encoding axis can be
+  truncated, a factor 4.) Noise is added before truncation, i.e.\ the same per-sample noise
+  with fewer samples.
+\end{itemize}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{phantom_images.png}
+\caption{Simulated MPME images (magnitude, SNR$(\Mzero)=1000$). The scan-2 images show the dark
+ring where $\alpha_2^{\rm eff}=360^\circ$ and the signal vanishes; bottom right: the low-resolution scan 2 of
+Scenario B, with truncation ringing.}
+\label{fig:images}
+\end{figure}
+
+\subsection{Reconstructions}
+
+All fits use the exact Jacobian in single precision with 128 isochromats, 25 iterations,
+the $\Bone\le540/330$ bound and four starts (\cref{alg:ml}), processed in chunks of 4096 voxels.
+\begin{itemize}
+\item \textbf{Scenario A.} The analytic inverse (voxel-wise flip angle, no smoothing);
+  complex ML; magnitude least squares with the FID-sign constraint. For the last two, a
+  fifth \emph{spatial-restart} start is added after the first pass: the first-pass $\Bone$ map is
+  smoothed by a robust polynomial fit, and each voxel is restarted from
+  $(\Mzero\kappa,\ B^{+}_{1,\rm smooth},\ \Tone\kappa^2)$ with $\kappa=\Bone/B^{+}_{1,\rm smooth}$, i.e.\ moved along the
+  near-degenerate direction of \cref{prop:scaling}; the lowest cost is kept. The neighbourhood
+  only proposes a start, so every estimate remains a per-voxel likelihood maximum.
+\item \textbf{Scenario B.} The paper pipeline (\cref{alg:twostage}): the flip angle from the
+  two low-resolution scans by Eq.~15, a degree-4 robust polynomial fit, then $\Tone$, $\Ttwo$ and
+  $\Mzero$ from full-resolution scan 1 by Eqs.~1, 16 and 17. The ML pipeline: $\Bone$ from the two
+  low-resolution scans by complex ML, the same polynomial fit, then complex ML on
+  full-resolution scan 1 with $\Bone$ fixed.
+\end{itemize}
+
+\paragraph{Why the spatial restart.} Without it, 324 voxels (SNR 1000) had $|\log(\hat\Tone/\Tone)|>0.3$;
+321 of them lie within $3^\circ$ of $\alpha_2=360^\circ$, where scan 2 carries almost no signal and the problem
+approaches the one-scan degeneracy of \cref{cor:onescan}. In 222 of the 324 the final cost
+exceeded the cost at the true parameters (optimiser failures: all four starts derive from
+estimators that are unreliable at $360^\circ$). The smoothed $\Bone$ map is accurate to $0.03\%$ there,
+and the restart removes all optimiser failures (no voxel ends above the true-parameter cost).
+The remaining large errors (53 at SNR 1000, 50 of them within $3^\circ$ of $360^\circ$) all have a cost at
+or below the true one: they are genuine maxima of the likelihood, a property of the protocol
+at $\alpha_2\approx360^\circ$ rather than of the estimator.
+
+\subsection{Results}
+
+\input{tables/phantom_roi.tex}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{phantomA_T1_snr1000.png}
+\caption{Scenario A, SNR$(\Mzero)=1000$: $\Tone$ maps and log-ratio error maps.}
+\label{fig:phA_T1}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{phantomA_B1_snr1000.png}
+\caption{Scenario A, SNR$(\Mzero)=1000$: $\Bone$ maps and log-ratio error maps.}
+\label{fig:phA_B1}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{phantomA_T2_snr1000.png}
+\caption{Scenario A, SNR$(\Mzero)=1000$: $\Ttwo$ maps and log-ratio error maps.}
+\label{fig:phA_T2}
+\end{figure}
+
+\paragraph{Scenario A.} The maps reproduce the voxel-wise analysis
+(\cref{fig:phA_T1,fig:phA_B1,fig:phA_T2}, \cref{tab:roi1000}). The analytic inverse is
+unbiased in the median but noisy: at SNR 1000 its $\Tone$ spread is $0.30$ in white matter and
+$0.40$ in grey matter, against $0.042$ for complex ML in grey matter, and its errors grow
+towards the periphery (lower $\Bone$) and form a sharp ring at $\alpha_2=360^\circ$. Complex ML and
+magnitude least squares with the FID sign are nearly indistinguishable, with negligible bias
+in every tissue; their white-matter spread ($0.094$ and $0.124$) is inflated by the genuine
+outliers on the $360^\circ$ ring, which lies in white matter, while the grey-matter spread ($0.042$)
+is close to the voxel-wise bound. No voxel farther than $3^\circ$ from $360^\circ$ ends on the wrong branch
+for any method.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{phantomB_snr1000.png}
+\caption{Scenario B (scan 2 at $25\%$ of $k_y$), SNR$(\Mzero)=1000$. Top: true $\Bone$; low-resolution
+$\Bone$ from Eq.~15; its polynomial fit; low-resolution $\Bone$ from complex ML. Bottom: $\Tone$ and its error
+for the two pipelines.}
+\label{fig:phB}
+\end{figure}
+
+\paragraph{Scenario B.} The low-resolution flip-angle map of the paper pipeline shows
+truncation ringing, errors at the $360^\circ$ ring and outliers at the periphery
+(\cref{fig:phB}); the polynomial fit absorbs much of this but remains biased by $-1.5\%$ in grey
+matter (up to $15\%$ at the edge). Through the error transfer $\partial\log\Tone/\partial\log\Bone\approx-2$ of the
+scan-1 $\Tone$ step (\cref{tab:cond}) this produces a $\Tone$ bias of $+4.3\%$ in grey matter and
+$+8.5\%$ in CSF; with the true $\Bone$, the same $\Tone$ step is unbiased ($-0.06\%$ in grey matter). The
+ML pipeline's smoothed map is accurate to $0.2\%$ everywhere and its $\Tone$ is unbiased in every
+tissue. Its $\Tone$ spread is larger than in Scenario A in grey matter ($0.065$ vs $0.042$), as
+expected from the scan-1-only bound ($57.1$ vs $40.5$), but smaller in white matter ($0.073$ vs
+$0.094$), because a smooth, fixed $\Bone$ removes the $360^\circ$ ambiguity. Its $\Ttwo$ spread is larger than
+in Scenario A because stage 2 uses only scan 1.
+
+\paragraph{SNR 300.} \Cref{tab:roi300} gives the same statistics at SNR$(\Mzero)=300$
+(image SNR about 26). The analytic inverse breaks down: its $\Tone$ spread is
+$0.65$ in white matter and $0.91$ in grey matter, and $\Tone$ is undefined in $1.3$--$1.7\%$ of tissue
+voxels and $17.8\%$ of CSF voxels. Complex ML and magnitude least squares with the FID sign
+remain nearly unbiased, with spreads of $0.14$ (grey matter) to $0.28$ (CSF), no undefined
+estimates and no wrong-branch voxels away from the $360^\circ$ ring (\cref{fig:phA_T1_300}). In
+Scenario B the paper pipeline has spreads of $0.45$--$0.51$ in tissue and the same undefined
+fractions, whereas the ML pipeline is nearly unbiased with spreads of $0.21$--$0.23$; its
+grey-matter spread is $1.5$ times that of Scenario A, close to the bound ratio $57.1/40.5=1.4$.
+At this SNR, errors above $0.3$ in log units are expected from noise alone in long-$\Tone$ tissue
+(the local bound for CSF is of that order), and only 4 of \Voxels{} complex-ML voxels end above
+the true-parameter cost.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{phantomA_T1_snr300.png}
+\caption{Scenario A, SNR$(\Mzero)=300$: $\Tone$ maps and log-ratio error maps.}
+\label{fig:phA_T1_300}
+\end{figure}
+
+\subsection{Uncertainty maps}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{phantom_uncertainty_snr1000.png}
+\caption{Complex ML, Scenario A, SNR$(\Mzero)=1000$: predicted SD of $\log\Tone$ (local CRLB at the
+estimate), absolute error, and the distribution of the standardised error $z$ against $N(0,1)$
+($z$ clipped to $\pm5$ for display).}
+\label{fig:phunc}
+\end{figure}
+
+The local CRLB evaluated at the estimate gives a predicted standard deviation for every voxel
+at the cost of one Jacobian (\cref{fig:phunc}). The map shows the structure expected from
+\cref{sec:information}: higher uncertainty in CSF and long-$\Tone$ tissue, in deep grey matter, at
+low $\Bone$, and on the $360^\circ$ ring. Standardised errors are close to $N(0,1)$. For complex ML in
+Scenario A, $95\%$ intervals cover the truth in \CalAcovTThousand\% of voxels at SNR 1000
+(\CalAcovTThreeHundred\% at SNR 300); the SD of $z$ is \CalAzTThousand{} (\CalAzTThreeHundred),
+above 1 only because of the genuine outliers at $360^\circ$, which a local bound cannot describe.
+For the ML pipeline of Scenario B (with $\Bone$ treated as known), coverage is
+\CalBcovTThousand\% and \CalBcovTThreeHundred\% and the SD of $z$ is \CalBzTThousand{} and
+\CalBzTThreeHundred{}: slightly conservative at SNR 300, consistent with the constraint
+$\Rtwop\ge0$ being active in many voxels at that SNR (a constrained estimator can have a variance
+below the interior bound, \cref{sec:ml}).
+
+\subsection{Run times}
+
+\input{tables/phantom_times.tex}
+
+A full set of reconstructions for one SNR level takes about 9 minutes on the laptop CPU
+(\cref{tab:phantomtime}); each full-slice fit with four starts takes about 2 minutes, and the
+uncertainty maps a few seconds.

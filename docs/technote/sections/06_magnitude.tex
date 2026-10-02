@@ -1,0 +1,86 @@
+\section{Least squares on magnitude images}\label{sec:magnitude}
+
+The published inverse works with magnitudes, made real-valued by the sign convention of its
+Eq.~18. A direct alternative is to fit the model magnitudes,
+\begin{equation}
+  \hat\theta=\arg\min_\theta\sum_j\bigl(|y_j|-|s_j(\theta)|\bigr)^2,
+  \label{eq:magls}
+\end{equation}
+over $\theta=(\log\Mzero,\log\Bone,\log\Tone,\log\Ttwo,\log\Ttwos)$ with the same projected LM iteration,
+constraints and four starts as complex ML. This is not maximum likelihood for magnitude data,
+which are Rician: it ignores the noise floor $\mathbb E|y|-A\approx\sigma^2/(2A)$, which for the weakest
+amplitude of the reference tissue is $10\%$ at SNR 300, $1\%$ at SNR 1000 and $0.1\%$ at SNR 3000.
+\Cref{sec:rician} showed that magnitudes carry essentially all the local information; this
+section concerns the global bit they lose.
+
+\subsection{Why a magnitude fit needs the branch test and complex ML does not}
+
+\paragraph{1. Magnitudes lose the sign of $\sin\alpha$.} By \cref{thm:uv} and \cref{lem:absv}
+the magnitudes of scan $i$ determine $u_i$ and $\Mzero|v_i|=\Mzero\sqrt{1-u_i^2}\tanh(\TR/2\Tone)$, i.e.\
+$\cos\alpha_i$ for any trial $E_1$, but not the sign of $\sin\alpha_i$. Equivalently, $|a_k(\alpha)|$ is
+even and $2\pi$-periodic in $\alpha$, hence symmetric about every multiple of $180^\circ$.
+
+\paragraph{2. This produces an exact alias in the physiological range.} By
+\cref{prop:equiv}(a,c) the magnitude data at $(\Mzero,\Bone,\Tone)$ are reproduced exactly at every
+solution $(B_1^{+\prime},E_1')$ of \eqref{eq:aliaseq}, with $\Mzero'$ set by part (a). The branch
+$\alpha_2=360^\circ+x'$ admits such a solution: for the reference tissue $(1,1500\,\mathrm{ms},1)$ and
+$(1.199,1038\,\mathrm{ms},0.832)$ give the same 18 magnitudes to machine precision
+(\cref{tab:aliases}). The alias is close to the small-angle scaling
+($1500/1.199^2=1043$) but exact.
+
+\paragraph{3. It is a symmetry of the magnitude likelihood, not a noise effect.} The alias
+exists for every parameter value, so the map $\theta\mapsto|s(\theta)|$ takes the same values on two
+separate sheets of parameter space. Any likelihood that depends on the data only through
+magnitudes, Gaussian or Rician, has two equal global maxima for every noise realisation. We
+verified this directly: fitting noisy magnitudes on each side of $360^\circ$ gives final costs
+that agree to a median relative difference of $10^{-12}$ at SNR 300, 1000 and 3000. No SNR
+resolves it, and the local CRLB, identical on both sheets, cannot detect it. An
+unconstrained magnitude fit returns the maximum nearest its starting point: in
+\cref{tab:mag} it chose the wrong branch in 47, 3 and \MagWrongThree{} of 1000 voxels at SNR
+300, 1000 and 3000, and in 13, 3 and 0 when the same fits were run with the exact Jacobian,
+which takes slightly different paths. The counts describe the optimiser, not the data.
+
+\paragraph{4. Complex data carry the missing bit.} By \cref{prop:period},
+$a_k(-\alpha)=-a_k(\alpha)$, so moving $\alpha_2$ from $360^\circ-x$ to $360^\circ+x'$ flips the sign of every
+scan-2 signal relative to scan 1 (\cref{prop:equiv}(b)). A single $\phi_0$ and a single $\dw$ are
+shared by both scans, so the relative sign cannot be absorbed. The best complex fit
+restricted to $360^\circ<\alpha_2<540^\circ$ moves to the edge $\alpha_2=360^\circ$, where scan 2 vanishes, and
+leaves the entire scan-2 signal ($0.144\,\Mzero$) as residual: its cost exceeds the true-branch
+cost by $1.9\times10^3\sigma^2$ at SNR 300 ($2.1\times10^4\sigma^2$ at SNR 1000), a likelihood ratio of about
+$\E^{-935}$ or smaller. Complex ML selects the correct branch automatically.
+
+\paragraph{5. The FID-sign test restores the bit.} The test of~\cite{cheng2019},
+\begin{equation}
+  \sgn\,\Re\sum_jS_{1j0}\overline{S_{2j0}}=\sgn(\sin\alpha_1\sin\alpha_2),
+  \label{eq:fidsign}
+\end{equation}
+uses only the sign of the relative phase of the two FID images (it follows from
+$a_0\propto v\propto\sin\alpha$ and the shared echo phases). In the magnitude fit it becomes a
+constraint: $\Bone$ is confined to the interval between consecutive zeros of
+$\sin(\Bone\alpha_i^{\rm nom})$ on which $\sin\alpha_1\sin\alpha_2$ has the measured sign; a start on the wrong
+side is reflected across the nearest zero, where $|a_k|$ is symmetric, and every step is
+projected back into the interval (\cref{alg:branch}).
+
+\paragraph{6. What the test cannot do.} Branches with the same sign pattern (the complex
+aliases, $\alpha_2>540^\circ$) are invisible to the test and to complex ML; the range bound excludes
+them. Near $\alpha_2^{\rm eff}=360^\circ$ the scan-2 FID vanishes and the sign is unreliable, but the two
+branches merge there, so a wrong decision costs little. Both the test and complex ML need the
+relative phase of the two scans to be preserved: the same receiver phase and coil combination
+and no motion or $B_0$ drift between the sequential acquisitions. With an unknown phase per
+scan, complex ML would lose the relative sign and the alias would reappear for complex data
+too.
+
+\subsection{Comparison on identical data}
+
+\Cref{tab:mag} compares the analytic inverse, magnitude least squares without and with the
+FID-sign constraint, and complex ML on the noise realisations of \cref{tab:mc}.
+
+\input{../latex/mag_table.tex}
+
+With the branch test, magnitude least squares has SD/CRLB within the Monte Carlo error of
+complex ML at every SNR and no wrong-branch voxels; the Rician floor adds a small bias at SNR
+300 ($-0.005$ in $\log\Tone$). Without it, wrong-branch voxels dominate the $\Bone$ error (SD up to
+seven times the robust spread) and bias $\Tone$ by about $(\Bone)^{-2}$. The analytic inverse, which uses
+the same magnitudes and the same FID sign, is 3--7 times worse for $\Tone$ and up to 28 times
+for $\Bone$: since magnitudes carry essentially all the local information and a joint magnitude
+fit extracts it, its loss is algorithmic.

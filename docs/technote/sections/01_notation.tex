@@ -1,0 +1,57 @@
+\section{Notation and conventions}\label{sec:notation}
+
+\begin{table}[!htbp]
+\centering
+\caption{Principal symbols.}
+\label{tab:symbols}
+\small
+\begin{tabular}{ll}
+\toprule
+Symbol & Meaning\\
+\midrule
+$i\in\{1,2\}$, $j$, $k$ & scan, echo, pathway (configuration order)\\
+$\TR$, $t_{ijk}$ & repetition time; echo time after the RF pulse (ms)\\
+$\alpha_i^{\rm nom}$, $\alpha_i=\Bone\alpha_i^{\rm nom}$ & nominal and actual flip angle of scan $i$\\
+$\Bone$ & transmit-field scale (dimensionless)\\
+$\Mzero$ & equilibrium magnetisation times receive sensitivity ($C\times\Mzero$)\\
+$\Tone$, $\Ttwo$, $\Ttwos$ & relaxation times (ms); $\Ttwos=1/(1/\Ttwo+\Rtwop)$\\
+$\Rtwop$ & reversible (Lorentzian) decay rate (1/ms), $\Rtwop\ge0$\\
+$\dw$, $\phi_0$ & off-resonance (rad/ms), global receive phase (rad)\\
+$E_1$, $E_2$, $\rho$ & $\E^{-\TR/\Tone}$, $\E^{-\TR/\Ttwo}$, $\TR/\Tone$\\
+$F_k$, $Z_k$ & transverse and longitudinal configuration states\\
+$a_k$ & steady-state amplitude of $F_k$ just after the pulse, per unit $\Mzero$\\
+$u$, $v$ & the two invariants of \cref{thm:uv}\\
+$S_{ijk}$ & noise-free voxel signal\\
+$\sigma$ & noise standard deviation per real/imaginary component\\
+$\theta$ & fitted parameters (log of positive ones, see below)\\
+$\Fi$ & Fisher information matrix\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Transverse magnetisation and phases.} $M^+=M_x+iM_y$. An RF pulse of flip
+$\alpha$ and phase $\varphi$ is the rotation $R_z(\varphi)R_x(\alpha)R_z(-\varphi)$; from
+equilibrium it gives $M^+=-i\E^{i\varphi}\sin\alpha$. One repetition of the unbalanced gradient
+multiplies $M^+$ by $\E^{i\psi}$, where $\psi$ is the intravoxel phase, and free precession by
+$\dw$ for a time $t$ multiplies it by $\E^{i\dw t}$ (the same sense). The RF phase is constant
+($\varphi=0$ unless stated).
+
+\paragraph{Units.} Times in ms, rates in 1/ms, $\dw$ in rad/ms ($1$\,Hz $=2\pi\times10^{-3}$
+rad/ms), angles in radians in formulas and degrees in text.
+
+\paragraph{Parameters.} The fitted vector is
+\begin{equation}
+  \theta=(\log\Mzero,\ \log\Bone,\ \log\Tone,\ \log\Ttwo,\ \log\Ttwos,\ \dw,\ \phi_0),
+\end{equation}
+with the last two absent for magnitude data. Positive scale parameters are logged
+(\cref{sec:logparam}); $\dw$ and $\phi_0$ are not. Bounds and spreads of log-parameters are
+\emph{log-parameter standard deviations}: for a small value $s$ this is the relative
+standard deviation; in general a spread $s$ corresponds to a one-sigma factor $\E^{\pm s}$.
+
+\paragraph{Signal-to-noise ratio.} We write $\mathrm{SNR}(\Mzero)=\Mzero/\sigma$ with
+$\Mzero=1$ for the reference tissue. The brightest MPME image of the reference tissue has
+$|S|\approx0.088\,\Mzero$, so the image SNR is about $0.088\,\mathrm{SNR}(\Mzero)$.
+
+\paragraph{Reference tissue and protocol.} Unless stated otherwise: $\Tone/\Ttwo/\Ttwos=
+1500/70/60$\,ms (the tissue used for protocol optimisation in~\cite{cheng2019}), $\Bone=1$,
+and the published in-vivo protocol (\cref{tab:protocol}).

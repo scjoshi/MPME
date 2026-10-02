@@ -1,0 +1,21 @@
+\begin{table}[!htbp]
+\centering
+\caption{Reconstruction times for the phantom (voxels in the mask; laptop CPU, 8 threads, implicit Jacobian, float64, 128 isochromats, 40 iterations).}
+\label{tab:phantomtime}
+\small
+\begin{tabular}{lrr}
+\toprule
+Step & SNR 1000 & SNR 300\\
+\midrule
+A: analytic inverse & 3.0 s & 3.2 s\\
+init (model fit) & 8.4 s & 9.1 s\\
+A: complex ML (4 starts) & 131.0 s & 139.8 s\\
+A: complex ML spatial restart & 34.1 s & 34.2 s\\
+A: magnitude LS + FID sign (4 starts) & 120.9 s & 124.8 s\\
+A: magnitude LS spatial restart & 30.2 s & 29.7 s\\
+A: uncertainty maps & 2.6 s & 2.6 s\\
+B: paper pipeline & 3.9 s & 4.2 s\\
+B: ML pipeline & 194.8 s & 212.1 s\\
+\bottomrule
+\end{tabular}
+\end{table}

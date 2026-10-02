@@ -1,0 +1,55 @@
+\section{Algorithms}\label{app:algorithms}
+
+\begin{algorithm}[!htbp]
+\caption{Projected Levenberg--Marquardt with exact Jacobian (batched over voxels)}
+\label{alg:lm}
+\begin{algorithmic}[1]
+\Require data $y$, start $\theta_0$, model-and-Jacobian $\mathcal S(\theta)\mapsto(s,J)$, projection $\Pi$, fixed mask $\mathcal F$
+\State $\theta\gets\Pi(\theta_0)$;\ $(s,J)\gets\mathcal S(\theta)$;\ $J_{:,\mathcal F}\gets0$;\ $r\gets s-y$;\ $c\gets\|r\|^2$;\ $\lambda\gets10^{-2}$
+\For{$n=1,\dots,n_{\rm iter}$}
+  \State $H\gets J^{\mathsf T}J+\lambda\,\mathrm{diag}(J^{\mathsf T}J)+\mathrm{diag}(\mathbb 1_{\mathcal F})$;\ $g\gets J^{\mathsf T}r$
+  \State $\theta'\gets\Pi(\theta-H^{-1}g)$;\ $(s',J')\gets\mathcal S(\theta')$;\ $J'_{:,\mathcal F}\gets0$;\ $r'\gets s'-y$
+  \If{$\|r'\|^2<c$} \State $(\theta,r,J,c)\gets(\theta',r',J',\|r'\|^2)$;\ $\lambda\gets0.3\lambda$
+  \Else \State $\lambda\gets10\lambda$ \EndIf
+  \State $\lambda\gets\min(\max(\lambda,10^{-9}),10^9)$
+\EndFor
+\State \Return $\theta$, $c$, constraint flags
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[!htbp]
+\caption{FID-sign branch constraint for the magnitude fit}
+\label{alg:branch}
+\begin{algorithmic}[1]
+\Require complex images (for the sign only), start $B_1^{+(0)}$
+\State $\sigma_{\rm FID}\gets\sgn\Re\sum_jS_{1j0}\overline{S_{2j0}}$ \Comment{$=\sgn(\sin\alpha_1\sin\alpha_2)$}
+\State zeros $\mathcal Z\gets\{n\pi/\alpha_i^{\rm nom}\}$, sorted
+\If{$\sgn(\sin B_1^{+(0)}\alpha_1^{\rm nom}\,\sin B_1^{+(0)}\alpha_2^{\rm nom})\ne\sigma_{\rm FID}$}
+  \State reflect $B_1^{+(0)}$ across the nearest $z\in\mathcal Z$: $B_1^{+(0)}\gets2z-B_1^{+(0)}$
+\EndIf
+\State $[\ell,h]\gets$ interval between consecutive zeros containing $B_1^{+(0)}$
+\State run \cref{alg:lm} with $\Pi$ augmented by $\Bone\gets\min(\max(\Bone,\ell),h)$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[!htbp]
+\caption{ML estimation with multiple starts}
+\label{alg:ml}
+\begin{algorithmic}[1]
+\State starts: model-fit estimate; analytic inverse (where defined); model fit with $\Tone=700$ and $2000$\,ms
+\State initialise $\phi_0$ per start in closed form; set $\Pi$: $\Rtwop\ge0$, box, $\Bone\le540/330$
+\State run \cref{alg:lm} from each start; keep, per voxel, the lowest final cost
+\State optionally: uncertainty $\sqrt{\mathrm{diag}(J^{\mathsf T}J)^{-1}}\,\sigma$ at the solution
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[!htbp]
+\caption{Two-stage reconstruction for a low-resolution scan 2}
+\label{alg:twostage}
+\begin{algorithmic}[1]
+\State low-pass scan 1 to the $k$-space support of scan 2
+\State stage 1: estimate $\Bone$ voxel-wise from the two low-resolution scans (analytic inverse, or \cref{alg:ml})
+\State smooth: fit a 2D (3D) polynomial to $\Bone$ inside the mask, rejecting outliers ($3\times$MAD)
+\State stage 2: estimate $\Tone,\Ttwo,\Ttwos,\Mzero,\dw,\phi_0$ from full-resolution scan 1 with $\Bone$ fixed (Eqs.~1, 16, 17; or \cref{alg:lm} with $\mathcal F=\{\Bone\}$)
+\end{algorithmic}
+\end{algorithm}

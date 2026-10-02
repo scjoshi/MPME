@@ -1,0 +1,70 @@
+\begin{abstract}
+This note gives a complete account of quantitative parameter mapping with the multi-pathway
+multi-echo (MPME) sequence of Cheng et al.~\cite{cheng2019}. We derive the steady-state
+forward model from the configuration-state description and prove that, for each scan, the
+signal depends on the flip angle and $\Tone$ only through two invariants
+(\cref{thm:uv}); one scan therefore cannot separate $\Mzero$, $\Bone$ and $\Tone$, and for
+small flip angles two scans cannot either, to leading order. The published protocol escapes
+this through its near-$360^\circ$ second pulse. We implement the published analytic
+inverse and verify it, analyse the Fisher information and Cram\'er--Rao bounds (CRLB) of the
+model, identify its exact global aliases, and show that a joint maximum-likelihood (ML) fit
+attains the bound where the bound applies, while the analytic inverse is 3--7 times above
+it. For magnitude data we reduce the alias conditions to a square system and show that an exact
+alias exists inside the physiological $\Bone$ range and explain why a magnitude fit needs the relative phase of the two FID images (one
+bit) while complex ML does not; with that bit, magnitude least squares performs like complex
+ML. Exact Jacobians obtained by implicit differentiation of the steady state make both fits
+10--34 times faster, so that a $256\times256$ slice is fitted in seconds to minutes on a laptop
+CPU. A two-dimensional digital phantom with simulated acquisitions demonstrates all
+estimators, including the published low-resolution second scan, and validates per-voxel
+uncertainty maps.
+\end{abstract}
+
+\section*{Summary of findings}
+
+\begin{enumerate}
+\item \textbf{Two invariants per scan (exact).} Each pathway amplitude is
+  $a_k=v\,G_k(u,E_2,\dw)$ with $u=(E_1-\cos\alpha)/(1-E_1\cos\alpha)$ and
+  $v=\sin\alpha\,(1-E_1)/(1-E_1\cos\alpha)$ (\cref{thm:uv}). One scan identifies only
+  $(u,\Mzero v)$: its Fisher information about $(\Mzero,\Bone,\Tone)$ is singular at every
+  flip angle (\cref{cor:onescan}).
+\item \textbf{Small flip angles are degenerate to leading order.} In the joint limit of small
+  $\alpha$ and $\TR/\Tone$ the signal is invariant under
+  $(\Mzero,\Bone,\Tone)\mapsto(\Mzero/\kappa,\kappa\Bone,\Tone/\kappa^2)$ (\cref{prop:scaling}).
+  With $15^\circ/30^\circ$ the information matrix has condition number $5\times10^5$; the
+  parameters remain identifiable in principle but not usefully at realistic SNR.
+\item \textbf{The near-$360^\circ$ pulse breaks the degeneracy.} At $\Bone=1$, $330^\circ$ and
+  $-30^\circ$ carry the same information (\cref{prop:period}); the benefit of $330^\circ$ is
+  the eleven-fold faster response of its effective angle to $\Bone$. The condition number
+  drops to 173 and the bound on $\log\Tone$ is $40.5\,\sigma/\Mzero$.
+\item \textbf{Exact global aliases.} Magnitudes admit an exact alias with
+  $\alpha_2=360^\circ+x$ inside the physiological range; complex data with a shared phase
+  exclude it but admit one with $\alpha_2>540^\circ$, removed by the range assumption
+  $\Bone<1.64$ (\cref{prop:equiv}).
+\item \textbf{The published inverse is inefficient; ML is efficient.} The analytic inverse
+  is exact without noise but its $\Tone$ standard deviation is 3.2--7.1 times the bound, with
+  large bias and undefined estimates at moderate SNR. Joint ML attains the bound (ratio
+  0.99--1.02) where its assumptions hold.
+\item \textbf{Magnitudes need one bit of phase.} Magnitudes carry essentially all the local
+  information, but their likelihood has two equal maxima for every noise realisation; the
+  FID-sign test resolves it, after which magnitude least squares matches complex ML.
+\item \textbf{Exact Jacobians make it fast.} Implicit differentiation of the steady state
+  gives exact Jacobians at the cost of about one model evaluation; fits are 10--12 times
+  faster in double precision and up to 34 times in single precision.
+\item \textbf{Phantom.} On a $256\times256$ digital phantom (\Voxels{} brain voxels) the
+  estimators behave as the voxel-wise analysis predicts, the published low-resolution design
+  costs precision in $\Tone$ that a two-stage ML pipeline recovers in part, and the per-voxel
+  uncertainty maps are calibrated (\cref{sec:phantom}).
+\end{enumerate}
+
+\section*{How to read this note}
+
+\Cref{sec:notation} fixes notation. \Cref{sec:model} derives the forward model and proves
+its structural properties. \Cref{sec:paper} presents and verifies the published inverse.
+\Cref{sec:information} analyses what the data can determine, locally (CRLB, conditioning)
+and globally (aliases). \Cref{sec:ml,sec:magnitude} develop and evaluate maximum-likelihood
+estimation for complex data and least squares for magnitude data. \Cref{sec:jacobian}
+derives exact Jacobians and their consequences. \Cref{sec:phantom} demonstrates everything
+on a digital phantom. \Cref{sec:discussion} summarises which limitations belong to the
+forward model and which to an inverse, and lists future work (model mismatch, Rician ML,
+hierarchical estimation, learned estimators). Longer proofs are in \cref{app:proofs},
+algorithms in \cref{app:algorithms}, and reproduction instructions in \cref{app:repro}.

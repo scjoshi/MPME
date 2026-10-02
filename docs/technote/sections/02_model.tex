@@ -1,0 +1,235 @@
+\section{The MPME sequence and its forward model}\label{sec:model}
+
+\subsection{Sequence}
+
+The MPME sequence~\cite{cheng2019} is a 3D gradient-echo sequence without RF spoiling: the RF
+phase is constant and the repetition time $\TR$ is fixed. Only the readout gradient $G_x$ is
+unbalanced; its net area per repetition, $A=\int_0^{\TR}G_x\,dt$, dephases the magnetisation
+by many cycles across a voxel (the \emph{fully dephased} regime). Configuration states of
+different order are therefore displaced in $k_x$ by multiples of $\gamma A$, and a state of
+order $k$ created by an RF pulse is refocused when the moment accumulated since the pulse
+equals $-kA$.
+
+In the published design each of three readout windows of alternating polarity sweeps the
+moment across three adjacent multiples of $A$ (lobe areas $+1.5:-3:+3:-3:+0.5$ in units of
+$-A$), so that every window samples the pathways $k\in\{+1,0,-1\}$, separated by the time
+needed to traverse one $A$, which is $1/\mathrm{BW}\approx2$\,ms (\cref{fig:sequence}). The
+visiting order reverses in alternate windows. Two acquisitions with the same gradients but
+very different flip angles are performed; the second covers only the central part of
+$k$-space (\cref{tab:protocol}). The actual flip angles are
+\begin{equation}
+  \alpha_i=\Bone\,\alpha_i^{\rm nom},
+  \label{eq:b1}
+\end{equation}
+so $\Bone$ scales all pulses by the same factor.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{sequence_timing.png}
+\caption{One repetition of the $[+1,0,-1]$ scheme. Top: readout gradient (prephaser, three
+readout windows of alternating polarity, rewinder); net area $A$ per repetition. Bottom: the
+moment accumulated since the RF pulse; pathway $k$ is refocused (circles) whenever $m(t)=-k$.
+The time from the pulse to the first echo (4.5\,ms) is an assumption; the paper does not
+state it.}
+\label{fig:sequence}
+\end{figure}
+
+\begin{table}[!htbp]
+\centering
+\caption{Published in-vivo protocol~\cite{cheng2019} and the values used in this note.}
+\label{tab:protocol}
+\small
+\begin{tabular}{ll}
+\toprule
+Repetition time & $\TR=25$\,ms (both scans)\\
+Nominal flip angles & $\alpha_1^{\rm nom}=15^\circ$, $\alpha_2^{\rm nom}=330^\circ$ (hard pulses)\\
+Pathways & $k\in\{+1,0,-1\}$; three readout windows\\
+Pathway spacing & $2.0$\,ms in vivo ($1.86$\,ms phantom); 501\,Hz/pixel\\
+Echo times (ms) & $k=+1$: $4.5,14.5,16.5$;\ $k=0$: $6.5,12.5,18.5$;\ $k=-1$: $8.5,10.5,20.5$\\
+Scan 2 coverage & central $25\%\times25\%$ of $k_y$--$k_z$\\
+Resolution, matrix & $1.2\times1.0\times1.2$\,mm$^3$, $160\times192\times160$, 11.5\,min\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Configuration states}
+
+Let $\psi\in[0,2\pi)$ be the intravoxel phase imparted by one repetition of the unbalanced
+gradient and expand
+\begin{equation}
+  M^+(\psi)=\sum_kF_k\,\E^{ik\psi},\qquad M_z(\psi)=\sum_kZ_k\,\E^{ik\psi},\qquad
+  Z_{-k}=\overline{Z_k}.
+\end{equation}
+One repetition consists of~\cite{hennig1991,weigel2015}:
+\begin{align}
+  \text{RF:}\quad F_k'&=\cos^2\tfrac{\alpha}{2}F_k+\E^{2i\varphi}\sin^2\tfrac{\alpha}{2}\overline{F_{-k}}
+     -i\E^{i\varphi}\sin\alpha\,Z_k,\nonumber\\
+  Z_k'&=-\tfrac{i}{2}\E^{-i\varphi}\sin\alpha\,F_k+\tfrac{i}{2}\E^{i\varphi}\sin\alpha\,\overline{F_{-k}}
+     +\cos\alpha\,Z_k,\\
+  \text{relaxation:}\quad F_k&\to E_2F_k,\quad Z_k\to E_1Z_k\ (k\ne0),\quad
+     Z_0\to E_1Z_0+\Mzero(1-E_1),\nonumber\\
+  \text{gradient:}\quad F_k&\to F_{k+1}.\nonumber
+\end{align}
+We write $a_k(\alpha,\Tone,\Ttwo,\dw)$ for the steady-state amplitude of $F_k$ immediately
+after the pulse, per unit $\Mzero$.
+
+\subsection{Exact steady state}
+
+The steady state can be computed without truncating the configuration space. An isochromat
+whose total precession per repetition is $\beta=\psi+\dw\TR$ has the post-pulse steady state
+\begin{equation}
+  \bigl(I-R\,R_z(\beta)\,\mathrm{diag}(E_2,E_2,E_1)\bigr)\,\mathbf M^+=(1-E_1)\,R\,\hat{\mathbf z},
+  \qquad R=R_z(\varphi)R_x(\alpha)R_z(-\varphi),
+  \label{eq:iso}
+\end{equation}
+and $a_k$ is the $k$-th Fourier coefficient of $M^+(\psi)=M_x^++iM_y^+$ over $\psi$. On a uniform
+grid of $n$ isochromats this is a discrete Fourier transform; orders with $|k|<n/2$ are exact
+up to aliasing of orders differing by $n$, which decay as $E_2^{n}$-like factors. For every
+tissue in this note, including CSF ($\Ttwo=1.5$\,s) at $330^\circ$, $n=128$ reproduces
+$n=16\,384$ to $10^{-15}$.
+
+\begin{proposition}[Off-resonance only adds phase]\label{prop:offres}
+In the fully dephased regime
+\[
+  a_k(\dw)=a_k(0)\,\E^{ik\dw\TR};
+\]
+in particular $|a_k|$ does not depend on $\dw$.
+\end{proposition}
+\begin{proof}
+By \eqref{eq:iso} the steady state depends on $\psi$ and $\dw$ only through $\beta=\psi+\dw\TR$,
+so $M^+_{\dw}(\psi)=M^+_0(\psi+\dw\TR)$. Shifting a $2\pi$-periodic function by $\theta$ multiplies
+its $k$-th Fourier coefficient by $\E^{ik\theta}$.
+\end{proof}
+
+\subsection{Two invariants per scan}
+
+\begin{theorem}[Exact two-invariant reduction]\label{thm:uv}
+Let $\varphi=0$ and, for one scan with flip angle $\alpha$, define
+\begin{equation}
+  u=\frac{E_1-\cos\alpha}{1-E_1\cos\alpha},\qquad
+  v=\frac{\sin\alpha\,(1-E_1)}{1-E_1\cos\alpha}.
+  \label{eq:uv}
+\end{equation}
+Then for every pathway $k$ and every $\dw$
+\begin{equation}
+  a_k(\alpha,\Tone,\Ttwo,\dw)=v\;G_k(u,E_2,\dw),
+  \label{eq:uvform}
+\end{equation}
+where $G_k$ does not depend on $\alpha$ or $\Tone$ otherwise.
+\end{theorem}
+\begin{proof}
+Let $(x,y,z)$ be the pre-pulse state of one isochromat and $w=x+iy$. The pulse $R_x(\alpha)$
+maps it to $(x,\ cy-sz,\ sy+cz)$ with $c=\cos\alpha$, $s=\sin\alpha$; relaxation and precession by
+$\beta$ then give the next pre-pulse state. The steady state therefore satisfies
+\begin{equation}
+  w=E_2\E^{i\beta}\bigl(x+i(cy-sz)\bigr),\qquad z=E_1(sy+cz)+1-E_1 .
+  \label{eq:steady2}
+\end{equation}
+The second equation gives $z=(E_1sy+1-E_1)/(1-E_1c)$; note $1-E_1c>0$. Substituting,
+\[
+  cy-sz=y\,\frac{c-E_1c^2-E_1s^2}{1-E_1c}-\frac{s(1-E_1)}{1-E_1c}=-u\,y-v .
+\]
+The post-pulse transverse magnetisation is $m_\perp=x+i(cy-sz)=x-iuy-iv$, and $w=E_2\E^{i\beta}m_\perp$.
+Eliminating $x=\Re w$ and $y=\Im w$,
+\begin{equation}
+  m_\perp=\Re\bigl(E_2\E^{i\beta}m_\perp\bigr)-iu\,\Im\bigl(E_2\E^{i\beta}m_\perp\bigr)-iv .
+  \label{eq:mperp_lin}
+\end{equation}
+This is a real-linear equation for $m_\perp$ (two real unknowns) whose coefficients involve only
+$u$, $E_2$ and $\beta$, and whose inhomogeneous term is $-iv$. Its $2\times2$ real matrix is
+$I-E_2\,D_u\,R(\beta)$ with $D_u=\mathrm{diag}(1,u)$ and $R(\beta)$ a planar rotation; since
+$|u|\le1$ and $E_2<1$, $\|E_2D_uR(\beta)\|\le E_2<1$, so it is invertible. Hence
+$m_\perp=v\,g(u,E_2,\beta)$ with $g$ independent of $\alpha$ and $\Tone$, and taking Fourier
+coefficients over $\psi$ (with $\beta=\psi+\dw\TR$) gives \eqref{eq:uvform}.
+\end{proof}
+
+\begin{lemma}\label{lem:absv}
+$|u|\le1$ and $|v|=\sqrt{1-u^2}\,\tanh\bigl(\TR/(2\Tone)\bigr)$.
+\end{lemma}
+\begin{proof}
+From \eqref{eq:uv}, $1-u=(1-E_1)(1+c)/(1-E_1c)$ and $1+u=(1+E_1)(1-c)/(1-E_1c)$, both
+non-negative, so $|u|\le1$ and $1-u^2=(1-E_1^2)\,s^2/(1-E_1c)^2$. Hence
+$v^2=s^2(1-E_1)^2/(1-E_1c)^2=(1-u^2)(1-E_1)/(1+E_1)$, and $(1-E_1)/(1+E_1)=\tanh(\TR/2\Tone)$ for
+$E_1=\E^{-\TR/\Tone}$.
+\end{proof}
+
+\begin{corollary}[One scan cannot separate $\Mzero$, $\Bone$, $\Tone$]\label{cor:onescan}
+For a single scan, with $\Ttwo$, $\Ttwos$, $\dw$, $\phi_0$ fixed, the signal depends on
+$(\Mzero,\Bone,\Tone)$ only through the two functions $(u,\ \Mzero v)$. The Jacobian of the
+signal with respect to $(\log\Mzero,\log\Bone,\log\Tone)$ has rank at most two, and the
+Fisher information about these three parameters is singular at every flip angle.
+\end{corollary}
+\begin{proof}
+By \cref{thm:uv} and the echo factors below (which do not involve $\Mzero$, $\alpha$ or $\Tone$
+except through the prefactor $\Mzero$), $S=\Mzero v\,h(u)$ for a function $h$ independent of
+$(\Mzero,\Bone,\Tone)$. By the chain rule, the $3$ columns of $\partial S/\partial(\log\Mzero,
+\log\Bone,\log\Tone)$ are linear combinations of the $2$ vectors $\partial S/\partial(u,\Mzero v)$,
+so they span at most a two-dimensional space. The Fisher information restricted to these
+parameters is $J^{\mathsf H}J/\sigma^2$ with $J$ of rank $\le2$, hence singular.
+\end{proof}
+
+\subsection{Echo evolution and the voxel signal}
+
+Pathway $k$ read at time $t$ after the pulse carries, for one isochromat, the off-resonance
+phase $\dw(t+k\TR)$ (\cref{prop:offres} plus precession since the pulse). An intravoxel
+frequency distribution with Lorentzian density $\ell(\delta)=(\Rtwop/\pi)/(\Rtwop{}^2+\delta^2)$
+averages this to
+\begin{equation}
+  \int_{-\infty}^{\infty}\ell(\delta)\,\E^{i\delta\tau}\,d\delta=\E^{-\Rtwop|\tau|},
+  \label{eq:lorentz}
+\end{equation}
+the characteristic function of the Cauchy distribution. Together with transverse relaxation
+since the pulse, the noise-free signal of scan $i$, echo $j$, pathway $k$ is
+\begin{equation}
+  \boxed{\;S_{ijk}=\Mzero\,a_k\bigl(\Bone\alpha_i^{\rm nom},\Tone,\Ttwo,0\bigr)\,
+  \E^{-t_{ijk}/\Ttwo}\,\E^{-\Rtwop|t_{ijk}+k\TR|}\,
+  \E^{i(\phi_0+\dw(t_{ijk}+k\TR))}\;}
+  \label{eq:signal}
+\end{equation}
+For $k\ge0$ the magnitude decays at $1/\Ttwo+\Rtwop=1/\Ttwos$; for $k<0$ and $t<|k|\TR$ at
+$1/\Ttwo-\Rtwop$, a spin echo forming at $t=|k|\TR$. Echo times differ between pathways, and
+$t+k\TR$ differs in sign between them, which is what separates $\Ttwo$ from $\Rtwop$.
+
+\subsection{Closed forms for $k=0,-1$}
+
+For the two lowest pathways the steady-state magnitudes have the closed forms of unbalanced
+FISP and PSIF,
+\begin{align}
+  |a_0|&=\Bigl|\tan\tfrac{\alpha}{2}\Bigl[1-\frac{(E_1-\cos\alpha)(1-E_2^2)}{r}\Bigr]\Bigr|,\qquad
+  |a_{-1}|=\Bigl|\frac{\tan\frac{\alpha}{2}}{E_2}\Bigl[1-\frac{(1-E_1\cos\alpha)(1-E_2^2)}{r}\Bigr]\Bigr|,
+  \label{eq:fisp}\\
+  r^2&=p^2-q^2,\quad p=1-E_1\cos\alpha-E_2^2(E_1-\cos\alpha),\quad q=E_2(1-E_1)(1+\cos\alpha).
+  \nonumber
+\end{align}
+The PSIF formula in the literature is the echo amplitude at $t=\TR$, hence the factor $1/E_2$.
+Dividing $p$ and $q$ by $1-E_1\cos\alpha$ shows that both brackets depend on $(\alpha,E_1)$ only
+through $u$, and $\tan(\alpha/2)=v/(1-u)$, in agreement with \cref{thm:uv}.
+
+\subsection{Imaging and noise}
+
+Image formation $y_{ijkc}=\mathcal M_i\mathcal F(C_cS_{ijk})+n_{ijkc}$ (coil maps $C_c$, Fourier
+transform $\mathcal F$, sampling $\mathcal M_i$) is linear. Voxel-wise, the coil-combined
+complex images are modelled as $S_{ijk}+n_{ijk}$ with independent circular Gaussian noise of
+standard deviation $\sigma$ per real and imaginary part; magnitudes are then Rician. The
+published low-resolution scan 2 is modelled in \cref{sec:phantom} by truncation of $k$-space.
+
+\subsection{Validation}
+
+\begin{table}[!htbp]
+\centering
+\caption{Numerical checks of the forward model (all are unit tests).}
+\label{tab:validation}
+\small
+\begin{tabular}{p{0.55\linewidth}l}
+\toprule
+Check & Agreement\\
+\midrule
+Isochromat solver vs truncated EPG ($K=400$), pathways $-3\ldots2$, four tissues incl.\ CSF & $<10^{-5}$ absolute\\
+$|a_0|$, $|a_{-1}|$ vs closed forms \eqref{eq:fisp} & $10^{-6}$ relative\\
+\Cref{thm:uv}: $a_k$ at $(\alpha',E_1')$ with equal $u$ equals $(v'/v)\,a_k$, six pathways, incl.\ $330^\circ$, $\dw\ne0$ & $10^{-9}$ relative\\
+\Cref{prop:offres}: $a_k(\dw)=a_k(0)\E^{ik\dw\TR}$ & $10^{-10}$ absolute\\
+Echo log-slopes $-(1/\Ttwo+\Rtwop)$ ($k\ge0$), $-(1/\Ttwo-\Rtwop)$ ($k=-1$) & exact\\
+128 vs 16\,384 isochromats, CSF at $15^\circ$ and $330^\circ$ & $10^{-15}$ relative\\
+\bottomrule
+\end{tabular}
+\end{table}

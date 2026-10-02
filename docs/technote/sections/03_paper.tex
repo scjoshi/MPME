@@ -1,0 +1,114 @@
+\section{The published inverse}\label{sec:paper}
+
+Cheng et al.~\cite{cheng2019} map the parameters by a sequence of closed-form steps applied to
+magnitude images. We present their sequential version (scan 2 acquired after scan 1), using
+their equation numbers, and verify it against the model of \cref{sec:model}.
+
+\begin{figure}[!htbp]
+\centering
+\begin{tikzpicture}[node distance=7mm and 9mm,
+  box/.style={draw=black!60, rounded corners=2pt, fill=black!3, align=center, font=\small,
+              minimum height=8mm, text width=3.4cm},
+  arr/.style={-{Stealth[length=2mm]}, black!60}]
+\node[box] (data) {scan 1 (full res.)\\ scan 2 (low res.)};
+\node[box, right=of data] (b0) {Step 1: $\dw$\\ echo phases, scan 1};
+\node[box, below=of b0] (t2) {Step 2: $R_2$, $\Rtwop$\\ Eq.~1, scan 1};
+\node[box, below=of t2] (f) {Step 3: $F^+$, $F^\Rightarrow$, $F^-$\\ Eqs.~1, 7, 18};
+\node[box, right=of f] (x) {Step 4: $X$, $\Omega$ (Eqs.~10--11);\\ flip angle (Eq.~15)};
+\node[box, above=of x] (b1) {low-res.\ $\alpha_1$ $\rightarrow$\\ polynomial fit};
+\node[box, below=of x] (t1) {Step 5: $\Tone$ (Eq.~16),\\ $\Mzero$ (Eq.~17), scan 1};
+\draw[arr] (data) -- (b0); \draw[arr] (b0) -- (t2); \draw[arr] (t2) -- (f);
+\draw[arr] (f) -- (x); \draw[arr] (x) -- (b1); \draw[arr] (b1.east) to[bend left=40] (t1.east);
+\draw[arr] (f) -- (t1);
+\end{tikzpicture}
+\caption{The published reconstruction~\cite{cheng2019}. The flip angle is computed at the
+resolution of scan 2 and smoothed by a polynomial; $\Tone$ and $\Mzero$ are then computed
+voxel-wise from scan 1.}
+\label{fig:flow}
+\end{figure}
+
+\subsection{Steps}
+
+\begin{enumerate}
+\item \textbf{Off-resonance.} $\dw$ from the phase evolution between echoes, all pathways
+  jointly, scan 1.
+\item \textbf{Transverse decay.} Their Eq.~1,
+  $S_{i,j,k}=F^+_{i,k}\E^{-(R_2\pm\Rtwop)\mathrm{TE}_{i,j,k}}$ with $+$ for $k\ge0$ and $-$ for
+  $k<0$, fitted log-linearly to scan 1 with weights $|S|$.
+\item \textbf{Real-valued states.} $F^+_{i,k}$ (Eq.~1 at $\mathrm{TE}=0$) and $F^\Rightarrow_{i,k}$
+  (at $\mathrm{TE}=\TR$), signed by their Eq.~18 ($+|F|$ for $k\ge0$, $-|F|$ for $k<0$).
+  States before the next pulse follow from the gradient shift, $F^-_k=F^\Rightarrow_{k-1}$, and
+  the missing one from their Eq.~7, $F^+_k-F^+_{-k}-F^-_k+F^-_{-k}=0$.
+\item \textbf{Flip angle.} The scaling factor $\Omega_{i,k}=F^-_{i,k}+F^-_{i,-k}$ (Eq.~10) and
+  the \emph{mixing factor} $X_{i,k}=1-2(F^-_{i,k}-F^+_{i,k})/\Omega_{i,k}$ (Eq.~11), with $k=+1$
+  for the $[+1,0,-1]$ scheme or $k=-1$ for $[0,-1,-2]$, then Eq.~15,
+  \begin{equation}
+    \Bigl(\frac{X_1c_1-1}{X_1-c_1}\Bigr)^{T_{R,2}/T_{R,1}}=\frac{X_2c_2-1}{X_2-c_2},\qquad
+    c_i=\cos\alpha_i,\quad \alpha_2=\beta\,\frac{\alpha_2^{\rm nom}}{\alpha_1^{\rm nom}}\,\alpha_1,
+    \label{eq:p15}
+  \end{equation}
+  solved for $\alpha_1$, with $\beta=1$ in phantoms and $\beta=1.24$ in vivo (their Eq.~19).
+  The branch $\alpha_2<360^\circ$ or $>360^\circ$ is chosen from the relative phase of $F^+_0$ in
+  the two scans; $\alpha_2^{\rm nom}\Bone\in[180^\circ,540^\circ]$ is assumed.
+\item \textbf{$\Tone$ and $\Mzero$.} Their Eq.~16, read as
+  \begin{equation}
+    \Tone=\TR\Big/\ln\frac{X_1c_1-1}{X_1-c_1},
+    \label{eq:p16}
+  \end{equation}
+  and Eq.~17 for $\Mzero$, both from scan 1.
+\end{enumerate}
+
+\Cref{eq:p16} follows from their own derivation ($Z^+/Z^\Rightarrow=\E^{\TR/\Tone}$); the
+extracted text of the author manuscript prints $\TR\ln(\cdot)$, which does not reproduce
+$\Tone$. Their Eq.~8, a nutation function $\nu(\alpha,\Delta f)$ that corrects $\cos\alpha$ for
+off-resonance during a finite hard pulse, is not used here because our pulses are
+instantaneous.
+
+\subsection{Consistency with the forward model}
+
+The intercepts of Eq.~1 are not the configuration amplitudes $a_k$ of \cref{sec:model}: by
+\eqref{eq:signal} the magnitude at $\mathrm{TE}=0$ is $\Mzero|a_k|\E^{-\Rtwop|k|\TR}$. The next
+proposition shows that this does not matter.
+
+\begin{proposition}[The published relations hold for the forward model]\label{prop:paperconsistent}
+Define $\tilde F_k=F_k\,\E^{-\Rtwop|k|\TR}$ for transverse and $\tilde Z_k=Z_k\,\E^{-\Rtwop|k|\TR}$
+for longitudinal states. (i) The quantities that Eq.~1 provides are $\tilde F^+_k$ and
+$\tilde F^\Rightarrow_k$. (ii) Every relation used in Steps 3--5 (Eqs.~2--7 and 10--17)
+holds for the tilde states whenever it holds for the configuration states. Consequently the
+published inverse recovers the exact parameters from noise-free data of \eqref{eq:signal}.
+\end{proposition}
+\begin{proof}
+(i) At $\mathrm{TE}=0$, \eqref{eq:signal} gives magnitude $\Mzero|a_k|\E^{-\Rtwop|k|\TR}$,
+i.e.\ $|\tilde F^+_k|$; extrapolating the same fit to $\mathrm{TE}=\TR$ gives
+$\Mzero|a_k|\E^{-\TR/\Ttwo}\E^{-\Rtwop(|k|\TR\pm\TR)}$ with $+$ for $k\ge0$ and $-$ for $k<0$, which
+is $|\tilde F_{k+1}^-|$ because the state of order $k$ after a repetition becomes order $k+1$
+and $|k|\pm1=|k+1|$ for those signs. (ii) Each relation in Eqs.~2--7 and 10--17 is linear in
+states of a single order $|k|$ (Eq.~2 and the steady-state conditions relate $Z_k$ before and
+after a repetition at the same order; Eqs.~4--7 relate $F_{\pm k}$ and $Z_{\pm k}$ across one
+pulse; Eqs.~10--11 combine $F_{\pm k}$), or is a ratio of such quantities. Multiplying all
+states of order $\pm k$ by the common factor $\E^{-\Rtwop|k|\TR}$ preserves linear relations among
+them and leaves ratios unchanged; in particular $X_{i,k}$ is unchanged. Eq.~17 uses $k=0$,
+where the factor is $1$. The equations are exact identities of the noise-free steady state,
+so the inverse returns the true parameters.
+\end{proof}
+
+Numerically, Eqs.~7, 16 and 17 hold to $10^{-12}$ on the steady states of \eqref{eq:iso} for
+$\alpha=15^\circ$ and $330^\circ$ and three tissues including CSF, for both $k=\pm1$. That real-valued
+states suffice is a consequence of \cref{lem:imag} (\cref{app:proofs}): all configuration
+amplitudes are purely imaginary, i.e.\ share the phase $\pm\pi/2$. The specific sign pattern of
+Eq.~18 (all $k\ge0$ states with one sign, all $k<0$ with the other) is observed for every
+parameter set we examined.
+
+\subsection{Implementation and behaviour}
+
+We implemented Steps 1--5 equation by equation (\texttt{paper.py}). The flip angle is found
+by a dense grid over the admissible branch interval followed by bisection on the sign change
+of \eqref{eq:p15}. On noise-free data the implementation recovers all parameters to relative
+error $10^{-11}$, for both pathway schemes, for $\Bone\in[0.7,1.4]$ (so that $\alpha_2$ crosses
+$360^\circ$) and $|\Delta f|\le100$\,Hz.
+
+Two properties matter under noise. First, \eqref{eq:p16} requires $(X_1c_1-1)/(X_1-c_1)>1$;
+noise can violate it, and $\Tone$ is then undefined. Second, the inverse is sequential: $R_2$
+and $\Rtwop$ are fixed from scan 1 before the flip angle is estimated, and every later step
+combines extrapolated, differenced and ratioed estimates whose noise is not controlled. Both
+effects are quantified in \cref{sec:ml,sec:phantom}.

@@ -1,0 +1,82 @@
+\section{Maximum-likelihood estimation}\label{sec:ml}
+
+\subsection{Estimator}
+
+Stack the real and imaginary parts of all 18 complex measurements of a voxel into
+$y\in\mathbb R^{36}$ and the model \eqref{eq:signal} into $s(\theta)$. Under the Gaussian noise
+model the negative log-likelihood is $\|r(\theta)\|^2/(2\sigma^2)$ with $r=s(\theta)-y$, so the ML
+estimate is the nonlinear least-squares solution $\hat\theta=\arg\min_\theta\|r(\theta)\|^2$,
+independent of $\sigma$. The model is the exact steady state \eqref{eq:iso}, so the estimator
+and the CRLB use the same forward model.
+
+\paragraph{Constraints.} The fit is a projected Levenberg--Marquardt (LM) iteration. After
+every step the parameters are projected onto the physical domain of the Lorentzian model,
+$\log\Ttwos\le\log\Ttwo$ ($\Rtwop\ge0$), and onto a box $\Bone\in[\E^{-1},540/330]$,
+$\Tone\in[10,20\,000]$\,ms, $\Ttwo\in[1,5000]$\,ms. The upper $\Bone$ bound is the assumption
+$\alpha_2\le540^\circ$ of~\cite{cheng2019}; it excludes the exact complex alias of
+\cref{prop:equiv} by construction. Active constraints are recorded per voxel; such estimates
+are not locally unbiased and fall outside the interior CRLB.
+
+\paragraph{Initialisation.} Magnitude parameters and $\dw$ come from a sequential estimator;
+the global phase has a closed-form optimum for fixed remaining parameters,
+$\phi_0^{(0)}=\arg\bigl(\sum S_{ijk}\overline{S^{(0)}_{ijk}}\bigr)$, where $S^{(0)}$ is the model at the
+initial values with $\phi_0=0$.
+
+\paragraph{Iteration.} With $J=\partial r/\partial\theta$ (exact, \cref{sec:jacobian}),
+\begin{equation}
+  \bigl(J^{\mathsf T}J+\lambda\,\mathrm{diag}(J^{\mathsf T}J)\bigr)\Delta=-J^{\mathsf T}r,\qquad
+  \theta\leftarrow\Pi(\theta+\Delta),
+\end{equation}
+where $\Pi$ is the projection. A step is accepted if it lowers $\|r\|^2$ ($\lambda\leftarrow0.3\lambda$),
+otherwise rejected ($\lambda\leftarrow10\lambda$); $\lambda_0=10^{-2}$, $\lambda\in[10^{-9},10^9]$, 40 iterations.
+Marquardt's diagonal scaling makes the step invariant to rescaling individual parameters. A
+parameter held fixed (e.g.\ a given $\Bone$ map) has its Jacobian column removed and a unit
+diagonal, so that $\Delta=0$ for it. For zero-residual (noise-free) problems with a nonsingular
+Jacobian, Gauss--Newton converges locally quadratically, and noise-free fits recover the
+parameters to $10^{-15}$; with noise the residual at the solution is nonzero and the local
+convergence is in general linear, with a rate set by the residual and the model curvature.
+
+\paragraph{Multiple starts.} Nonlinear least squares can stop at a local minimum: across the
+$360^\circ$ branch, at the branch edge where scan 2 vanishes, or along the weak direction of
+\cref{fig:eigen}. We run four starts---the model-fit estimate, the analytic inverse where
+valid, and the model-fit estimate with $\Tone$ replaced by 700 and by 2000\,ms---and keep the
+lowest final cost. In simulation the global optimum can be checked: a final cost above the
+cost at the true parameters is certainly not the ML estimate.
+
+\paragraph{Is one start enough?} On 2000 voxels with random tissue
+($\Tone$ 600--3000\,ms, $\Ttwo$ 40--140\,ms, $\Ttwos/\Ttwo$ 0.6--0.95, $\Bone$ 0.85--1.15), a single start
+ends at a higher cost than the best of four in \StartWorseThreeHundred\% of voxels at
+SNR$(\Mzero)=300$ (median $|\Delta\log\hat\Tone|=\StartMedianThreeHundred$, maximum \StartMaxThreeHundred)
+and \StartWorseThousand\% at SNR 1000. A $\chi^2$ test on the final cost (99.9\,\% quantile,
+29 degrees of freedom) flags only \StartFlaggedThreeHundred\% and \StartFlaggedThousand\% of
+these, respectively. One start with a cost check is therefore not sufficient; we use four
+starts throughout, which the exact Jacobian makes affordable.
+
+\subsection{Efficiency}
+
+\Cref{tab:mc,tab:mcb1,tab:mcdiag} compare complex ML with the analytic inverse, a sequential
+model-fit baseline (the same steps with $\Bone$, $\Tone$, $\Mzero$ fitted to the FID and echo
+amplitudes of both scans) and the CRLB, on 1000 noise realisations of the reference tissue.
+All ratios use ordinary standard deviations; the Monte Carlo standard error of an SD from
+1000 samples is about $2\%$. (These runs used the box $\Bone\le\E$; for the published protocol no
+estimate reached it, so the results are the same with the $540/330$ cap.)
+
+\input{../latex/mc_table.tex}
+
+\begin{itemize}
+\item \textbf{Where its assumptions hold, ML attains the bound.} At SNR 1000 and 3000 the
+  SD/CRLB ratio is 0.99--1.02 for $\Tone$, $\Bone$, $\Ttwo$ and $\Mzero$, the bias is below $10^{-3}$ in
+  log units, at most $0.3\%$ of estimates touch a constraint, and no voxel fails the cost
+  check. The published protocol can separate $\Bone$ and $\Tone$.
+\item \textbf{At SNR 300 the comparison is approximate.} The ratio is 1.00 for $\Bone$ and 0.95
+  for $\Tone$, but $\Rtwop\ge0$ is active in $19.5\%$ of voxels (true $\Rtwop$ is small); those estimates
+  are biased, which is how the $\Tone$ SD can fall slightly below the bound.
+\item \textbf{The analytic inverse is 3.2--7.1 times above the bound} for $\Tone$, with bias
+  $+0.44$ in $\log\Tone$ and $1.9\%$ undefined estimates at SNR 300; $\Bone$ is 4.8--28 times above.
+  Given the true $\Bone$, its $\Tone$ step is 1.9--2.8 times above its matched bound (scan 1,
+  $\Bone$ known: 57.1). The model-fit baseline, which shares the sequential structure but not
+  the closed forms, behaves similarly, so the loss comes from the sequential structure.
+\item \textbf{The small-angle control supports no efficiency claim.} For $15^\circ/30^\circ$,
+  $10$--$35\%$ of ML estimates are on a box bound and biased; the bound itself is of order one
+  in log units ($2.1$ at SNR 1000, a one-sigma factor of about 8), while $\Ttwo$ is unaffected.
+\end{itemize}

@@ -1,0 +1,95 @@
+\section{Proofs and derivations}\label{app:proofs}
+
+The proofs of \cref{prop:offres}, \cref{thm:uv}, \cref{lem:absv}, \cref{cor:onescan},
+\cref{prop:paperconsistent}, \cref{prop:scaling}, \cref{prop:period} and \cref{prop:equiv} are
+given in the main text. This appendix contains the remaining derivations.
+
+\subsection{Direct small-angle expansion of the isochromat solution}\label{app:scaling}
+
+This gives the leading term of \cref{prop:scaling} in explicit form, independently of
+\cref{thm:uv}. Use the notation of the proof of \cref{thm:uv} with $\varphi=\dw=0$, write
+$m_\perp$ and $m_z$ for the post-pulse state, $m_\perp^-=E_2\E^{i\psi}m_\perp$ and
+$Z=m_z^-=E_1m_z+1-E_1$ for the pre-pulse state. The pulse gives
+\[
+  m_\perp=m_\perp^--i\sin\alpha\,Z+i(\cos\alpha-1)\Im m_\perp^-,\qquad
+  m_z=\sin\alpha\,\Im m_\perp^-+\cos\alpha\,Z .
+\]
+In the steady state $Z=O(1)$ and $m_\perp=O(\alpha)$, so the last term in $m_\perp$ is $O(\alpha^3)$ and
+\begin{equation}
+  m_\perp=\frac{-i\alpha Z}{1-E_2\E^{i\psi}}+O(\alpha^3),\qquad |1-E_2\E^{i\psi}|\ge1-E_2>0 .
+\end{equation}
+With $E_1=1-\rho+O(\rho^2)$, $m_z=Z-\rho(1-Z)+O(\rho^2)$, and with $\cos\alpha=1-\alpha^2/2+O(\alpha^4)$ the
+longitudinal equation becomes
+$\rho(1-Z)=-\alpha\Im m_\perp^-+\tfrac{\alpha^2}{2}Z+O(\alpha^4+\rho^2+\alpha^2\rho)$. From the transverse result,
+$\Im m_\perp^-=-\alpha Z(E_2\cos\psi-E_2^2)/|1-E_2\E^{i\psi}|^2$, and
+\[
+  \frac{E_2\cos\psi-E_2^2}{|1-E_2\E^{i\psi}|^2}+\frac12=\frac12H(\psi),\qquad
+  H(\psi)=\frac{1-E_2^2}{1-2E_2\cos\psi+E_2^2}.
+\]
+Hence $Z=[1+cH(\psi)]^{-1}$ with $c=\alpha^2/(2\rho)$ to leading order, and
+\begin{equation}
+  m_\perp(\psi)=\frac{-i\alpha}{(1-E_2\E^{i\psi})\,[1+cH(\psi)]}+O(\alpha^3+\alpha\rho),
+\end{equation}
+uniformly in $\psi$ because $1+cH\ge1$. Its Fourier coefficients are $\alpha f_k(c,E_2)$ plus a
+remainder bounded by the uniform remainder, which proves \eqref{eq:scaling} for every $k$.
+(Consistency with \cref{prop:scaling}: $u\to(c-1)/(c+1)$ and $v\to\alpha/(1+c)$.)
+
+\subsection{Fisher information of a Rician amplitude}\label{app:rician}
+
+Let $m=|A+n|$ with $n$ circular complex Gaussian of variance $\sigma^2$ per component. Then
+\[
+  p(m\mid A)=\frac{m}{\sigma^2}\exp\Bigl(-\frac{m^2+A^2}{2\sigma^2}\Bigr)I_0\Bigl(\frac{mA}{\sigma^2}\Bigr),\qquad
+  \frac{\partial\log p}{\partial A}=-\frac{A}{\sigma^2}+\frac{m}{\sigma^2}R\Bigl(\frac{mA}{\sigma^2}\Bigr),\quad R=\frac{I_1}{I_0},
+\]
+using $I_0'=I_1$. The score has zero mean, so $\mathbb E[mR(mA/\sigma^2)]=A$, and
+\[
+  \Fi_A=\mathbb E\Bigl[\Bigl(\frac{\partial\log p}{\partial A}\Bigr)^2\Bigr]
+  =\frac{\mathbb E[m^2R^2]}{\sigma^4}-\frac{2A\,\mathbb E[mR]}{\sigma^4}+\frac{A^2}{\sigma^4}
+  =\frac{\mathbb E[m^2R^2]-A^2}{\sigma^4}.
+\]
+With $x=m/\sigma$ and $a=A/\sigma$, $\Fi_A=g(a)/\sigma^2$ with $g$ as in \eqref{eq:rician}. As $a\to\infty$,
+$R\to1$ and $m$ is approximately Gaussian with mean $A$ and variance $\sigma^2$, so $g\to1$; as $a\to0$,
+$R(xa)\approx xa/2$ and $g=O(a^2)$. For several independent magnitudes depending on $\theta$ through
+$A_j(\theta)$, the chain rule gives $\Fi_{\rm mag}=\sum_j\Fi_{A_j}\nabla A_j\nabla A_j^{\mathsf T}$, and
+$\nabla|S|=\Re(\overline S\nabla S)/|S|$. We evaluate $g$ by trapezoidal quadrature over
+$x\in[\max(0,a-14),a+14]$ with exponentially scaled Bessel functions.
+
+\subsection{Implicit differentiation}\label{app:implicit}
+
+If $A(x)\mathbf M(x)=\mathbf b(x)$ with $A$ invertible and differentiable, differentiating gives
+$A'\mathbf M+A\mathbf M'=\mathbf b'$, hence \eqref{eq:implicit}. The derivatives of $A=I-R_x(\alpha)R_z(\psi)
+\mathrm{diag}(E_2,E_2,E_1)$ follow from the product rule; for $E_1$, $R_z(\psi)\,\mathrm{diag}(0,0,1)=
+\mathrm{diag}(0,0,1)$ because $R_z$ fixes $\hat{\mathbf z}$. The explicit inverse of a $3\times3$ matrix is
+$\mathrm{adj}(A)/\det A$ with $\det A$ expanded along the first row.
+
+\subsection{The pathway amplitudes are imaginary; the FID-sign identity}
+
+\begin{lemma}\label{lem:imag}
+For $\varphi=0$ and $\dw=0$, every $a_k$ (equivalently every $G_k(u,E_2,0)$) is purely imaginary.
+\end{lemma}
+\begin{proof}
+Let $m(\beta)$ be the unique solution of \eqref{eq:mperp_lin} and set $\tilde m(\beta)=-\overline{m(-\beta)}$.
+With $w=E_2\E^{-i\beta}m(-\beta)$ we have $E_2\E^{i\beta}\tilde m(\beta)=-\overline w$, so the right-hand side of
+\eqref{eq:mperp_lin} evaluated at $\tilde m$ is $-\Re w-iu\Im w-iv$. The left-hand side is
+$-\overline{m(-\beta)}=-\overline{\Re w-iu\Im w-iv}=-\Re w-iu\Im w-iv$. Hence $\tilde m$ solves the same
+equation and, by uniqueness, $m(\beta)=-\overline{m(-\beta)}$. With $\dw=0$, $\beta=\psi$ and
+\[
+  \overline{a_k}=\frac{1}{2\pi}\int_0^{2\pi}\overline{m(\psi)}\,\E^{ik\psi}d\psi
+  =-\frac{1}{2\pi}\int_0^{2\pi}m(-\psi)\,\E^{ik\psi}d\psi=-a_k .
+\]
+\end{proof}
+
+By \cref{thm:uv}, $a_0^{(i)}=v_iG_0(u_i)$ with $G_0=-i\,g_0(u)$, $g_0$ real. The echo factors of the
+$k=0$ pathway at echo $j$ are the same for both scans (same echo times, $\Ttwo$, $\Ttwos$, $\dw$,
+$\phi_0$; with $\dw\ne0$ both scans acquire the same phase $\E^{ik\dw\TR}$, which is $1$ for $k=0$).
+Hence
+\[
+  S_{1j0}\overline{S_{2j0}}=\Mzero^2\,v_1v_2\,g_0(u_1)g_0(u_2)\,|D_j|^2,
+\]
+which is real with sign $\sgn(v_1v_2)\,\sgn(g_0(u_1)g_0(u_2))$. Numerically $g_0>0$ (the phase of
+$a_0/v$ is exactly $-\pi/2$) for all 126 combinations of $\alpha\in[2^\circ,359^\circ]$,
+$\Tone\in\{300,1500,4000\}$\,ms and $\Ttwo\in\{30,70,1500\}$\,ms that we tested, so the sign is that of
+$v_1v_2$, i.e.\ of $\sin\alpha_1\sin\alpha_2$: this is the test \eqref{eq:fidsign}, and its agreement with
+$\sgn(\sin\alpha_1\sin\alpha_2)$ is a unit test over $\Bone\in[0.9,1.3]$. \Cref{lem:imag} also explains why the
+published method can work with real-valued states (their Eq.~18): all configuration amplitudes
+share the phase $\pm\pi/2$.

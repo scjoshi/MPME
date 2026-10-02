@@ -1,0 +1,93 @@
+\section{Discussion}\label{sec:discussion}
+
+\subsection{Forward model or inverse?}
+
+\begin{table}[!htbp]
+\centering
+\caption{Origin of each difficulty.}
+\label{tab:verdict}
+\small
+\begin{tabular}{p{0.38\linewidth}p{0.22\linewidth}p{0.32\linewidth}}
+\toprule
+Difficulty & Origin & Remedy\\
+\midrule
+One scan cannot separate $\Mzero,\Bone,\Tone$ (\cref{cor:onescan}) & forward model (exact) & two scans with a common $\Bone$\\
+Small flip angles: leading-order invariance \eqref{eq:sym}, severe ill-conditioning & forward model $+$ protocol & a pulse whose effective angle does not scale with $\Bone$ (near $360^\circ$, as published)\\
+Residual $\Tone$ bound ($40.5\,\sigma/\Mzero$): confounding with $\Ttwo$, $\Ttwos$, $\Mzero$, $\Bone$ & forward model $+$ protocol & SNR, averaging, spatial priors; protocol tuning ($\le20\%$ for flip angles)\\
+Exact magnitude alias $\alpha_2=360^\circ\mp x$ at physiological $\Bone$ & forward model: magnitudes lose $\sgn\sin\alpha$ & FID-sign test, or complex data with a shared phase\\
+Exact complex alias $\alpha_2>540^\circ$ & forward model: $2\pi$ periodicity & range bound $\Bone<1.64$\\
+Error 3--7$\times$ the bound; bias and undefined $\Tone$ at moderate SNR & analytic inverse (sequential, closed form) & joint ML or magnitude least squares with the FID sign\\
+$\Tone$ bound 57.1 instead of 28.0 with $\Bone$ known; $\Tone$ bias $-2\varepsilon$ per $\Bone$ error $\varepsilon$ & design: scan-1-only $\Tone$ step, low-resolution scan 2 & joint estimation; full-resolution scan 2 if affordable\\
+Estimates on $\Rtwop=0$ at low SNR & model domain $+$ small true $\Rtwop$ & report; Bayesian or constrained bounds\\
+One start insufficient & nonconvex likelihood & multiple starts (affordable with exact Jacobians)\\
+In-vivo calibration $\beta=1.24$ & model mismatch (not variance) & richer forward model (\cref{sec:future})\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The published protocol is sound from an information standpoint: the near-$360^\circ$ pulse lifts
+the leading-order invariance that makes $\Bone$/$\Tone$ separation hopeless with small angles, and the
+data contain the information that the bounds promise. The published inverse does not extract
+it efficiently; joint estimation does, for complex data and, with one bit of phase, for
+magnitudes. The phantom (\cref{sec:phantom}) confirms these conclusions spatially and
+quantifies the cost of the low-resolution second scan.
+
+No unbiased voxel-wise estimator can beat the bounds of \cref{sec:information}. Further gains
+require prior information: $\Bone$ is spatially smooth and can be treated as nearly known (removing
+its factor of about $1.45$), while the confounding with $\Mzero$ and the transverse relaxation times
+can only be reduced by priors on the parameter maps themselves. Such estimators are biased by
+design, and their bias must be measured rather than ignored.
+
+\subsection{Limitations}
+
+The forward model assumes instantaneous RF pulses, a Lorentzian intravoxel frequency
+distribution, no diffusion, no magnetisation transfer, no flow or motion, a single
+compartment per voxel, and perfect steady state; the time from the pulse to the first echo
+is assumed (4.5\,ms). The CRLB is local and assumes an exact model, Gaussian noise, an interior
+true parameter and locally unbiased estimators. The digital phantom is noise-only and
+model-consistent: it validates estimators and uncertainty maps but not the model itself.
+
+\subsection{Future work}\label{sec:future}
+
+\paragraph{Model mismatch.} The in-vivo calibration $\beta=1.24$ of~\cite{cheng2019}, unexplained by
+the authors and absent in phantoms, indicates that the forward model misses something in
+vivo. Candidates, each of which can be added to the simulator and assessed by fitting
+mismatched data with the current model: (i) finite hard pulses with off-resonance during the
+pulse (their Eq.~8 nutation function) and an inaccurate ratio of the actual flip angles; (ii)
+non-Lorentzian intravoxel frequency distributions (e.g.\ Gaussian or susceptibility-driven),
+which change $\exp(-\Rtwop|\tau|)$; (iii) diffusion attenuation of the higher-order pathways
+under the unbalanced gradient (already available in the EPG simulator); (iv) magnetisation
+transfer, which lowers the effective longitudinal magnetisation under the large pulse; (v)
+partial volume (two compartments per voxel); (vi) $B_0$ drift or motion between the sequential
+scans, which corrupts the relative phase used by the branch test and by complex ML. The
+measure of interest is the bias each effect induces in $\Tone$ and $\Bone$ relative to the noise
+spread, and whether a single global factor like $\beta$ can absorb it.
+
+\paragraph{Rician maximum likelihood.} Magnitude least squares ignores the Rician noise floor.
+At the published protocol the induced bias is small (\cref{sec:magnitude}), but it grows with
+lower SNR, smaller flip angles or protocols with weaker pathways. Two routes are natural.
+(i) Direct ML with the Rician likelihood
+$\log p(m\mid A)=\log m-\log\sigma^2-(m^2+A^2)/(2\sigma^2)+\log I_0(mA/\sigma^2)$, whose gradient and
+Gauss--Newton approximation follow from the exact Jacobian of $A=|s(\theta)|$. (ii) An EM algorithm
+that treats the lost phase as missing data: with $\kappa=m|s_t|/\sigma^2$, the E-step gives
+$\mathbb E[|z|\mid m]=m\,I_1(\kappa)/I_0(\kappa)$ and the M-step is magnitude least squares on these
+shrunk pseudo-data, which is the existing fit. Either should be combined with the FID-sign
+constraint, which the alias of \cref{prop:equiv} requires for any magnitude likelihood.
+The Rician Fisher information of \cref{sec:rician} provides the reference bound.
+
+\paragraph{Hierarchical (empirical-Bayes) estimation.} A hierarchical model with tissue classes
+(a Gaussian mixture in $(\log\Tone,\log\Ttwo,\log\Ttwos)$) and a smooth parametric $\Bone$ field, whose
+hyperparameters are estimated by EM with a Laplace E-step (MAP fit plus
+$(J^{\mathsf T}J+\Sigma_k^{-1})^{-1}$ per voxel and class), would use the subject's own data as the
+prior. It targets exactly the weak direction of \cref{fig:eigen} and makes the $\Bone$ field
+effectively known; its bias would be evaluated on the phantom, including the lesion.
+
+\paragraph{Learned estimators.} Networks trained on simulated signals~\cite{cheng2020} are
+biased estimators whose prior is the training distribution. The tools here---exact bounds,
+efficient ML as a reference, calibrated uncertainty, and the phantom---are what is needed to
+measure their bias and variance against the CRLB rather than only their average error.
+
+\paragraph{Acquisition.} Direct CRLB-based optimisation of $\TR$, flip angles, echo placement
+and scan-2 coverage, now cheap (\cref{sec:jacobian}); and the joint use of a low-resolution
+scan 2 inside a single likelihood (modelling its $k$-space truncation) instead of the two-stage
+pipeline.

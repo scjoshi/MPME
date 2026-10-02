@@ -152,7 +152,7 @@ def fig_images(D):
             img = Sn[..., i, j, 0].abs().numpy()
             vmax = np.percentile(img[m], 99.5)
             show_map(axes[i, j], img, np.ones_like(m), "gray", 0, vmax,
-                     f"scan {i + 1} ({pr.scans[i].flip_deg:g}°), k = {p:+d}, echo 1")
+                     f"scan {i + 1} ({pr.scans[i].flip_deg:g}°), k = {p:+d}, echo 1".replace("+0", "0"))
     img = S_low[..., 1, 1, 0].abs().numpy()
     show_map(axes[1, 3], img, np.ones_like(m), "gray", 0, np.percentile(img[m], 99.5),
              "scan 2, k = 0, low resolution")
