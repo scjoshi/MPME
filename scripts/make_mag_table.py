@@ -4,7 +4,10 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-res = json.loads((ROOT / "results" / "magnitude_comparison.json").read_text())
+import sys
+src = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "results" / "magnitude_comparison.json"
+res = json.loads(src.read_text())
+res.pop("settings", None)
 
 ORDER = [("paper", "Analytic inverse~\\cite{cheng2019}"),
          ("magnitude LS", "Magnitude LS"),

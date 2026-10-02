@@ -6,10 +6,18 @@ saved results for the analytic inverse and complex ML, so all estimators see the
 Bounds: complex CRLB and the exact Rician (magnitude-data) CRLB.
 
     python scripts/magnitude_comparison.py   → results/magnitude_comparison.json
+
+    python scripts/magnitude_comparison.py --jacobian implicit [--float32] [--n-iso 128] [--n-iter 15]
+    → results/magnitude_comparison_<suffix>.json
+
+The fit options apply to the magnitude fits. The analytic-inverse and complex-ML rows are
+read from results/estimator_efficiency<suffix>.json if it exists (same settings), otherwise
+from the reference results/estimator_efficiency.json.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -21,6 +29,8 @@ from mpme.mle import fid_phase_sign, magnitude_fit
 from mpme.paper import paper_reconstruction
 from mpme.sequence import paper_protocol
 from mpme.signal import add_noise, mpme_signal
+
+from fit_options import add_fit_arguments, fit_kwargs, suffix
 
 RES = Path(__file__).resolve().parents[1] / "results"
 TIS = dict(M0=1.0, B1=1.0, T1=1500.0, T2=70.0, T2star=60.0, dw=0.05, phi0=0.3)
@@ -38,8 +48,16 @@ def stats(est, key):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    add_fit_arguments(parser)
+    args = parser.parse_args()
+    kw, tag = fit_kwargs(args), suffix(args)
+    eff = RES / f"estimator_efficiency{tag}.json"
+    if not eff.exists():
+        eff = RES / "estimator_efficiency.json"
+    print(f"magnitude fit settings: {kw}; complex ML and analytic rows from {eff.name}")
     pr = paper_protocol()
-    saved = json.loads((RES / "estimator_efficiency.json").read_text())
+    saved = json.loads(eff.read_text())
     S = mpme_signal(pr, TIS["M0"], TIS["T1"], TIS["T2"], 1 / TIS["T2star"] - 1 / TIS["T2"],
                     TIS["dw"], TIS["B1"], TIS["phi0"]).expand(N, 2, 3, 3).clone()
     A = S[0].abs()
@@ -57,10 +75,11 @@ def main():
             starts.append({**fit, "T1": torch.full_like(fit["T1"], t1),
                            "T2star": torch.minimum(fit["T2star"], 0.85 * fit["T2"])})
         def best(fid_sign=None):
-            fits = [magnitude_fit(M, pr, s, fid_sign=fid_sign) for s in starts]
+            fits = [magnitude_fit(M, pr, s, fid_sign=fid_sign, **kw) for s in starts]
             cost = torch.stack([f["cost"] for f in fits])
             pick = cost.argmin(0)
-            return {k: torch.stack([f[k] for f in fits]).gather(0, pick[None])[0] for k in fits[0]}
+            best = {k: torch.stack([f[k] for f in fits]).gather(0, pick[None])[0] for k in fits[0]}
+            return {k: (v.double() if v.is_floating_point() else v) for k, v in best.items()}
 
         mag = best()
         magb = best(fid_phase_sign(Sn, pr))
@@ -95,8 +114,11 @@ def main():
                 for k in ("T1", "B1", "T2")))
         print("  magnitude LS diagnostics:", row["magnitude LS diagnostics"])
         print("  + FID sign diagnostics:  ", row["magnitude LS + FID sign diagnostics"])
-    (RES / "magnitude_comparison.json").write_text(json.dumps(out, indent=1))
-    print(f"\nwritten {RES / 'magnitude_comparison.json'}")
+    out["settings"] = {"magnitude LS": {k: str(v) for k, v in kw.items()},
+                       "complex ML and analytic from": eff.name}
+    path = RES / f"magnitude_comparison{tag}.json"
+    path.write_text(json.dumps(out, indent=1))
+    print(f"\nwritten {path}")
 
 
 if __name__ == "__main__":

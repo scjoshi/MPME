@@ -8,7 +8,10 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-res = json.loads((ROOT / "results" / "estimator_efficiency.json").read_text())
+import sys
+src = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "results" / "estimator_efficiency.json"
+res = json.loads(src.read_text())
+res.pop("settings", None)
 
 ORDER = ["joint ML", "model-fit", "paper", "paper, B1 known"]
 NAMES = {"joint ML": "Joint ML", "model-fit": "Model fit",

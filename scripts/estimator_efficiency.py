@@ -12,10 +12,16 @@ diagnostic only available in simulation).
 
     python scripts/estimator_efficiency.py
     → results/estimator_efficiency.json, results/estimator_efficiency_raw.pt
+
+    python scripts/estimator_efficiency.py --jacobian implicit [--float32] [--n-iso 128] [--n-iter 15]
+    → results/estimator_efficiency_<suffix>.json  (fast path; reference files untouched)
+
+The fit options apply to the joint ML fit; the analytic estimators are unaffected.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 from pathlib import Path
@@ -28,6 +34,8 @@ from mpme.mle import _model, joint_fit
 from mpme.paper import paper_reconstruction
 from mpme.sequence import Protocol, Scan, paper_protocol
 from mpme.signal import add_noise, mpme_signal
+
+from fit_options import add_fit_arguments, cost_tolerance, fit_kwargs, suffix
 
 RES = Path(__file__).resolve().parents[1] / "results"
 TIS = dict(M0=1.0, B1=1.0, T1=1500.0, T2=70.0, T2star=60.0, dw=0.05, phi0=0.3)
@@ -59,14 +67,19 @@ def stats(est, key, boundary=None):
             "boundary_frac": None if boundary is None else boundary.float().mean().item()}
 
 
-def ml_multistart(S, p, starts):
-    fits = [joint_fit(S, p, s) for s in starts]
+def ml_multistart(S, p, starts, **kw):
+    fits = [joint_fit(S, p, s, **kw) for s in starts]
     cost = torch.stack([f["cost"] for f in fits])
     pick = cost.argmin(0)
     return {k: torch.stack([f[k] for f in fits]).gather(0, pick[None])[0] for k in fits[0]}
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    add_fit_arguments(parser)
+    args = parser.parse_args()
+    kw, tag, tol = fit_kwargs(args), suffix(args), cost_tolerance(args)
+    print(f"joint ML settings: {kw}")
     pr = paper_protocol()
     s1, s2 = pr.scans
     pr30 = Protocol(pr.pathways, (s1, Scan(30.0, s2.TR, s2.echo_times)))
@@ -107,13 +120,14 @@ def main():
             for t1 in (700.0, 2000.0):
                 starts.append({**fit, "T1": torch.full_like(fit["T1"], t1),
                                "T2star": torch.minimum(fit["T2star"], 0.85 * fit["T2"])})
-            ml = ml_multistart(Sn, p, starts)
+            ml = ml_multistart(Sn, p, starts, **kw)
+            ml = {k: (v.double() if v.is_floating_point() else v) for k, v in ml.items()}
             bnd = ml["at_box"] | ml["at_r2p_bound"]
             row["joint ML"] = {k: stats(ml, k, bnd) for k in KEYS}
             row["joint ML diagnostics"] = {
                 "r2p_bound_frac": ml["at_r2p_bound"].float().mean().item(),
                 "box_frac": ml["at_box"].float().mean().item(),
-                "cost_above_truth": int((ml["cost"] > cost_true + 1e-12).sum())}
+                "cost_above_truth": int((ml["cost"] > cost_true * (1 + tol) + 1e-30).sum())}
             raw[case].update({"model-fit": fit, "joint ML": ml, "cost_true": cost_true})
             results[case] = row
 
@@ -131,9 +145,11 @@ def main():
             print("  ML diagnostics:", row["joint ML diagnostics"])
 
     RES.mkdir(exist_ok=True)
-    (RES / "estimator_efficiency.json").write_text(json.dumps(results, indent=1))
-    torch.save(raw, RES / "estimator_efficiency_raw.pt")
-    print(f"\nwritten {RES / 'estimator_efficiency.json'}")
+    results["settings"] = {"joint ML": {k: str(v) for k, v in kw.items()}}
+    out = RES / f"estimator_efficiency{tag}.json"
+    out.write_text(json.dumps(results, indent=1))
+    torch.save(raw, RES / f"estimator_efficiency{tag}_raw.pt")
+    print(f"\nwritten {out}")
 
 
 if __name__ == "__main__":
