@@ -1,4 +1,5 @@
-"""Benchmark the magnitude fit: forward-difference vs implicit Jacobian, float64 vs float32.
+"""Benchmark the magnitude and complex fits: forward-difference vs implicit Jacobian,
+float64 vs float32.
 
 Same synthetic voxels as the earlier timing (seed 0, SNR(M0) = 1000, paper protocol, FID
 sign on). Reports wall time, ms/voxel, the extrapolated time for a 256×256 slice, and the
@@ -13,7 +14,7 @@ import time
 import torch
 
 from mpme.analytic import analytic_reconstruction
-from mpme.mle import fid_phase_sign, magnitude_fit
+from mpme.mle import fid_phase_sign, joint_fit, magnitude_fit
 from mpme.sequence import paper_protocol
 from mpme.signal import add_noise, mpme_signal
 
@@ -37,20 +38,31 @@ variants = [
     ("implicit,     f32, 256 iso", dict(jacobian="implicit", n_iso=256, dtype=torch.float32)),
     ("implicit,     f32, 128 iso", dict(jacobian="implicit", n_iso=128, dtype=torch.float32)),
 ]
-ref = None
-for name, kw in variants:
-    t = time.time()
-    fit = magnitude_fit(M, pr, init, fid_sign=sign, n_iter=15, **kw)
-    dt = time.time() - t
-    T1h, B1h = fit["T1"].double(), fit["B1"].double()
-    if ref is None:
-        ref = (T1h, B1h, dt)
-        agree = "(reference)"
-    else:
-        dT = (T1h / ref[0]).log().abs()
-        dB = (B1h / ref[1]).log().abs()
-        agree = (f"|Δlog T1| median {dT.median():.1e} max {dT.max():.1e}; "
-                 f"|Δlog B1| max {dB.max():.1e}")
-    err = (T1h / T1).log()
-    print(f"{name}: {dt:6.1f} s  {dt / N * 1e3:5.2f} ms/voxel  256x256: {dt / N * 65536 / 60:5.1f} min"
-          f"  speed-up {ref[2] / dt:4.1f}x  | log T1 error sd {err.std():.4f} | {agree}")
+
+
+def run(label, fitter):
+    print(f"\n{label}")
+    ref = None
+    for name, kw in variants:
+        t = time.time()
+        fit = fitter(kw)
+        dt = time.time() - t
+        T1h, B1h = fit["T1"].double(), fit["B1"].double()
+        if ref is None:
+            ref = (T1h, B1h, dt)
+            agree = "(reference)"
+        else:
+            dT = (T1h / ref[0]).log().abs()
+            dB = (B1h / ref[1]).log().abs()
+            agree = (f"|Δlog T1| median {dT.median():.1e} max {dT.max():.1e}; "
+                     f"|Δlog B1| max {dB.max():.1e}")
+        err = (T1h / T1).log()
+        print(f"{name}: {dt:6.1f} s  {dt / N * 1e3:5.2f} ms/voxel  "
+              f"256x256: {dt / N * 65536 / 60:5.1f} min  speed-up {ref[2] / dt:4.1f}x  "
+              f"| log T1 error sd {err.std():.4f} | {agree}")
+
+
+run("Magnitude least squares (FID sign)",
+    lambda kw: magnitude_fit(M, pr, init, fid_sign=sign, n_iter=15, **kw))
+run("Complex maximum likelihood (joint_fit)",
+    lambda kw: joint_fit(Sn, pr, init, n_iter=15, **kw))

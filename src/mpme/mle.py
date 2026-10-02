@@ -139,23 +139,38 @@ def joint_fit(
     n_iter: int = 40,
     n_iso: int = 256,
     h: float = 1e-6,
+    jacobian: str = "fd",
+    dtype: torch.dtype | None = None,
 ) -> dict[str, Tensor]:
     """ML estimates for complex voxel signals S [N, n_scans, P, J].
 
     ``init`` needs M0, B1, T1, T2, T2star, dw; phi0 is initialised from the data.
+    ``jacobian``: "fd" (forward differences, step ``h``; needs float64) or "implicit" (exact
+    derivatives, ``fastjac.py``; one model+Jacobian evaluation per iteration, works in
+    float32). ``dtype`` overrides the working precision.
 
     Returns estimates plus ``cost`` (final ‖r‖²) and boolean flags ``at_box`` (a safeguard
     bound is active) and ``at_r2p_bound`` (R2′ = 0).
     """
+    if dtype is not None:
+        S = S.to(torch.complex64 if dtype == torch.float32 else torch.complex128)
+        init = {k: v.to(dtype) for k, v in init.items()}
     N = S.shape[0]
     y = torch.view_as_real(S).flatten(1)
     th = torch.cat([_init_magnitudes(init), init["dw"][:, None],
                     torch.zeros(N, 1, dtype=y.dtype)], 1)
     th = _project(th)
     # Global phase: least-squares optimal for the initial magnitudes and Δω.
-    S0 = torch.view_as_complex(_model(th, protocol, n_iso).reshape(*S.shape, 2))
+    S0 = torch.view_as_complex(_model(th, protocol, n_iso).reshape(*S.shape, 2).contiguous())
     th[:, 6] = torch.angle((S * S0.conj()).flatten(1).sum(1))
-    th, cost = _levenberg_marquardt(th, lambda t: _model(t, protocol, n_iso), y, n_iter, h)
+    if jacobian == "implicit":
+        from .fastjac import complex_model_and_jacobian
+        th, cost = _levenberg_marquardt_exact(
+            th, lambda t: complex_model_and_jacobian(t, protocol, n_iso), y, n_iter)
+    elif jacobian == "fd":
+        th, cost = _levenberg_marquardt(th, lambda t: _model(t, protocol, n_iso), y, n_iter, h)
+    else:
+        raise ValueError("jacobian must be 'fd' or 'implicit'")
     return _output(th, cost)
 
 

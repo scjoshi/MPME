@@ -177,3 +177,31 @@ def test_implicit_magnitude_fit_recovers_parameters(dtype, tol):
     assert fit["T1"].dtype == dtype
     torch.testing.assert_close(fit["T1"].double(), torch.full((4,), 1500.0, dtype=torch.float64),
                                rtol=tol, atol=0)
+
+
+def test_implicit_complex_jacobian_matches_autograd():
+    from mpme.fastjac import complex_model_and_jacobian
+    from mpme.mle import _model
+    th = torch.tensor([[0.1, -0.05, math.log(1200.0), math.log(80.0), math.log(60.0), 0.07, 0.4],
+                       [-0.2, 0.08, math.log(700.0), math.log(50.0), math.log(45.0), -0.2, 2.1]],
+                      dtype=torch.float64)
+    r, J = complex_model_and_jacobian(th, PR, n_iso=256)
+    Ja = torch.autograd.functional.jacobian(
+        lambda t: _model(t, PR, 256).sum(0), th, vectorize=True).permute(1, 0, 2)
+    torch.testing.assert_close(r, _model(th, PR, 256), rtol=1e-12, atol=1e-15)
+    torch.testing.assert_close(J, Ja, rtol=1e-10, atol=1e-13)
+
+
+@pytest.mark.parametrize("dtype,tol", [(torch.float64, 1e-6), (torch.float32, 1e-3)])
+def test_implicit_joint_fit_recovers_parameters(dtype, tol):
+    from mpme.analytic import analytic_reconstruction
+    from mpme.mle import joint_fit
+    S = mpme_signal(PR, 1.0, 1500.0, 70.0, 1 / 60 - 1 / 70, 0.05, 1.0, 0.3).expand(4, 2, 3, 3)
+    init = {k: v * (1.05 if k in ("T1", "M0", "B1") else 1.0)
+            for k, v in analytic_reconstruction(S, PR).items()}
+    fit = joint_fit(S, PR, init, n_iso=256, n_iter=30, jacobian="implicit", dtype=dtype)
+    assert fit["T1"].dtype == dtype
+    torch.testing.assert_close(fit["T1"].double(), torch.full((4,), 1500.0, dtype=torch.float64),
+                               rtol=tol, atol=0)
+    torch.testing.assert_close(fit["dw"].double(), torch.full((4,), 0.05, dtype=torch.float64),
+                               rtol=tol, atol=tol * 0.05)

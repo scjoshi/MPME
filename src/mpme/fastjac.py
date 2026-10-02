@@ -131,3 +131,47 @@ def magnitude_model_and_jacobian(theta: Tensor, protocol: Protocol, n_iso: int =
         ms.append(m.flatten(1))
         Js.append(J.flatten(1, 2))
     return torch.cat(ms, 1), torch.cat(Js, 1)
+
+
+def complex_model_and_jacobian(theta: Tensor, protocol: Protocol, n_iso: int = 128):
+    """Complex model and exact Jacobian, real/imaginary interleaved like ``mle._model``.
+
+    θ = (log M0, log B1, log T1, log T2, log T2*, Δω, φ0). Returns
+    r [N, 2·n_scans·P·J] and ∂r/∂θ [N, 2·n_scans·P·J, 7], where the signal is
+    S = M0 a_k(α, E1, E2) exp(−t/T2 − R2′|τ|) exp(i(φ0 + Δω τ)), τ = t + k·TR.
+    """
+    dt = theta.dtype
+    M0, B1, T1, T2, T2s = (theta[:, i].exp() for i in range(5))
+    dw, phi0 = theta[:, 5], theta[:, 6]
+    p = torch.tensor(protocol.pathways, dtype=dt)[:, None]                  # [P, 1]
+    vals, jacs = [], []
+    for i, scan in enumerate(protocol.scans):
+        TR = scan.TR
+        alpha = B1 * scan.alpha
+        E1, E2 = torch.exp(-TR / T1), torch.exp(-TR / T2)
+        F, dF = steady_state_with_derivatives(alpha, E1, E2, protocol.pathways, n_iso)
+        t = protocol.echo_times(i, dt)                                       # [P, J]
+        tau_s = t + p * TR                                                   # signed
+        tau = tau_s.abs()
+        R2p = 1 / T2s - 1 / T2
+        D = torch.exp(-t / T2[:, None, None] - R2p[:, None, None] * tau)    # [N, P, J]
+        ph = torch.exp(1j * (phi0[:, None, None] + dw[:, None, None] * tau_s))
+        base = M0[:, None, None] * D * ph                                    # ∂S/∂a_k
+        S = base * F[..., None]
+        J = torch.stack([
+            S,                                                               # log M0
+            base * (dF[..., 0] * alpha[:, None])[..., None],                 # log B1
+            base * (dF[..., 1] * (E1 * TR / T1)[:, None])[..., None],        # log T1
+            base * (dF[..., 2] * (E2 * TR / T2)[:, None])[..., None]
+            + S * (t - tau) / T2[:, None, None],                             # log T2
+            S * tau / T2s[:, None, None],                                    # log T2*
+            1j * tau_s * S,                                                  # Δω
+            1j * S,                                                          # φ0
+        ], -1)                                                               # [N, P, J, 7]
+        vals.append(S)
+        jacs.append(J)
+    S = torch.stack(vals, 1)                                                 # [N, I, P, J]
+    J = torch.stack(jacs, 1)                                                 # [N, I, P, J, 7]
+    r = torch.view_as_real(S).flatten(1)
+    Jr = torch.view_as_real(J).movedim(-1, -2).flatten(1, 4)                 # [N, I·P·J·2, 7]
+    return r, Jr
