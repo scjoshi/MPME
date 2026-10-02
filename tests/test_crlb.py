@@ -129,3 +129,23 @@ def test_magnitude_fit_recovers_noise_free_parameters():
             for k, v in analytic_reconstruction(S, PR).items()}
     fit = magnitude_fit(S.abs(), PR, init, n_iso=512, n_iter=30)
     torch.testing.assert_close(fit["T1"], torch.full((4,), 1500.0, dtype=torch.float64), rtol=1e-6, atol=0)
+
+
+def test_fid_phase_sign_matches_branch():
+    from mpme.mle import fid_phase_sign
+    B1 = torch.tensor([0.9, 1.0, 1.05, 1.15, 1.3], dtype=torch.float64)
+    S = mpme_signal(PR, 1.0, 1500.0, 70.0, 1 / 60 - 1 / 70, 0.05, B1, 0.3)
+    expected = torch.sign(torch.sin(B1 * PR.scans[0].alpha) * torch.sin(B1 * PR.scans[1].alpha))
+    torch.testing.assert_close(fid_phase_sign(S, PR), expected)
+
+
+def test_branch_constraint_recovers_from_wrong_branch_start():
+    from mpme.mle import fid_phase_sign, magnitude_fit
+    S = mpme_signal(PR, 1.0, 1500.0, 70.0, 1 / 60 - 1 / 70, 0.05, 1.0, 0.3).expand(4, 2, 3, 3)
+    ones = torch.ones(4, dtype=torch.float64)
+    # start on the mirror branch: α2 = 330°·1.18 ≈ 390° instead of 330°
+    init = dict(M0=ones, B1=1.18 * ones, T1=1100.0 * ones, T2=70.0 * ones, T2star=60.0 * ones)
+    fit = magnitude_fit(S.abs(), PR, init, fid_sign=fid_phase_sign(S, PR), n_iso=512, n_iter=40)
+    torch.testing.assert_close(fit["B1"], ones, rtol=1e-6, atol=0)
+    torch.testing.assert_close(fit["T1"], 1500.0 * ones, rtol=1e-6, atol=0)
+    assert not fit["at_branch_bound"].any()

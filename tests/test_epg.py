@@ -113,3 +113,21 @@ def test_small_angle_leading_order_for_all_pathways():
     # O(α²) relative remainder: error drops ~4× per halving of α
     assert errs[0] / errs[1] == pytest.approx(4.0, rel=0.15)
     assert errs[1] / errs[2] == pytest.approx(4.0, rel=0.15)
+
+
+@pytest.mark.parametrize("deg,factor", [(15.0, 1.3), (30.0, 2.0), (60.0, 0.5), (330.0, 1.1)])
+def test_two_invariant_reduction(deg, factor):
+    """Theorem 1: a_k depends on (α, T1) only through v·G_k(u) — exact for every pathway."""
+    T1, T2, TR, dw = 1500.0, 70.0, 25.0, 0.03
+    a1 = math.radians(deg)
+    a2 = a1 * factor
+    E1 = math.exp(-TR / T1)
+    u = (E1 - math.cos(a1)) / (1 - E1 * math.cos(a1))
+    E1b = (u + math.cos(a2)) / (1 + u * math.cos(a2))          # same u at the new angle
+    assert 0 < E1b < 1
+    T1b = -TR / math.log(E1b)
+    v = lambda a, e: math.sin(a) * (1 - e) / (1 - e * math.cos(a))
+    paths = (2, 1, 0, -1, -2, -3)
+    A = steady_state_isochromat(a1, T1, T2, TR, paths, dw=dw, n_iso=2048)
+    B = steady_state_isochromat(a2, T1b, T2, TR, paths, dw=dw, n_iso=2048)
+    torch.testing.assert_close(B, A * v(a2, E1b) / v(a1, E1), rtol=1e-9, atol=1e-14)

@@ -63,10 +63,11 @@ def _model(theta: Tensor, protocol: Protocol, n_iso: int) -> Tensor:
 
 
 def _levenberg_marquardt(th: Tensor, model: Callable[[Tensor], Tensor], y: Tensor,
-                         n_iter: int, h: float):
+                         n_iter: int, h: float,
+                         project: Callable[[Tensor], Tensor] = _project):
     """Projected LM with Marquardt scaling and forward-difference Jacobian, batched."""
     N, n = th.shape
-    th = _project(th)
+    th = project(th)
     lam = torch.full((N,), 1e-2, dtype=y.dtype)
     r = model(th) - y
     cost = (r**2).sum(1)
@@ -76,7 +77,7 @@ def _levenberg_marquardt(th: Tensor, model: Callable[[Tensor], Tensor], y: Tenso
         JtJ = J.transpose(1, 2) @ J
         g = (J.transpose(1, 2) @ r[..., None])[..., 0]
         A = JtJ + lam[:, None, None] * torch.diag_embed(JtJ.diagonal(dim1=1, dim2=2) + 1e-12)
-        th_new = _project(th - torch.linalg.solve(A, g))
+        th_new = project(th - torch.linalg.solve(A, g))
         r_new = model(th_new) - y
         cost_new = (r_new**2).sum(1)
         ok = torch.isfinite(cost_new) & (cost_new < cost)
@@ -127,21 +128,91 @@ def joint_fit(
     return _output(th, cost)
 
 
+def fid_phase_sign(S: Tensor, protocol: Protocol) -> Tensor:
+    """Sign of Re Σ_echoes F0_scan1 · conj(F0_scan2), per voxel (±1).
+
+    F_0 is proportional to sin α (up to a common phase), so this equals
+    sign(sin α1 · sin α2) for the actual flip angles: negative for the paper protocol when
+    α2 = 330°·B1 < 360°, positive when it exceeds 360° (paper, text after Eq. 15). Needs the
+    relative phase of the FID images of the two scans; only its sign is used.
+    """
+    i0 = protocol.index(0)
+    s = torch.sign((S[:, 0, i0, :] * S[:, 1, i0, :].conj()).sum(-1).real)
+    return torch.where(s == 0, torch.ones_like(s), s)
+
+
+def _branch_zeros(protocol: Protocol, B1_max: float) -> Tensor:
+    """B1 values (ascending) where sin(B1·α_i) = 0 for some scan, up to B1_max."""
+    z = [n * math.pi / sc.alpha for sc in protocol.scans[:2]
+         for n in range(1, int(B1_max * sc.alpha / math.pi) + 2)]
+    return torch.tensor(sorted(set(z)), dtype=torch.float64)
+
+
+def _branch_interval(B1: Tensor, zeros: Tensor) -> tuple[Tensor, Tensor]:
+    """The interval (lo, hi) between consecutive zeros that contains each B1."""
+    edges = torch.cat([torch.zeros(1, dtype=zeros.dtype), zeros,
+                       torch.full((1,), math.inf, dtype=zeros.dtype)])
+    i = torch.searchsorted(edges, B1.contiguous(), right=True)
+    return edges[i - 1], edges[i]
+
+
+def _branch_sign(B1: Tensor, protocol: Protocol) -> Tensor:
+    a1, a2 = (sc.alpha for sc in protocol.scans[:2])
+    return torch.sign(torch.sin(B1 * a1) * torch.sin(B1 * a2))
+
+
+def _branch_feasible_start(B1: Tensor, sign: Tensor, protocol: Protocol,
+                           zeros: Tensor) -> Tensor:
+    """Reflect infeasible B1 across the nearest zero (|F| is nearly symmetric there)."""
+    lo, hi = _branch_interval(B1, zeros)
+    nearest = torch.where((B1 - lo) < (hi - B1), lo, hi)
+    bad = _branch_sign(B1, protocol) != sign
+    B1 = torch.where(bad, (2 * nearest - B1).clamp_min(1e-3), B1)
+    still = _branch_sign(B1, protocol) != sign                    # e.g. reflected past 0
+    lo, hi = _branch_interval(nearest * (1 + 1e-6), zeros)
+    return torch.where(still, 0.5 * (lo + torch.where(torch.isfinite(hi), hi, 2 * lo)), B1)
+
+
 def magnitude_fit(
     M: Tensor,
     protocol: Protocol,
     init: dict[str, Tensor],
     *,
+    fid_sign: Tensor | None = None,
     n_iter: int = 40,
     n_iso: int = 256,
     h: float = 1e-6,
 ) -> dict[str, Tensor]:
     """Gaussian least squares on magnitudes M [N, n_scans, P, J] (real, ≥ 0).
 
-    ``init`` needs M0, B1, T1, T2, T2star. Returns the same fields as ``joint_fit``
-    except dw and phi0.
+    ``init`` needs M0, B1, T1, T2, T2star. ``fid_sign`` (±1 per voxel, from
+    ``fid_phase_sign`` on the complex images) restricts B1 to the flip-angle branch on which
+    sign(sin B1α1 · sin B1α2) matches it: magnitudes alone cannot distinguish
+    α2 = 360° − x from 360° + x. The branch is enforced by projecting B1 into the interval
+    between the zeros of sin(B1α_i) that contains the (feasible) starting value.
+
+    Returns the same fields as ``joint_fit`` except dw and phi0, plus ``at_branch_bound``
+    when a branch constraint was given.
     """
     y = M.flatten(1)
     model = lambda t: _signal(t, protocol, n_iso).abs().flatten(1)
-    th, cost = _levenberg_marquardt(_init_magnitudes(init), model, y, n_iter, h)
-    return _output(th, cost)
+    th = _project(_init_magnitudes(init))
+    project = _project
+    if fid_sign is not None:
+        zeros = _branch_zeros(protocol, math.exp(_BOX[1][1]))
+        th[:, 1] = _branch_feasible_start(th[:, 1].exp(), fid_sign, protocol, zeros).log()
+        lo, hi = _branch_interval(th[:, 1].exp(), zeros)
+        log_lo = (lo * (1 + 1e-6)).clamp_min(1e-12).log()
+        log_hi = torch.where(torch.isfinite(hi), (hi * (1 - 1e-6)).log(),
+                             torch.full_like(hi, math.inf))
+
+        def project(t: Tensor) -> Tensor:
+            t = _project(t)
+            t[:, 1] = torch.minimum(torch.maximum(t[:, 1], log_lo), log_hi)
+            return t
+
+    th, cost = _levenberg_marquardt(th, model, y, n_iter, h, project)
+    out = _output(th, cost)
+    if fid_sign is not None:
+        out["at_branch_bound"] = (th[:, 1] <= log_lo + 1e-9) | (th[:, 1] >= log_hi - 1e-9)
+    return out

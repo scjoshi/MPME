@@ -1,4 +1,5 @@
-"""Paper's analytic inverse vs Gaussian least squares on magnitude images.
+"""Paper's analytic inverse vs Gaussian least squares on magnitude images (with and without
+the FID-sign branch constraint).
 
 Uses exactly the noise realisations of scripts/estimator_efficiency.py (same seeds) and its
 saved results for the analytic inverse and complex ML, so all estimators see the same data.
@@ -16,7 +17,7 @@ import torch
 
 from mpme.analytic import analytic_reconstruction
 from mpme.crlb import MAG_PARAMS, crlb, fisher_information, fisher_information_magnitude
-from mpme.mle import magnitude_fit
+from mpme.mle import fid_phase_sign, magnitude_fit
 from mpme.paper import paper_reconstruction
 from mpme.sequence import paper_protocol
 from mpme.signal import add_noise, mpme_signal
@@ -55,10 +56,14 @@ def main():
         for t1 in (700.0, 2000.0):
             starts.append({**fit, "T1": torch.full_like(fit["T1"], t1),
                            "T2star": torch.minimum(fit["T2star"], 0.85 * fit["T2"])})
-        fits = [magnitude_fit(M, pr, s) for s in starts]
-        cost = torch.stack([f["cost"] for f in fits])
-        pick = cost.argmin(0)
-        mag = {k: torch.stack([f[k] for f in fits]).gather(0, pick[None])[0] for k in fits[0]}
+        def best(fid_sign=None):
+            fits = [magnitude_fit(M, pr, s, fid_sign=fid_sign) for s in starts]
+            cost = torch.stack([f["cost"] for f in fits])
+            pick = cost.argmin(0)
+            return {k: torch.stack([f[k] for f in fits]).gather(0, pick[None])[0] for k in fits[0]}
+
+        mag = best()
+        magb = best(fid_phase_sign(Sn, pr))
 
         bc = crlb(fisher_information(pr, TIS))
         br = crlb(fisher_information_magnitude(pr, TIS, snr), MAG_PARAMS)
@@ -70,19 +75,26 @@ def main():
             "magnitude LS": {k: stats(mag, k) for k in KEYS},
             "magnitude LS diagnostics": {
                 "r2p_bound_frac": mag["at_r2p_bound"].float().mean().item(),
-                "box_frac": mag["at_box"].float().mean().item()},
+                "box_frac": mag["at_box"].float().mean().item(),
+                "wrong_branch": int(((mag["B1"] * 330 - 360) * (TIS["B1"] * 330 - 360) < 0).sum())},
+            "magnitude LS + FID sign": {k: stats(magb, k) for k in KEYS},
+            "magnitude LS + FID sign diagnostics": {
+                "r2p_bound_frac": magb["at_r2p_bound"].float().mean().item(),
+                "branch_bound_frac": magb["at_branch_bound"].float().mean().item(),
+                "wrong_branch": int(((magb["B1"] * 330 - 360) * (TIS["B1"] * 330 - 360) < 0).sum())},
             "rician floor max rel": floor.max().item(),
         }
         out[f"SNR {snr}"] = row
         print(f"\nSNR(M0) = {snr}   max Rician floor (E|y|-A)/A = {floor.max():.3f}")
         print(f"  CRLB complex / Rician: " + "  ".join(
             f"{k} {row['CRLB complex'][k]:.4f}/{row['CRLB magnitude (Rician)'][k]:.4f}" for k in KEYS))
-        for est in ("paper", "magnitude LS", "joint ML (complex)"):
+        for est in ("paper", "magnitude LS", "magnitude LS + FID sign", "joint ML (complex)"):
             d = row[est]
             print(f"  {est:20s}" + "  ".join(
                 f"{k}: sd {d[k]['sd']:.4f} mean {d[k]['mean']:+.4f} rmse {d[k]['rmse']:.4f}"
                 for k in ("T1", "B1", "T2")))
         print("  magnitude LS diagnostics:", row["magnitude LS diagnostics"])
+        print("  + FID sign diagnostics:  ", row["magnitude LS + FID sign diagnostics"])
     (RES / "magnitude_comparison.json").write_text(json.dumps(out, indent=1))
     print(f"\nwritten {RES / 'magnitude_comparison.json'}")
 

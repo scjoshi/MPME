@@ -10,6 +10,7 @@
 
 \graphicspath{{../figures/}}
 
+\newtheorem{theorem}{Theorem}
 \newtheorem{proposition}{Proposition}
 \newtheorem{corollary}{Corollary}
 \theoremstyle{remark}
@@ -26,6 +27,7 @@
 \newcommand{\E}{\mathrm{e}}
 \newcommand{\Fi}{\mathcal{I}}
 \renewcommand{\Re}{\operatorname{Re}}
+\input{mag_counts.tex}
 
 \title{Simultaneous $\Bone$ and $\Tone$ estimation in multi-pathway multi-echo (MPME)
 imaging:\\ forward model and fundamental limits}
@@ -53,7 +55,11 @@ Monte Carlo its $\Tone$ standard deviation is $3.2$--$7.1$ times the bound, with
 and undefined estimates at moderate SNR. A joint maximum-likelihood fit of the same model,
 with the physical constraint $\Rtwop\ge0$ enforced, attains the bound (ratio $0.99$--$1.02$) at
 the SNRs where its assumptions hold, and comes close at lower SNR where the constraint is
-often active.
+often active. For magnitude data we show that the published protocol has an exact alias
+inside the physiological $\Bone$ range, because magnitudes lose the sign of $\sin\alpha$; the
+relative phase of the two FID images supplies the missing bit, and with it a magnitude
+least-squares fit performs like complex maximum likelihood, whereas the analytic inverse,
+using the same data, remains well above the bound.
 \end{abstract}
 
 \section*{How to read this note}
@@ -61,12 +67,15 @@ often active.
 Section~\ref{sec:model} builds the forward model from the configuration-state
 (extended phase graph) description up to the measured voxel signal.
 Section~\ref{sec:crlb} sets up the estimation-theoretic tools.
-Section~\ref{sec:symmetry} proves the scaling invariance that underlies the $\Bone$/$\Tone$
-problem and explains how the published protocol escapes it. Section~\ref{sec:results}
-gives the bounds and the conditioning of the information matrix. Section~\ref{sec:inverse}
-answers the question \emph{is the limitation in the forward model or in the inverse?} by
-comparing the analytic reconstruction and a maximum-likelihood fit against the bound.
-Table~\ref{tab:verdict} summarises the answer.
+Section~\ref{sec:symmetry} proves that each scan depends on the flip angle and $\Tone$ only
+through two invariants (Theorem~\ref{thm:uv}), derives the small-angle scaling invariance
+that underlies the $\Bone$/$\Tone$ problem, explains how the published protocol escapes it,
+and identifies the exact global aliases. Section~\ref{sec:results} gives the bounds and the
+conditioning of the information matrix. Section~\ref{sec:inverse} answers the question
+\emph{is the limitation in the forward model or in the inverse?} by comparing the analytic
+reconstruction and a maximum-likelihood fit against the bound. Section~\ref{sec:magnitude}
+treats magnitude data and explains why a magnitude fit needs the FID-sign branch test while
+complex maximum likelihood does not. Table~\ref{tab:verdict} summarises the answer.
 
 All numbers are reproducible with the code in the accompanying repository
 (Appendix~\ref{app:repro}).
@@ -366,6 +375,71 @@ footing for those voxels.
 \section{The fundamental limitation: a scaling invariance}\label{sec:symmetry}
 %=====================================================================================
 
+\subsection{Two invariants per scan}
+
+The steady state of one scan depends on the flip angle and $\Tone$ only through two
+combinations. This exact result underlies everything in this section and in
+Section~\ref{sec:magnitude}.
+
+\begin{theorem}[Exact two-invariant reduction]\label{thm:uv}
+Let $\varphi=0$ and define, for one scan with flip angle $\alpha$,
+\begin{equation}
+  u=\frac{E_1-\cos\alpha}{1-E_1\cos\alpha},\qquad
+  v=\frac{\sin\alpha\,(1-E_1)}{1-E_1\cos\alpha}.
+  \label{eq:uv}
+\end{equation}
+Then for every pathway $k$ and every off-resonance $\dw$,
+\begin{equation}
+  a_k(\alpha,\Tone,\Ttwo,\dw)=v\;G_k(u,E_2,\dw)
+  \label{eq:uvform}
+\end{equation}
+for functions $G_k$ that do not depend on $\alpha$ or $\Tone$ otherwise. The magnitude of $v$ is
+itself a function of $u$ and $\Tone$:
+\begin{equation}
+  |v|=\sqrt{1-u^2}\;\tanh\!\Bigl(\frac{\TR}{2\Tone}\Bigr).
+  \label{eq:absv}
+\end{equation}
+\end{theorem}
+\begin{proof}
+Write the pre-pulse state of one isochromat as $(x,y,z)$ and $w=x+iy$. The pulse
+$R_x(\alpha)$ maps it to $(x,\ cy-sz,\ sy+cz)$ with $c=\cos\alpha$, $s=\sin\alpha$; relaxation
+and precession by $\beta=\psi+\dw\TR$ then give the next pre-pulse state. The steady-state
+equations are
+\begin{equation}
+  w=E_2\E^{i\beta}\bigl(x+i(cy-sz)\bigr),\qquad z=E_1(sy+cz)+1-E_1 .
+\end{equation}
+The second gives $z=(E_1sy+1-E_1)/(1-E_1c)$. Substituting,
+\[
+  cy-sz=y\,\frac{c-E_1c^2-E_1s^2}{1-E_1c}-\frac{s(1-E_1)}{1-E_1c}=-u\,y-v .
+\]
+The post-pulse transverse magnetisation is therefore $m_\perp=x-iuy-iv$ with $w=E_2\E^{i\beta}m_\perp$,
+i.e.\
+\[
+  m_\perp=\mathrm{Re}\bigl(E_2\E^{i\beta}m_\perp\bigr)-iu\,\mathrm{Im}\bigl(E_2\E^{i\beta}m_\perp\bigr)-iv .
+\]
+This is a real-linear equation for $m_\perp$ whose coefficients involve only $u$, $E_2$ and
+$\beta$, with inhomogeneous term $-iv$. Hence $m_\perp=v\,g(u,E_2,\beta)$, and its Fourier
+coefficients over $\psi$ have the form \eqref{eq:uvform}. For \eqref{eq:absv}, use
+$1\mp u=(1\mp E_1)(1\pm c)/(1-E_1c)$, so $1-u^2=(1-E_1^2)s^2/(1-E_1c)^2$ and
+$v^2=(1-u^2)(1-E_1)/(1+E_1)$, with $(1-E_1)/(1+E_1)=\tanh(\TR/2\Tone)$.
+\end{proof}
+
+\begin{corollary}[One scan cannot separate $\Mzero$, $\Bone$, $\Tone$]\label{cor:onescan}
+For a single flip angle, the signal depends on $(\Mzero,\Bone,\Tone)$ only through
+$(u,\ \Mzero v)$. The level sets of these two functions are curves in the
+three-dimensional parameter space, so the Fisher information about
+$(\Mzero,\Bone,\Tone)$ from one scan is exactly singular, at every flip angle.
+\end{corollary}
+
+Numerically, for one scan at $15^\circ$ the amplitudes of six pathways are reproduced to
+relative precision $10^{-15}$ by $(\kappa\alpha,\Tone',\Mzero')$ for every $\kappa$ tested
+($1.05$ to $2$), and the scan-1-only bound on $\log\Tone$ with $\Bone$ unknown is
+$2.4\times10^8$ (Section~\ref{sec:results}): singular to numerical precision. In the
+small-angle limit, $u\to(\alpha^2/2-\rho)/(\alpha^2/2+\rho)$ and $v\to\alpha\rho/(\rho+\alpha^2/2)$
+depend on $\alpha$ and $\rho$ only through $\alpha^2/\rho$ and an overall factor $\alpha$, which is
+the scaling of Proposition~\ref{prop:scaling} below. The two-scan problem is the question of
+when two such reductions, tied together by a common $\Bone$, have a unique joint solution.
+
 \begin{proposition}[Small-angle scaling invariance]\label{prop:scaling}
 Let $\rho=\TR/\Tone$, $\varphi=0$, and fix $\TR$, $\Ttwo$ (hence $E_2<1$) and a pathway order
 $k$. In the joint limit $\alpha\to0$, $\rho\to0$ with $c=\alpha^2/(2\rho)$ held fixed,
@@ -509,14 +583,62 @@ same factor; under a $\Bone$ change the second angle moves much faster and in th
 direction, so the near-null direction $v$ is lifted. The near-$360^\circ$ pulse acts as a
 built-in $\Bone$ measurement.
 
-\begin{remark}[Global ambiguity]
-Proposition~\ref{prop:period} also implies that magnitudes cannot distinguish
-$\alpha_2^{\rm eff}=360^\circ\mp x$. The sign of the scan-2 FID relative to scan 1 resolves
-this branch (as in~\cite{cheng2019}), except at $\alpha_2^{\rm eff}=360^\circ$ exactly,
-where that signal vanishes. This is a global identifiability issue that a local bound
-cannot see; locally, $\Bone$ is determined \emph{best} near $360^\circ$
-(Fig.~\ref{fig:sweeps}).
-\end{remark}
+\subsection{Global aliases}\label{sec:aliases}
+
+The local analysis says nothing about \emph{distant} parameter values that produce the same
+data. Theorem~\ref{thm:uv} makes them easy to find. For given $\Ttwo$, the amplitudes of
+scan $i$ determine $u_i$ and $\Mzero v_i$. For a trial value of $E_1$, inverting the M\"obius
+map \eqref{eq:uv} gives
+\begin{equation}
+  \cos\alpha_i=\frac{E_1-u_i}{1-u_iE_1},
+\end{equation}
+and $\Bone$ must satisfy $\Bone\alpha_i^{\rm nom}=\pm\arccos(\cos\alpha_i)+2\pi m_i$ for both scans
+at once. Each choice of sign and of $m_i$ is a candidate branch; the true parameters are one
+solution, and other branches generally admit exact solutions of their own. Which of them
+the data can exclude depends on what the data retain:
+\begin{itemize}
+\item \emph{Magnitudes} retain $u_i$ and $\Mzero|v_i|$, i.e.\ $\cos\alpha_i$ but not the sign of
+  $\sin\alpha_i$. The branch $\alpha_2=360^\circ+x$ is then indistinguishable from the true
+  $\alpha_2=360^\circ-x$ (Section~\ref{sec:magnitude}).
+\item \emph{Complex data} with a phase shared by both scans also retain the relative sign of
+  $v_1$ and $v_2$, i.e.\ of $\sin\alpha_1\sin\alpha_2$. This removes the
+  $360^\circ+x$ branch. It cannot remove branches with the same sign pattern that differ by
+  $2\pi$ in $\alpha_2$, such as $\alpha_2=720^\circ-x'$.
+\end{itemize}
+Table~\ref{tab:aliases} lists the aliases found by least squares restricted to each branch,
+on noise-free data. All fit to machine precision.
+
+\begin{table}[h]
+\centering
+\caption{Exact aliases on noise-free data (relative residual below $10^{-14}$ in every case).
+Magnitude alias: best magnitude fit with the opposite FID sign ($\alpha_2$ on the other side of
+$360^\circ$). Complex alias: best complex fit with $\alpha_2\ge540^\circ$.}
+\label{tab:aliases}
+\small
+\begin{tabular}{cccccc}
+\toprule
+\multicolumn{2}{c}{Truth} & \multicolumn{2}{c}{Magnitude alias} & \multicolumn{2}{c}{Complex alias}\\
+\cmidrule(lr){1-2}\cmidrule(lr){3-4}\cmidrule(lr){5-6}
+$\Bone$ & $\Tone$ (ms) & $\Bone$ & $\Tone$ (ms) & $\Bone$ & $\Tone$ (ms)\\
+\midrule
+1.00 & 1500 & 1.199 & 1038 & 2.008 & 359\\
+0.90 & 1200 & 1.350 & 527  & 1.865 & 271\\
+1.05 & 850  & 1.135 & 726  & 2.100 & 204\\
+0.80 & 2500 & 1.480 & 717  & 1.769 & 497\\
+1.08 & 1000 & 1.102 & 960  & 2.160 & 240\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The complex aliases need $\Bone\approx1.8$--$2.2$ and are excluded by the assumption, stated
+in~\cite{cheng2019}, that $\alpha_2^{\rm nom}\Bone\in[180^\circ,540^\circ]$, i.e.\
+$\Bone<540/330\approx1.64$ for this protocol. The magnitude aliases lie at
+$\Bone\approx1.1$--$1.5$, inside the physiological range, so no range assumption removes them.
+This is why~\cite{cheng2019} uses the relative phase of the two FID images to choose the
+branch. As $\alpha_2^{\rm eff}\to360^\circ$ the true and alias solutions merge (last row): the
+branch question then becomes moot, but also unanswerable, since the scan-2 FID vanishes.
+Being a global property, none of this is visible in the local CRLB; locally, $\Bone$ is
+determined \emph{best} near $360^\circ$ (Fig.~\ref{fig:sweeps}).
 
 %=====================================================================================
 \section{Cram\'er--Rao bounds and conditioning}\label{sec:results}
@@ -633,8 +755,9 @@ scan 1 only & $2.4\times10^{8}$ & 57.1\\
 \bottomrule
 \end{tabular}
 \end{center}
-Scan 1 alone cannot determine $\Bone$ and $\Tone$ jointly at all (a single small flip angle
-is exactly the situation of Corollary~\ref{cor:singular}). With $\Bone$ known, adding the
+Scan 1 alone cannot determine $\Bone$ and $\Tone$ jointly at all: by
+Corollary~\ref{cor:onescan} the one-scan information is exactly singular, whatever the flip
+angle. With $\Bone$ known, adding the
 high-flip scan still halves the bound on the standard deviation of $\log\Tone$ (57.1 to 28.0), because
 scan 2 carries $\Tone$ information of its own.
 
@@ -874,7 +997,11 @@ Leading-order $\Mzero$--$\Bone$--$\Tone$ invariance \eqref{eq:sym} for small fli
 Residual $\Tone$ bound (40.5 per unit $\sigma/\Mzero$): confounding with $\Ttwo$, $\Ttwos$,
   $\Mzero$, $\Bone$ & forward model $+$ protocol & SNR, averaging, spatial priors; protocol
   tuning ($\le20\%$)\\
-Branch ambiguity $360^\circ\mp x$ & forward model (periodicity) & phase of the scan-2 FID\\
+Exact magnitude alias $\alpha_2=360^\circ\mp x$ at physiological $\Bone$
+  (Section~\ref{sec:magnitude}) & forward model: magnitudes lose the sign of $\sin\alpha$ &
+  FID-sign test, or complex data with a shared phase\\
+Exact complex alias $\alpha_2>540^\circ$ ($\Bone\approx2$) & forward model: $2\pi$ periodicity &
+  range assumption $\Bone<1.64$\\
 Error well above the bound; large bias and undefined $\Tone$ at moderate SNR &
   analytic inverse (sequential, closed-form) & joint (ML or learned) estimation\\
 $\Tone$ bound 57.1 instead of 28.0 with $\Bone$ known; $\Tone$ bias $-2\varepsilon$ per $\Bone$
@@ -887,6 +1014,132 @@ In-vivo calibration $\beta=1.24$ (Eq.~19 of~\cite{cheng2019}) & model mismatch (
 \bottomrule
 \end{tabular}
 \end{table}
+
+%=====================================================================================
+\section{Magnitude data and the flip-angle branch}\label{sec:magnitude}
+%=====================================================================================
+
+The analytic inverse of~\cite{cheng2019} works with magnitudes, made real-valued by the sign
+convention of their Eq.~18. This section asks how much information magnitudes carry, how a
+direct least-squares fit to magnitudes compares with the analytic inverse, and why a
+magnitude fit needs an explicit branch test that complex maximum likelihood does not.
+
+\subsection{Information in magnitude data}
+
+With complex Gaussian noise of standard deviation $\sigma$ per component, a magnitude
+$m=|S+n|$ is Rician with amplitude $A=|S|$. Its Fisher information about $A$ is
+$g(A/\sigma)/\sigma^2$, where
+\begin{equation}
+  g(a)=\mathbb{E}\Bigl[x^2\,\frac{I_1(xa)^2}{I_0(xa)^2}\Bigr]-a^2,\qquad x=m/\sigma,
+\end{equation}
+with $I_0,I_1$ modified Bessel functions. $g$ rises from $0$ at $a=0$ to $1$ as $a\to\infty$
+(e.g.\ $g(0.5)=0.20$, $g(2)=0.85$, $g(5)=0.98$). The information about $\theta$ is
+\begin{equation}
+  \Fi_{\rm mag}=\frac{1}{\sigma^2}\sum_{j}g\bigl(A_j/\sigma\bigr)\,\nabla_\theta A_j\,\nabla_\theta A_j^{\mathsf T},
+  \qquad \nabla_\theta A_j=\mathrm{Re}\bigl(\overline{S_j}\,\nabla_\theta S_j\bigr)/A_j ,
+\end{equation}
+over the five magnitude parameters ($\dw$ and $\phi_0$ do not affect magnitudes). Unlike the
+complex case it is not simply proportional to $1/\sigma^2$, so it is evaluated at each SNR.
+
+For the published protocol and the reference tissue the weakest measured amplitude is
+$0.0074\,\Mzero$ (scan 2, pathway $+1$), so even at SNR$(\Mzero)=300$ every measurement has
+$A/\sigma\ge2.2$ and $g\ge0.85$. The magnitude bounds equal the complex bounds to within
+$0.5\%$ for $\Tone$, $\Bone$, $\Ttwo$ and $\Mzero$ at SNR 300, 1000 and 3000
+(Table~\ref{tab:mag}). Discarding the phase costs essentially no \emph{local} information,
+because the phase mainly carries $\dw$ and $\phi_0$, which decouple from the other parameters
+(Fig.~\ref{fig:corr}). What the phase does carry is a single \emph{global} bit, discussed
+next.
+
+\subsection{Why magnitude fits need the branch test and complex ML does not}
+
+\paragraph{1. Magnitudes lose the sign of $\sin\alpha$.} By Theorem~\ref{thm:uv} the
+magnitudes of scan $i$ determine $u_i$ and $\Mzero|v_i|$; by \eqref{eq:absv} the latter
+carries no information beyond $u_i$ and $\Tone$. The data therefore fix $\cos\alpha_i$ for any
+trial $E_1$, but not the sign of $\sin\alpha_i$. Concretely, $|a_k(\alpha)|$ is even and
+$2\pi$-periodic in $\alpha$, hence symmetric about every multiple of $180^\circ$.
+
+\paragraph{2. This produces an exact alias inside the physiological range.} For scan 2,
+$\alpha_2=360^\circ-x$ (the truth for $\Bone<1.09$) and $\alpha_2=360^\circ+x'$ give magnitudes of the
+same form. A different $\Bone$ also changes $\alpha_1$, but Theorem~\ref{thm:uv} shows that a
+change of $\alpha_1$ can be absorbed by $\Tone$ and $\Mzero$ through $(u_1,\Mzero v_1)$. The result
+is an exact alias (Table~\ref{tab:aliases}): for the reference tissue,
+$(\Bone,\Tone,\Mzero)=(1,1500\,\mathrm{ms},1)$ and $(1.199,1038\,\mathrm{ms},0.832)$ give the same 18
+magnitudes to machine precision. The alias is close to the small-angle scaling
+$\Tone\propto(\Bone)^{-2}$, $\Mzero\propto(\Bone)^{-1}$ ($1500/1.199^2=1043$), but exact.
+
+\paragraph{3. It is a symmetry of the magnitude likelihood, not a noise effect.} Because the
+alias exists for every parameter value (all rows of Table~\ref{tab:aliases}), the map
+$\theta\mapsto|s(\theta)|$ takes the same values on two separate sheets of parameter space. Any
+likelihood that depends on the data only through magnitudes, Gaussian or Rician, then has
+two equal global maxima for \emph{every} noise realisation. We checked this directly: fitting
+noisy magnitudes on each side of $360^\circ$ gives final costs that agree to a median relative
+difference of $10^{-12}$ at SNR 300, 1000 and 3000. No SNR resolves it, and the local CRLB,
+which is identical for both sheets, cannot detect it. An unconstrained magnitude fit simply
+returns the maximum nearest its starting point. In our Monte Carlo it returned the wrong
+branch in 47, 3 and \MagWrongThree{} of 1000 voxels at SNR 300, 1000 and 3000; these counts
+describe the starting points, not the data.
+
+\paragraph{4. Complex data carry the missing bit.} The complex model keeps the sign:
+$a_k(-\alpha)=-a_k(\alpha)$ for all $k$ (Proposition~\ref{prop:period}), so moving $\alpha_2$ from
+$360^\circ-x$ to $360^\circ+x'$ flips the sign of every scan-2 signal relative to scan 1. A single
+phase $\phi_0$ (and a single $\dw$) is shared by both scans, so this relative sign cannot be
+absorbed. The best complex fit restricted to $360^\circ<\alpha_2<540^\circ$ moves to the edge
+$\alpha_2=360^\circ$, where scan 2 vanishes, and leaves the entire scan-2 signal as residual
+($0.144\,\Mzero$). Its cost exceeds the true-branch cost by $1.9\times10^3\,\sigma^2$ at SNR 300
+($2.1\times10^4\,\sigma^2$ at SNR 1000), a likelihood ratio of about $\E^{-935}$ or smaller: the
+complex likelihood has no competing maximum on that branch, and complex ML selects the
+correct branch automatically.
+
+\paragraph{5. The FID sign test restores exactly that bit.} The test of~\cite{cheng2019},
+\begin{equation}
+  \operatorname{sign}\,\mathrm{Re}\sum_j S_{1j0}\,\overline{S_{2j0}}
+  =\operatorname{sign}\bigl(\sin\alpha_1\sin\alpha_2\bigr),
+\end{equation}
+uses the relative phase of the two FID images, and only its sign. It is the one bit that
+magnitude processing discards and complex ML uses implicitly. We implement it in the
+magnitude fit as a constraint: $\Bone$ is confined to the interval between consecutive zeros of
+$\sin(\Bone\alpha_i^{\rm nom})$ on which $\sin\alpha_1\sin\alpha_2$ has the measured sign; a start on
+the wrong side is reflected across the nearest zero (where $|a_k|$ is symmetric), and every
+step is projected back into the interval.
+
+\paragraph{6. What the test cannot do.} Branches with the same sign pattern (the complex
+aliases of Table~\ref{tab:aliases}, $\alpha_2>540^\circ$) are invisible to both the FID test and
+complex ML; they are excluded only by the range assumption $\Bone<1.64$. Near
+$\alpha_2^{\rm eff}=360^\circ$ the scan-2 FID vanishes, the sign is unreliable, and the two branches
+merge, so a wrong decision there costs little. Finally, both the test and complex ML require
+that the relative phase of the two scans is preserved: the same receiver phase and coil
+combination, and no motion or $B_0$ drift between the sequential acquisitions. If each scan
+had its own unknown phase, complex ML would need a phase per scan, the relative sign would
+be lost, and the magnitude alias would reappear for complex data too.
+
+\subsection{Comparison on identical data}
+
+We compare, on the same noise realisations as Table~\ref{tab:mc}: the analytic inverse; a
+Gaussian least-squares fit to the magnitudes, $\min_\theta\sum_j(|y_j|-|s_j(\theta)|)^2$, with the
+same projected Levenberg--Marquardt iteration and four starts as the ML fit, without and with
+the FID-sign constraint; and complex ML. Magnitude least squares is \emph{not} maximum
+likelihood for Rician data, because it ignores the noise floor
+$\mathbb{E}|y|-A\approx\sigma^2/(2A)$; for the weakest amplitude this is $10\%$ at SNR 300, $1\%$ at
+SNR 1000 and $0.1\%$ at SNR 3000.
+
+\input{mag_table.tex}
+
+\paragraph{Reading Table~\ref{tab:mag}.}
+\begin{itemize}
+\item \textbf{With the branch test, magnitude least squares performs like complex ML.} Its
+  SD/CRLB for $\Tone$ and $\Bone$ is within the Monte Carlo error of complex ML at every SNR, and
+  no voxel ends on the wrong branch. At SNR 300 the Rician floor adds a small bias
+  ($-0.005$ in $\log\Tone$), and, as for complex ML, the constraint $\Rtwop\ge0$ is active in
+  about a fifth of the voxels.
+\item \textbf{Without it, wrong-branch voxels dominate the $\Bone$ error.} Their robust spread
+  is at the bound, but the standard deviation is up to seven times larger, and the wrong
+  branch also biases $\Tone$ by a factor of about $(\Bone)^{-2}$.
+\item \textbf{The analytic inverse is the outlier.} It uses the same magnitudes and the same
+  FID sign, yet its errors are 3--7 times larger for $\Tone$ and up to 28 times for $\Bone$
+  (Table~\ref{tab:mc}). Since magnitudes carry essentially all the local information and a
+  joint magnitude fit extracts it, the loss is entirely algorithmic: the sequential,
+  closed-form structure of the inversion, not the decision to use magnitudes.
+\end{itemize}
 
 %=====================================================================================
 \section{Implications}
@@ -924,10 +1177,12 @@ stated, both scans are treated at full resolution.
 Forward model & \texttt{src/mpme/epg.py}, \texttt{signal.py}, \texttt{sequence.py}\\
 Analytic inverse of~\cite{cheng2019} & \texttt{src/mpme/paper.py}\\
 Model-fit baseline & \texttt{src/mpme/analytic.py}\\
-Joint ML fit & \texttt{src/mpme/mle.py}\\
+Joint ML fit, magnitude fit, branch test & \texttt{src/mpme/mle.py}\\
+Rician information & \texttt{src/mpme/crlb.py}\\
 Fisher information, CRLB & \texttt{src/mpme/crlb.py}\\
 Tables~\ref{tab:crlb}--\ref{tab:cond}, figures & \texttt{python scripts/crlb\_analysis.py}\\
-Table~\ref{tab:mc} & \texttt{python scripts/estimator\_efficiency.py}\\
+Tables~\ref{tab:mc}--\ref{tab:mcdiag} & \texttt{python scripts/estimator\_efficiency.py}\\
+Table~\ref{tab:mag} & \texttt{python scripts/magnitude\_comparison.py}\\
 \end{tabular}
 
 \begin{thebibliography}{9}

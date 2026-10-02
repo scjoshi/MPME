@@ -1,0 +1,30 @@
+\begin{table}[h]
+\centering
+\caption{Magnitude versus complex estimation on identical data (paper protocol, reference tissue, 1000 realisations). SD and mean of the log-estimates; bounds for complex data and for magnitude (Rician) data. Last column: voxels on the wrong side of $\alpha_2=360^\circ$ (``wrong'').}
+\label{tab:mag}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llccccc}
+\toprule
+SNR & & $\Tone$ SD & $\Tone$ mean & $\Bone$ SD & $\Ttwo$ SD & wrong\\
+\midrule
+300 & CRLB complex/Rician & 0.1350/0.1356 & & 0.0097/0.0098 & 0.0769/0.0771 & \\
+ & Analytic inverse~\cite{cheng2019} & 0.9587 & +0.445 & 0.2695 & 0.5060 & --\\
+ & Magnitude LS & 0.1909 & -0.030 & 0.0692 & 0.0743 & 47\\
+ & Magnitude LS + FID sign & 0.1251 & -0.005 & 0.0094 & 0.0742 & 0\\
+ & Complex ML & 0.1281 & -0.007 & 0.0097 & 0.0749 & --\\
+\midrule
+1000 & CRLB complex/Rician & 0.0405/0.0405 & & 0.0029/0.0029 & 0.0231/0.0231 & \\
+ & Analytic inverse~\cite{cheng2019} & 0.2072 & +0.036 & 0.0657 & 0.1180 & --\\
+ & Magnitude LS & 0.0457 & +0.000 & 0.0104 & 0.0231 & 3\\
+ & Magnitude LS + FID sign & 0.0409 & +0.001 & 0.0029 & 0.0231 & 0\\
+ & Complex ML & 0.0411 & +0.001 & 0.0029 & 0.0231 & --\\
+\midrule
+3000 & CRLB complex/Rician & 0.0135/0.0135 & & 0.0010/0.0010 & 0.0077/0.0077 & \\
+ & Analytic inverse~\cite{cheng2019} & 0.0425 & +0.001 & 0.0046 & 0.0373 & --\\
+ & Magnitude LS & 0.0136 & +0.000 & 0.0010 & 0.0076 & 0\\
+ & Magnitude LS + FID sign & 0.0136 & +0.000 & 0.0010 & 0.0076 & 0\\
+ & Complex ML & 0.0136 & +0.000 & 0.0010 & 0.0076 & --\\
+\bottomrule
+\end{tabular}
+\end{table}
