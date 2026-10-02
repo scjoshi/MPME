@@ -75,7 +75,8 @@ conditioning of the information matrix. Section~\ref{sec:inverse} answers the qu
 \emph{is the limitation in the forward model or in the inverse?} by comparing the analytic
 reconstruction and a maximum-likelihood fit against the bound. Section~\ref{sec:magnitude}
 treats magnitude data and explains why a magnitude fit needs the FID-sign branch test while
-complex maximum likelihood does not. Table~\ref{tab:verdict} summarises the answer.
+complex maximum likelihood does not. Section~\ref{sec:jacobian} derives exact Jacobians by
+implicit differentiation of the steady state, which make both fits 10--34 times faster. Table~\ref{tab:verdict} summarises the answer.
 
 All numbers are reproducible with the code in the accompanying repository
 (Appendix~\ref{app:repro}).
@@ -1142,6 +1143,160 @@ SNR 1000 and $0.1\%$ at SNR 3000.
 \end{itemize}
 
 %=====================================================================================
+\section{Exact Jacobians by implicit differentiation}\label{sec:jacobian}
+%=====================================================================================
+
+Both least-squares estimators (complex ML, Section~\ref{sec:ml}, and the magnitude fit,
+Section~\ref{sec:magnitude}) spend nearly all their time forming Jacobians. The
+forward-difference version evaluates the model once per parameter at every iteration. This
+section derives the exact Jacobian from the structure of the steady state and shows that it
+is an order of magnitude faster, with identical estimates.
+
+\subsection{Which differentiation mode}
+
+Per voxel the Jacobian is $36\times7$ for complex data (18 complex values, real and imaginary
+parts) and $18\times5$ for magnitudes. Reverse-mode differentiation (back-propagation)
+produces one \emph{row} per backward pass, the gradient of one scalar output; even with all
+voxels batched in one pass (voxels are independent), it needs 36 or 18 passes. Forward mode
+produces one \emph{column} per pass, so 7 or 5 passes, each about as costly as a model
+evaluation. Because there are fewer parameters than outputs, forward mode is the natural
+choice, and finite differences are a (less accurate) forward mode. Exploiting the structure
+of the model does better than either.
+
+\subsection{Differentiating the steady state}
+
+With RF phase $0$ and intravoxel phase $\psi$, the post-pulse steady state of one isochromat
+solves the $3\times3$ linear system \eqref{eq:iso},
+\begin{equation}
+  A\,\mathbf M=\mathbf b,\qquad A=I-R\,Q,\qquad Q=R_z(\psi)\,\mathrm{diag}(E_2,E_2,E_1),\qquad
+  \mathbf b=(1-E_1)\,R\,\hat{\mathbf z},
+\end{equation}
+with $R=R_x(\alpha)$. Off-resonance enters only as a phase factor (Proposition~\ref{prop:offres}),
+so the steady state is computed at $\dw=0$. Differentiating $A\mathbf M=\mathbf b$ with respect to
+any $x\in\{\alpha,E_1,E_2\}$ gives
+\begin{equation}
+  \frac{\partial\mathbf M}{\partial x}=A^{-1}\Bigl(\frac{\partial\mathbf b}{\partial x}
+  -\frac{\partial A}{\partial x}\,\mathbf M\Bigr),
+  \label{eq:implicit}
+\end{equation}
+which needs no new matrix inversion: the same $A^{-1}$ serves the solution and all three
+derivatives. The ingredients are closed form. With $R'=\partial R_x/\partial\alpha$ and
+$\Pi_z=\mathrm{diag}(0,0,1)$, $\Pi_{xy}=\mathrm{diag}(1,1,0)$ (note $R_z\Pi_z=\Pi_z$):
+\begin{align}
+  \frac{\partial A}{\partial\alpha}&=-R'Q, &
+  \frac{\partial\mathbf b}{\partial\alpha}&=(1-E_1)\,R'\hat{\mathbf z},\nonumber\\
+  \frac{\partial A}{\partial E_1}&=-R\,\Pi_z, &
+  \frac{\partial\mathbf b}{\partial E_1}&=-R\hat{\mathbf z},\\
+  \frac{\partial A}{\partial E_2}&=-R\,R_z(\psi)\,\Pi_{xy}, &
+  \frac{\partial\mathbf b}{\partial E_2}&=\mathbf 0 .\nonumber
+\end{align}
+The three right-hand sides of \eqref{eq:implicit} are therefore
+\begin{equation}
+  (1-E_1)R'\hat{\mathbf z}+R'Q\mathbf M,\qquad -R\hat{\mathbf z}+R\hat{\mathbf z}\,M_z,\qquad
+  R\,R_z(\psi)\,\Pi_{xy}\mathbf M .
+\end{equation}
+
+\paragraph{Inverting $3\times3$ matrices.} There are $N\times n_{\rm iso}$ such systems per
+scan (e.g.\ $65\,536\times128$ for one slice). Batched general-purpose solvers carry a large
+per-matrix overhead at this size, so we form $A^{-1}$ explicitly by the adjugate formula,
+$A^{-1}=\mathrm{adj}(A)/\det A$, which is nine cofactors and one determinant computed
+elementwise over the whole batch. $A$ is well conditioned for physical parameters
+($\det A\ne0$ whenever $E_1,E_2<1$).
+
+\paragraph{Pathways and magnitudes.} The pathway amplitudes are discrete Fourier
+coefficients, over the isochromats, of the transverse magnetisation $m_\perp(\psi_n)$. The
+transform is linear, so
+$\partial a_k/\partial x$ is the same FFT applied to $\partial m_\perp/\partial x$. For
+magnitude data,
+\[
+  \frac{\partial|a_k|}{\partial x}=\frac{\mathrm{Re}\bigl(\overline{a_k}\,\partial a_k/\partial x\bigr)}{|a_k|}.
+\]
+
+\subsection{Chain rule to the fitted parameters}
+
+With $\Phi=\phi_0+\dw\,\tau$, $\tau=t+k\TR$, $D=\exp(-t/\Ttwo-\Rtwop|\tau|)$ and
+$\Rtwop=1/\Ttwos-1/\Ttwo$, the signal is $S=\Mzero\,a_k\,D\,\E^{i\Phi}$, and
+$\partial\alpha/\partial\log\Bone=\alpha$, $\partial E_1/\partial\log\Tone=E_1\TR/\Tone$,
+$\partial E_2/\partial\log\Ttwo=E_2\TR/\Ttwo$. Then
+\begin{align}
+  \frac{\partial S}{\partial\log\Mzero}&=S, &
+  \frac{\partial S}{\partial\log\Bone}&=\Mzero D\E^{i\Phi}\,\alpha\,\frac{\partial a_k}{\partial\alpha},
+  \nonumber\\
+  \frac{\partial S}{\partial\log\Tone}&=\Mzero D\E^{i\Phi}\,\frac{E_1\TR}{\Tone}\,\frac{\partial a_k}{\partial E_1}, &
+  \frac{\partial S}{\partial\log\Ttwo}&=\Mzero D\E^{i\Phi}\,\frac{E_2\TR}{\Ttwo}\,\frac{\partial a_k}{\partial E_2}
+     +S\,\frac{t-|\tau|}{\Ttwo},\\
+  \frac{\partial S}{\partial\log\Ttwos}&=S\,\frac{|\tau|}{\Ttwos}, &
+  \frac{\partial S}{\partial\dw}&=i\tau S,\qquad \frac{\partial S}{\partial\phi_0}=iS. \nonumber
+\end{align}
+The second term of $\partial S/\partial\log\Ttwo$ combines the echo decay $\E^{-t/\Ttwo}$ and the
+coupling through $\Rtwop$ ($\partial\Rtwop/\partial\log\Ttwo=1/\Ttwo$). For the magnitude model the
+same expressions hold with $|a_k|$ in place of $a_k$ and without the phase factor and the last
+two derivatives.
+
+\subsection{Levenberg--Marquardt with exact Jacobians}
+
+A forward-difference iteration costs one trial evaluation plus one evaluation per parameter
+(8 for complex data, 6 for magnitudes). With exact Jacobians each trial evaluation returns
+the residual \emph{and} its Jacobian. If the step is accepted, that Jacobian is the one needed
+for the next iteration; if it is rejected, the current Jacobian is kept and only $\lambda$
+changes. Each iteration therefore costs one model-plus-Jacobian evaluation, i.e.\ one
+explicit inverse and four right-hand sides per isochromat. Exact derivatives also make
+single precision usable: forward differences in float32 would need steps of order
+$10^{-3}$ and give inaccurate Jacobians, whereas the implicit Jacobian is accurate to about
+$10^{-6}$ in float32. A small Jacobian error affects only the convergence path, not the
+solution, which is determined by the residual.
+
+\subsection{Verification and benchmark}
+
+On random parameters the implicit Jacobians agree with automatic differentiation of the
+reference model to $6\times10^{-15}$ (magnitude) and $3\times10^{-16}$ (complex) in double
+precision, and to $10^{-6}$ in single precision; both are unit tests. Table~\ref{tab:bench}
+compares wall times on 4096 voxels with random tissue ($\Tone$ 600--3000\,ms, $\Ttwo$
+40--120\,ms, $\Bone$ 0.8--1.1), the paper protocol, SNR$(\Mzero)=1000$, one start and 15
+iterations (enough: 15 and 40 iterations differ by less than $10^{-9}$ in $\log\Tone$), on a
+laptop CPU with 8 threads and no GPU.
+
+\begin{table}[!htbp]
+\centering
+\caption{Fitting time per voxel and for a $256\times256$ slice, and agreement with the
+forward-difference float64 reference (largest $|\Delta\log\hat\Tone|$ over the 4096 voxels). The
+noise-induced spread of $\log\hat\Tone$ is $0.164$ in every magnitude variant and $0.163$ in every
+complex variant, so all differences are negligible.}
+\label{tab:bench}
+\small
+\begin{tabular}{llcccc}
+\toprule
+Fit & Jacobian, precision, isochromats & ms/voxel & $256^2$ slice & speed-up & max $|\Delta\log\hat\Tone|$\\
+\midrule
+Magnitude & finite differences, f64, 256 & 15.0 & 16.4 min & 1.0 & reference\\
+ & implicit, f64, 256 & 1.41 & 1.5 min & 10.7 & $1.6\times10^{-5}$\\
+ & implicit, f64, 128 & 0.73 & 0.8 min & 20.6 & $1.6\times10^{-5}$\\
+ & implicit, f32, 256 & 0.74 & 0.8 min & 20.2 & $1.2\times10^{-3}$\\
+ & implicit, f32, 128 & 0.44 & 0.5 min & 33.7 & $1.0\times10^{-3}$\\
+\midrule
+Complex ML & finite differences, f64, 256 & 19.2 & 21.0 min & 1.0 & reference\\
+ & implicit, f64, 256 & 1.55 & 1.7 min & 12.4 & $1.4\times10^{-5}$\\
+ & implicit, f64, 128 & 0.83 & 0.9 min & 23.2 & $1.4\times10^{-5}$\\
+ & implicit, f32, 256 & 0.90 & 1.0 min & 21.3 & $1.2\times10^{-3}$\\
+ & implicit, f32, 128 & 0.56 & 0.6 min & 34.4 & $1.2\times10^{-3}$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The exact Jacobian alone gives a factor of 10--12, more than the reduction in model
+evaluations (from 6--8 to one per iteration) would suggest, because the explicit adjugate
+inverse also avoids the per-matrix overhead of the general solver. Halving the number of
+isochromats and moving to single precision each roughly halve the time again; neither
+changes the estimates by more than $10^{-3}$ in $\log\hat\Tone$, less than $1\%$ of the noise-induced
+spread. The remaining differences against the reference, of order $10^{-5}$ in double
+precision, come from the inexact forward-difference Jacobian, which converges slightly
+differently in a few voxels. A $256\times256$ slice now fits in about half a minute and a whole
+brain (about 160 slices) in about 80 minutes on this CPU with one start, or about half that
+with a brain mask. Multiple starts multiply these times; with the branch fixed by the FID
+sign, one start plus a check of the final cost is likely sufficient, but this has not yet
+been tested at low SNR.
+
+%=====================================================================================
 \section{Implications}
 %=====================================================================================
 
@@ -1179,6 +1334,8 @@ Analytic inverse of~\cite{cheng2019} & \texttt{src/mpme/paper.py}\\
 Model-fit baseline & \texttt{src/mpme/analytic.py}\\
 Joint ML fit, magnitude fit, branch test & \texttt{src/mpme/mle.py}\\
 Rician information & \texttt{src/mpme/crlb.py}\\
+Implicit Jacobians & \texttt{src/mpme/fastjac.py}\\
+Table~\ref{tab:bench} & \texttt{python scripts/benchmark\_fit.py}\\
 Fisher information, CRLB & \texttt{src/mpme/crlb.py}\\
 Tables~\ref{tab:crlb}--\ref{tab:cond}, figures & \texttt{python scripts/crlb\_analysis.py}\\
 Tables~\ref{tab:mc}--\ref{tab:mcdiag} & \texttt{python scripts/estimator\_efficiency.py}\\
