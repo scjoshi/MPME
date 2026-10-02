@@ -162,5 +162,11 @@ Noisy simulations, same tissue, B1 = 1, σ = M0/SNR (peak signal ≈ 0.088·M0):
   Further gains beyond the CRLB must come from spatial priors (Level B).
 - The paper's low-resolution second scan (25% × 25% of ky–kz) and B1 smoothing are not yet
   modelled; with known B1 the paper's T1 spread drops roughly 2× at SNR 300.
-- α2 = 360° exactly (B1 ≈ 1.09) is a true degeneracy: the scan-2 FID vanishes and its sign
-  cannot select the flip-angle branch.
+- α2 = 360° exactly (B1 ≈ 1.09) is a *global* ambiguity: the scan-2 FID vanishes and its
+  sign cannot select the flip-angle branch. Locally, B1 is best determined there.
+
+### Why B1⁺/T1 is hard, in detail
+
+See `docs/crlb_analysis.md`: the small-flip scaling symmetry (M0/k, k·B1⁺, T1/k²), how
+the 330° pulse breaks it, the conditioning of the information matrix, the T1 confounding
+hierarchy (7.9 → 21.1 → 28 → 40.5 · σ/M0), and the cost of the paper's two-stage design.
