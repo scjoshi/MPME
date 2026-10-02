@@ -72,3 +72,14 @@ def test_paper_protocol_far_better_conditioned():
     c330 = conditioning(fisher_information(PR, TIS))["condition"]
     c30 = conditioning(fisher_information(with_flip2(30.0), TIS))["condition"]
     assert c30 / c330 > 1000
+
+
+def test_joint_ml_recovers_noise_free_parameters():
+    from mpme.analytic import analytic_reconstruction
+    from mpme.mle import joint_fit
+    S = mpme_signal(PR, 1.0, 1500.0, 70.0, 1 / 60 - 1 / 70, 0.05, 1.0, 0.3).expand(4, 2, 3, 3)
+    init = analytic_reconstruction(S, PR)
+    init = {k: v * (1.05 if k in ("T1", "M0", "B1") else 1.0) for k, v in init.items()}
+    fit = joint_fit(S, PR, init, n_iso=512, n_iter=30)
+    torch.testing.assert_close(fit["T1"], torch.full((4,), 1500.0, dtype=torch.float64), rtol=1e-6, atol=0)
+    torch.testing.assert_close(fit["B1"], torch.ones(4, dtype=torch.float64), rtol=1e-6, atol=0)

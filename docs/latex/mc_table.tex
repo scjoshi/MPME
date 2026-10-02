@@ -1,0 +1,37 @@
+\begin{table}[h]
+\centering
+\caption{Monte Carlo robust standard deviation (\%) of the log-estimates, 1000 noise realisations, reference tissue, $\Bone=1$. SNR is relative to $\Mzero$ (peak image SNR $\approx0.088\times$). Last column: fraction of voxels with undefined $\Tone$.}
+\label{tab:mc}
+\small
+\begin{tabular}{lllccccc}
+\toprule
+Protocol & SNR$(\Mzero)$ & Estimator & $\Tone$ & $\Bone$ & $\Ttwo$ & $\Mzero$ & $\Tone$ undefined\\
+\midrule
+$15^\circ/330^\circ$ & 300 & CRLB & 13.5 & 1.0 & 7.7 & 6.3 & --\\
+ &  & Joint ML & 13.7 & 0.9 & 7.5 & 6.0 & 0.0\%\\
+ &  & Model fit & 90.7 & 3.7 & 36.8 & 56.9 & 0.0\%\\
+ &  & Analytic inverse~\cite{cheng2019} & 102.6 & 46.1 & 37.0 & 57.1 & 1.9\%\\
+ &  & Analytic inverse, $\Bone$ given & 35.9 & -- & -- & 23.3 & 1.9\%\\
+\midrule
+$15^\circ/330^\circ$ & 1000 & CRLB & 4.1 & 0.3 & 2.3 & 1.9 & --\\
+ &  & Joint ML & 3.9 & 0.3 & 2.5 & 1.9 & 0.0\%\\
+ &  & Model fit & 11.4 & 1.3 & 11.0 & 8.5 & 0.0\%\\
+ &  & Analytic inverse~\cite{cheng2019} & 12.7 & 1.5 & 11.2 & 7.6 & 0.0\%\\
+ &  & Analytic inverse, $\Bone$ given & 10.7 & -- & -- & 6.5 & 0.0\%\\
+\midrule
+$15^\circ/330^\circ$ & 3000 & CRLB & 1.4 & 0.1 & 0.8 & 0.6 & --\\
+ &  & Joint ML & 1.3 & 0.1 & 0.8 & 0.6 & 0.0\%\\
+ &  & Model fit & 4.0 & 0.4 & 3.8 & 2.9 & 0.0\%\\
+ &  & Analytic inverse~\cite{cheng2019} & 4.4 & 0.4 & 3.7 & 2.6 & 0.0\%\\
+ &  & Analytic inverse, $\Bone$ given & 3.9 & -- & -- & 2.2 & 0.0\%\\
+\midrule
+$15^\circ/30^\circ$ & 1000 & CRLB & 210.6 & 102.3 & 2.3 & 104.8 & --\\
+ &  & Joint ML & 211.7 & 103.7 & 2.2 & 105.3 & 0.0\%\\
+ &  & Model fit & 287.6 & 138.0 & 11.0 & 149.0 & 0.0\%\\
+\midrule
+$15^\circ/30^\circ$ & 3000 & CRLB & 70.2 & 34.1 & 0.8 & 34.9 & --\\
+ &  & Joint ML & 77.1 & 37.3 & 0.7 & 38.1 & 0.0\%\\
+ &  & Model fit & 225.6 & 109.7 & 3.8 & 113.9 & 0.0\%\\
+\bottomrule
+\end{tabular}
+\end{table}
