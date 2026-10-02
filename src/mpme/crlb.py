@@ -122,3 +122,54 @@ def fixed_parameter_bias(F: Tensor, params: Sequence[str], fixed: str) -> dict[s
     r = [i for i in range(len(params)) if i != j]
     g = -torch.linalg.solve(F[r][:, r], F[r, j])
     return {params[i]: g[n].item() for n, i in enumerate(r)}
+
+
+def rician_information_factor(a: Tensor, n_grid: int = 4000) -> Tensor:
+    """g(a) = σ² × Fisher information about a Rician amplitude A, as a function of a = A/σ.
+
+    For m ~ Rice(A, σ): I_A = (E[m² R(mA/σ²)²] − A²)/σ⁴ with R = I1/I0, i.e.
+    g(a) = E[x² R(xa)²] − a² for x = m/σ. g → 1 for a → ∞ (Gaussian limit) and g → 0 for
+    a → 0 (a signal buried in noise carries almost no information about its size).
+    Computed by trapezoidal quadrature over a window of ±14σ around the amplitude, with
+    exponentially scaled Bessel functions.
+    """
+    from scipy.special import i0e, i1e
+    import numpy as np
+
+    a_np = np.atleast_1d(a.detach().cpu().numpy().astype(np.float64))
+    out = np.empty_like(a_np)
+    for n, av in enumerate(a_np.ravel()):
+        x = np.linspace(max(1e-9, av - 14.0), av + 14.0, n_grid)   # pdf ≈ N(a, 1) for large a
+        z = x * av
+        pdf = x * np.exp(-0.5 * (x - av) ** 2) * i0e(z)      # Rice pdf, I0 scaled by e^{-z}
+        R = i1e(z) / i0e(z)
+        out.ravel()[n] = np.trapezoid(x**2 * R**2 * pdf, x) - av**2
+    return torch.as_tensor(out.reshape(a_np.shape), dtype=torch.float64)
+
+
+MAG_PARAMS = ("M0", "B1", "T1", "T2", "T2star")
+
+
+def fisher_information_magnitude(
+    protocol: Protocol,
+    tissue: Mapping[str, float],
+    snr: float,
+    params: Sequence[str] = MAG_PARAMS,
+    gaussian: bool = False,
+    n_iso: int = 512,
+) -> Tensor:
+    """Fisher information of magnitude data |S + n| at SNR(M0) = M0/σ.
+
+    Exact Rician information (``gaussian=False``) or the high-SNR Gaussian approximation
+    (g = 1). Unlike the complex case, the Rician information is not simply proportional to
+    1/σ², so the SNR must be given. Δω and φ0 do not affect magnitudes and are excluded.
+    """
+    J = jacobian(protocol, tissue, params, n_iso)                          # complex [I,P,Jt,n]
+    S = mpme_signal(protocol, tissue["M0"], tissue["T1"], tissue["T2"],
+                    1 / tissue["T2star"] - 1 / tissue["T2"], tissue.get("dw", 0.0),
+                    tissue["B1"], tissue.get("phi0", 0.0), n_iso=n_iso)
+    A = S.abs().flatten()
+    dA = (torch.conj(S)[..., None] * J).real.flatten(0, 2) / A[:, None]     # ∂|S|/∂θ
+    sigma = tissue["M0"] / snr
+    g = torch.ones_like(A) if gaussian else rician_information_factor(A / sigma)
+    return (dA.T * g) @ dA / sigma**2

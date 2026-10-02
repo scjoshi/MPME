@@ -102,3 +102,30 @@ def test_joint_ml_respects_r2p_nonnegative():
     fit = joint_fit(Sn, PR, analytic_reconstruction(Sn, PR), n_iter=15)
     assert (fit["T2star"] <= fit["T2"] * (1 + 1e-12)).all()
     assert fit["at_r2p_bound"].dtype == torch.bool
+
+
+def test_rician_information_factor_limits():
+    from mpme.crlb import rician_information_factor
+    g = rician_information_factor(torch.tensor([0.0, 0.05, 20.0], dtype=torch.float64))
+    assert g[0].item() == pytest.approx(0.0, abs=1e-6)
+    assert g[1].item() < 0.01
+    assert g[2].item() == pytest.approx(1.0, abs=2e-3)
+
+
+def test_magnitude_bound_approaches_complex_bound_at_high_snr():
+    from mpme.crlb import MAG_PARAMS, fisher_information_magnitude
+    snr = 1e5
+    bc = crlb(fisher_information(PR, TIS))
+    bm = crlb(fisher_information_magnitude(PR, TIS, snr), MAG_PARAMS)
+    for k in ("T1", "B1", "T2"):
+        assert bm[k] == pytest.approx(bc[k] / snr, rel=1e-3)
+
+
+def test_magnitude_fit_recovers_noise_free_parameters():
+    from mpme.analytic import analytic_reconstruction
+    from mpme.mle import magnitude_fit
+    S = mpme_signal(PR, 1.0, 1500.0, 70.0, 1 / 60 - 1 / 70, 0.05, 1.0, 0.3).expand(4, 2, 3, 3)
+    init = {k: v * (1.05 if k in ("T1", "M0", "B1") else 1.0)
+            for k, v in analytic_reconstruction(S, PR).items()}
+    fit = magnitude_fit(S.abs(), PR, init, n_iso=512, n_iter=30)
+    torch.testing.assert_close(fit["T1"], torch.full((4,), 1500.0, dtype=torch.float64), rtol=1e-6, atol=0)
