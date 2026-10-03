@@ -34,6 +34,11 @@ deceptively benign.
   $(\Mzero,\Bone,\Tone)\mapsto(\Mzero/\kappa,\kappa\Bone,\Tone/\kappa^2)$ (\cref{prop:scaling}).
   With $15^\circ/30^\circ$ the information matrix has condition number $5\times10^5$; the
   parameters remain identifiable in principle but not usefully at realistic SNR.
+\item \textbf{A single scan cannot be rescued by a smooth $\Bone$ model.} For one scan, every
+  physically plausible $\Bone$ field---polynomial or otherwise---fits the data exactly, with
+  compensating per-voxel $\Tone$ and $\Mzero$ (\cref{prop:singlescan}); the profiled information of
+  any parametric field is zero (\cref{cor:parametric}). A second acquisition with a different
+  flip angle is required, but it can be short and coarse (\cref{sec:twoscans}).
 \item \textbf{The near-$360^\circ$ pulse breaks the degeneracy.} At $\Bone=1$, $330^\circ$ and
   $-30^\circ$ carry the same information (\cref{prop:period}); the benefit of $330^\circ$ is
   the eleven-fold faster response of its effective angle to $\Bone$. The condition number
@@ -68,7 +73,8 @@ deceptively benign.
 \Cref{sec:notation} fixes notation. \Cref{sec:model} derives the forward model and proves
 its structural properties. \Cref{sec:paper} presents and verifies the published inverse.
 \Cref{sec:information} analyses what the data can determine, locally (CRLB, conditioning)
-and globally (aliases). \Cref{sec:ml,sec:magnitude} develop and evaluate maximum-likelihood
+and globally (aliases); \cref{sec:twoscans} shows why a second scan is indispensable and how
+small it can be. \Cref{sec:ml,sec:magnitude} develop and evaluate maximum-likelihood
 estimation for complex data and least squares for magnitude data. \Cref{sec:jacobian}
 derives exact Jacobians and their consequences. \Cref{sec:phantom} demonstrates everything
 on a digital phantom, and \cref{sec:pv} measures the effect of partial volume on the
