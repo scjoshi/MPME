@@ -243,7 +243,7 @@ Local bounds say nothing about distant parameter values that produce the same da
 Let both scans have the same $\TR$, and let $\Ttwo$, $\Ttwos$ and $\dw$ be fixed. Write
 $u_i,v_i$ for the invariants of scan $i$ at $(\Bone,\Tone)$ and $u_i',v_i'$ at $(B_1^{+\prime},\Tone')$.
 \begin{enumerate}
-\item[(a)] If $u_i'=u_i$ for $i=1,2$ and $\Mzero'=\Mzero\tanh(\TR/2\Tone)/\tanh(\TR/2\Tone')$, then all
+\item[(a)] If $u_i'=u_i$ for $i=1,2$ and $\Mzero'=\Mzero\sqrt{\tanh(\TR/2\Tone)/\tanh(\TR/2\Tone')}$, then all
   magnitudes $|S_{ijk}|$ at $(\Mzero',B_1^{+\prime},\Tone')$ equal those at $(\Mzero,\Bone,\Tone)$.
 \item[(b)] If in addition $\sgn(v_1'v_2')=\sgn(v_1v_2)$, the complex signals are equal after
   replacing $\phi_0$ by $\phi_0$ or $\phi_0+\pi$.
@@ -256,8 +256,11 @@ $u_i,v_i$ for the invariants of scan $i$ at $(\Bone,\Tone)$ and $u_i',v_i'$ at $
 \end{enumerate}
 \end{proposition}
 \begin{proof}
-(a) By \cref{thm:uv}, $|a_k|=|v|\,|G_k(u,E_2,\dw)|$, and by \cref{lem:absv}
-$|v_i'|=\sqrt{1-u_i^2}\tanh(\TR/2\Tone')$. Hence $\Mzero'|v_i'|=\Mzero|v_i|$ for both scans with the
+(a) \Cref{thm:uv} gives $|a_k|=|v|\,|G_k(u,E_2,\dw)|$, and \cref{lem:absv} gives
+\[
+  |v_i'|=\sqrt{1-u_i^2}\,\sqrt{\tanh(\TR/2\Tone')} .
+\]
+Hence $\Mzero'|v_i'|=\Mzero|v_i|$ for both scans with the
 single stated $\Mzero'$ (both scans share $\TR$), and $\Mzero'|a_k'|=\Mzero|a_k|$ for every $k$. The echo
 factors in \eqref{eq:signal} depend only on $\Ttwo$, $\Ttwos$, $\dw$ and $\phi_0$. (b) The complex
 signal is $\Mzero v_i\,G_k(u_i,E_2,\dw)$ times echo factors; $v_i$ is real with

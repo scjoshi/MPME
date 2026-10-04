@@ -8,6 +8,24 @@ they do not: the single-scan degeneracy of \cref{cor:onescan} is exact and local
 spatial model of $\Bone$ alone can remove it. A second acquisition in which the flip angle enters
 differently is required; it can, however, be very short.
 
+\paragraph{A toy model.} Suppose each voxel $v$ has an unknown amplitude $a_v$ and the scanner has an
+unknown gain $b$ that varies smoothly (here, a constant), and one acquisition measures
+$y_v=a_v\,b$. However many voxels there are, $b$ cannot be found: replacing $(a_v,b)$ with
+$(a_v/\kappa,\kappa b)$ leaves every $y_v$ unchanged. The smoothness of $b$ does not help, because each
+$a_v$ is free and absorbs the change locally. A second acquisition that depends on $b$
+differently, for example $y'_v=a_v\,b^2$, breaks the degeneracy in every voxel: $b=y'_v/y_v$. The
+single MPME scan is this situation with $a_v\leftrightarrow(\Mzero,\Tone)$ and $b\leftrightarrow\Bone$. The data
+determine only $\Mzero v$ and $u$ (\cref{tab:onescan}), and for every trial $B_1^{+\prime}$ the voxel's own
+$(\Mzero',\Tone')$ compensates exactly through \eqref{eq:family} (\cref{tab:family}).
+
+\paragraph{Counting.} With $N$ voxels and a $\Bone$ model with $p$ coefficients, one scan supplies
+$2N$ independent equations for these unknowns (the two invariants per voxel), while the unknowns
+number $2N+p$ ($\Mzero$ and $\Tone$ in each voxel, plus the field). The system is underdetermined by
+exactly $p$ for every $N$, so adding voxels never closes the gap. A second flip angle adds $N$
+equations ($U_2$ in each voxel, \eqref{eq:secondscan}), giving $3N\ge2N+p$. With a smooth $\Bone$
+model only about $p$ of the new equations are needed to fix the field, which is why the second
+scan can be short (\cref{sec:design}).
+
 \subsection{Any $\Bone$ field fits a single scan exactly}
 
 \begin{proposition}[Whole-image degeneracy of a single scan]\label{prop:singlescan}
@@ -110,7 +128,7 @@ hierarchical model of \cref{sec:future}), not in place of one.
 \subsection{What a second acquisition does}
 
 With a second scan of the same $\TR$ and a different nominal flip angle, $\alpha_2=\rho\,\alpha_1$ with a
-common $\Bone$, a voxel provides $u_1$, $u_2$ and, by \cref{lem:absv}, $\Mzero\tanh(\TR/2\Tone)$: three numbers
+common $\Bone$, a voxel provides $u_1$, $u_2$ and, by \cref{lem:absv}, $\Mzero\sqrt{\tanh(\TR/2\Tone)}$: three numbers
 for the three unknowns $(\Mzero,\Bone,\Tone)$. The construction of \cref{prop:singlescan} now fails:
 $E_1'$ must satisfy $u(B_1^{+\prime}\alpha_1,E_1')=u_1$ and $u(B_1^{+\prime}\alpha_2,E_1')=u_2$ simultaneously, which are the two
 equations \eqref{eq:aliaseq} in two unknowns. Their solutions are isolated: the per-voxel null
@@ -124,7 +142,7 @@ different $\TR$ (then $E_1$ changes while $\alpha$ does not, the principle of ac
 or transient (non-steady-state) data, to which \cref{thm:uv} does not apply. The published
 design uses a second flip angle near $360^\circ$, whose $\Bone$ lever arm \eqref{eq:lever} is large.
 
-\subsection{How much second scan is needed}
+\subsection{How much second scan is needed}\label{sec:design}
 
 Once each voxel carries some information about $\Bone$, pooling it through a smooth field is
 effective, and the second scan can be short and coarse. If scan 2 covers a fraction $r$ of

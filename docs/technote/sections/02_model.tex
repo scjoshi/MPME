@@ -144,7 +144,7 @@ coefficients over $\psi$ (with $\beta=\psi+\dw\TR$) gives \eqref{eq:uvform}.
 \end{proof}
 
 \begin{lemma}\label{lem:absv}
-$|u|\le1$ and $|v|=\sqrt{1-u^2}\,\tanh\bigl(\TR/(2\Tone)\bigr)$.
+$|u|\le1$ and $|v|=\sqrt{1-u^2}\,\sqrt{\tanh\bigl(\TR/(2\Tone)\bigr)}$.
 \end{lemma}
 \begin{proof}
 From \eqref{eq:uv}, $1-u=(1-E_1)(1+c)/(1-E_1c)$ and $1+u=(1+E_1)(1-c)/(1-E_1c)$, both
@@ -167,6 +167,110 @@ $(\Mzero,\Bone,\Tone)$. By the chain rule, the $3$ columns of $\partial S/\parti
 so they span at most a two-dimensional space. The Fisher information restricted to these
 parameters is $J^{\mathsf H}J/\sigma^2$ with $J$ of rank $\le2$, hence singular.
 \end{proof}
+
+\subsection{What the invariants mean, and what one scan measures}\label{sec:invariants}
+
+\paragraph{Interpretation.} Let $m_z=(1-E_1)/(1-E_1\cos\alpha)$ be the longitudinal magnetisation
+(per unit $\Mzero$) just before each pulse in the steady state of an ordinary \emph{spoiled}
+gradient echo with the same $\alpha$, $\TR$ and $\Tone$. Then
+\begin{equation}
+  v=\sin\alpha\;m_z,\qquad u=1-(1+\cos\alpha)\,m_z ,
+  \label{eq:uvspoiled}
+\end{equation}
+since $1-u=(1-E_1)(1+\cos\alpha)/(1-E_1\cos\alpha)$. Thus $v$ is exactly the Ernst signal: the transverse
+magnetisation that each pulse creates from recovered longitudinal magnetisation (the
+\emph{source}). $u\in[-1,1]$ describes how one pulse-plus-relaxation cycle carries existing
+transverse magnetisation into the next repetition (the \emph{retention}, an effective cosine). In
+the proof of \cref{thm:uv} they appear as the coefficient and the inhomogeneous term of the
+transverse steady-state equation \eqref{eq:mperp_lin}. Unbalanced SSFP differs from the spoiled
+sequence only in keeping the transverse magnetisation, and \cref{thm:uv} says it sees $\alpha$ and
+$\Tone$ only through this source and retention.
+
+\paragraph{What one scan measures.} A scan yields 3 pathways $\times$ 3 echoes = 9 complex numbers
+(18 real values). By \cref{thm:uv} and \eqref{eq:signal} they depend on the parameters as
+follows.
+
+\begin{table}[!htbp]
+\centering
+\caption{Information content of one scan.}
+\label{tab:onescan}
+\small
+\begin{tabular}{ll}
+\toprule
+Feature of the data & Determined by\\
+\midrule
+overall scale & $\Mzero v$\\
+amplitude ratios between pathways, $a_k/a_0=G_k(u)/G_0(u)$ & $u$ (and $E_2$)\\
+decay across the echoes of each pathway & $\Ttwo$ and $\Rtwop$ (hence $\Ttwos$)\\
+phase change across echoes & $\dw$\\
+common phase & $\phi_0$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The 18 values therefore determine six quantities, $(\Mzero v,\,u,\,\Ttwo,\,\Rtwop,\,\dw,\,\phi_0)$, and are
+redundant with respect to them (which averages noise and allows model checking). The
+deficiency is specific: the three unknowns $(\Mzero,\Bone,\Tone)$ enter only through the two
+functions $u$ and $\Mzero v$. More echoes or more pathways from the same scan do not help, because
+every one of them depends on $(\alpha,\Tone)$ through the same $u$ and $v$.
+
+\paragraph{The data model for $(\Mzero,\Bone,\Tone)$.} Write $U_i$ and $V_i$ for the values of $u$ and
+$\Mzero v$ in scan $i$, which the data determine. With $\alpha_i=\Bone\alpha_i^{\rm nom}$ and $E_1=\E^{-\TR/\Tone}$, the
+equations that $(\Mzero,\Bone,\Tone)$ must satisfy are
+\begin{equation}
+  \frac{E_1-\cos(\Bone\alpha_i^{\rm nom})}{1-E_1\cos(\Bone\alpha_i^{\rm nom})}=U_i,\qquad
+  \Mzero\,\frac{\sin(\Bone\alpha_i^{\rm nom})\,(1-E_1)}{1-E_1\cos(\Bone\alpha_i^{\rm nom})}=V_i .
+  \label{eq:datamodel}
+\end{equation}
+For \emph{one} scan these are two equations in three unknowns. Their solutions form a
+one-parameter family, which can be written in closed form with the trial transmit scale
+$B_1^{+\prime}$ as the parameter:
+\begin{equation}
+  \begin{gathered}
+  E_1'(B_1^{+\prime})=\frac{U+\cos(B_1^{+\prime}\alpha^{\rm nom})}{1+U\cos(B_1^{+\prime}\alpha^{\rm nom})},\qquad
+  \Tone'(B_1^{+\prime})=-\frac{\TR}{\ln E_1'(B_1^{+\prime})},\\
+  \Mzero'(B_1^{+\prime})=V\,\frac{1-E_1'\cos(B_1^{+\prime}\alpha^{\rm nom})}{\sin(B_1^{+\prime}\alpha^{\rm nom})\,(1-E_1')} .
+  \end{gathered}
+  \label{eq:family}
+\end{equation}
+Every member reproduces the scan exactly (\cref{prop:singlescan}). With a \emph{second} scan, the
+first equation of \eqref{eq:datamodel} for $i=2$ adds the condition
+\begin{equation}
+  \frac{E_1'(\Bone)-\cos(\Bone\alpha_2^{\rm nom})}{1-E_1'(\Bone)\cos(\Bone\alpha_2^{\rm nom})}=U_2 ,
+  \label{eq:secondscan}
+\end{equation}
+a single equation in $\Bone$ alone, with $E_1'(\Bone)$ from scan 1. Its roots are isolated: the
+true $\Bone$ and the discrete aliases of \cref{prop:equiv}. $\Tone$ and $\Mzero$ then follow from
+\eqref{eq:family}. Because both scans share $\TR$, the second scan's $V_2$ adds nothing new:
+$|V_2|=\Mzero\sqrt{1-U_2^2}\sqrt{\tanh(\TR/2\Tone)}$ by \cref{lem:absv}. Its contribution is $U_2$.
+
+\paragraph{A concrete example.} \Cref{tab:family} evaluates \eqref{eq:family} for one
+white-matter voxel ($\Tone=850$\,ms, $\Mzero=1$, $\Bone=1$, scan 1 at $15^\circ$, $\TR=25$\,ms; $U=0.0820$,
+$V=0.1209$). Every member of the family reproduces all nine complex scan-1 signals to machine
+precision, from $(\Bone,\Tone)=(0.8,1334\,\mathrm{ms})$ to $(1.5,372\,\mathrm{ms})$, while the scan-2 ($330^\circ$) signals
+differ by $41\%$ to $200\%$ (of the largest scan-2 signal) for every member except the truth. This is
+why the second scan, and not any amount of scan-1 data, fixes $\Bone$.
+
+\begin{table}[!htbp]
+\centering
+\caption{The single-scan solution family \eqref{eq:family} for one white-matter voxel (truth:
+$\Bone=1$, $\Tone=850$\,ms, $\Mzero=1$). Last two columns: largest difference of the nine complex signals
+from the true ones, relative to the largest true signal of that scan.}
+\label{tab:family}
+\small\setlength{\tabcolsep}{5pt}
+\begin{tabular}{cccccc}
+\toprule
+$B_1^{+\prime}$ & $E_1'$ & $\Tone'$ (ms) & $\Mzero'$ & scan 1 ($15^\circ$) & scan 2 ($330^\circ$)\\
+\midrule
+0.80 & 0.98143 & 1334 & 1.253 & $4\times10^{-16}$ & 0.69\\
+0.90 & 0.97651 & 1052 & 1.112 & $1\times10^{-16}$ & 0.41\\
+1.00 & 0.97102 & 850 & 1.000 & $8\times10^{-16}$ & 0\\
+1.10 & 0.96495 & 701 & 0.908 & $7\times10^{-16}$ & 1.36\\
+1.20 & 0.95832 & 587 & 0.831 & $5\times10^{-16}$ & 2.00\\
+1.50 & 0.93504 & 372 & 0.662 & $3\times10^{-16}$ & 1.27\\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Echo evolution and the voxel signal}
 

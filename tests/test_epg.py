@@ -131,3 +131,30 @@ def test_two_invariant_reduction(deg, factor):
     A = steady_state_isochromat(a1, T1, T2, TR, paths, dw=dw, n_iso=2048)
     B = steady_state_isochromat(a2, T1b, T2, TR, paths, dw=dw, n_iso=2048)
     torch.testing.assert_close(B, A * v(a2, E1b) / v(a1, E1), rtol=1e-9, atol=1e-14)
+
+
+def test_abs_v_identity_and_single_scan_family():
+    """Lemma 1: |v| = sqrt(1-u^2) sqrt(tanh(TR/2T1)); and the closed-form single-scan family
+    (E1', T1', M0') as functions of B1' reproduces one scan exactly but not a second one."""
+    from mpme.sequence import Protocol, paper_protocol
+    from mpme.signal import mpme_signal
+    TR, T1, M0 = 25.0, 850.0, 1.0
+    a = math.radians(15)
+    E1 = math.exp(-TR / T1)
+    U = (E1 - math.cos(a)) / (1 - E1 * math.cos(a))
+    v = math.sin(a) * (1 - E1) / (1 - E1 * math.cos(a))
+    assert v == pytest.approx(math.sqrt(1 - U * U) * math.sqrt(math.tanh(TR / (2 * T1))), rel=1e-12)
+    pr = paper_protocol()
+    one, two = (Protocol(pr.pathways, (s,)) for s in pr.scans)
+    args = dict(T2=66.0, R2p=1 / 50 - 1 / 66, dw=0.05, phi0=0.3, n_iso=1024)
+    S1 = mpme_signal(one, M0=M0, T1=T1, B1=1.0, **args)
+    S2 = mpme_signal(two, M0=M0, T1=T1, B1=1.0, **args)
+    for B1p in (0.8, 1.2):
+        c, s = math.cos(a * B1p), math.sin(a * B1p)
+        E1p = (U + c) / (1 + U * c)
+        T1p = -TR / math.log(E1p)
+        M0p = M0 * v * (1 - E1p * c) / (s * (1 - E1p))
+        A = mpme_signal(one, M0=M0p, T1=T1p, B1=B1p, **args)
+        B = mpme_signal(two, M0=M0p, T1=T1p, B1=B1p, **args)
+        torch.testing.assert_close(A, S1, rtol=0, atol=1e-13)
+        assert (B - S2).abs().max() / S2.abs().max() > 0.3
