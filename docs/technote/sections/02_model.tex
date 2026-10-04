@@ -153,6 +153,58 @@ $v^2=s^2(1-E_1)^2/(1-E_1c)^2=(1-u^2)(1-E_1)/(1+E_1)$, and $(1-E_1)/(1+E_1)=\tanh
 $E_1=\E^{-\TR/\Tone}$.
 \end{proof}
 
+The invariants take their simplest form in terms of the Ernst angle $\alpha_E=\arccos E_1$, the
+flip angle that maximises the spoiled-gradient-echo signal of the tissue.
+
+\begin{proposition}[Ernst-angle form of the invariants]\label{prop:ernst}
+Let $\zeta=\tan(\alpha_E/2)$ and, for a flip angle $\alpha$ that is not an odd multiple of $\pi$,
+\begin{equation}
+  \xi=\frac{\tan(\alpha/2)}{\tan(\alpha_E/2)},\qquad \vartheta=\arctan\xi\in(-\tfrac\pi2,\tfrac\pi2).
+  \label{eq:xi}
+\end{equation}
+Then $\zeta^2=(1-E_1)/(1+E_1)=\tanh(\TR/2\Tone)$ and
+\begin{equation}
+  u=\frac{\xi^2-1}{\xi^2+1}=-\cos2\vartheta,\qquad
+  v=\zeta\,\frac{2\xi}{1+\xi^2}=\zeta\sin2\vartheta .
+  \label{eq:ernstform}
+\end{equation}
+\end{proposition}
+\begin{proof}
+Write $q=\tan(\alpha/2)$, so $\cos\alpha=(1-q^2)/(1+q^2)$ and $\sin\alpha=2q/(1+q^2)$, and likewise
+$E_1=\cos\alpha_E=(1-\zeta^2)/(1+\zeta^2)$, which gives $\zeta^2=(1-E_1)/(1+E_1)=\tanh(\TR/2\Tone)$.
+Then $E_1-\cos\alpha=2(q^2-\zeta^2)/D$, $1-E_1\cos\alpha=2(q^2+\zeta^2)/D$ and
+$\sin\alpha\,(1-E_1)=4q\zeta^2/D$ with $D=(1+q^2)(1+\zeta^2)$. Substituting in \eqref{eq:uv},
+$u=(q^2-\zeta^2)/(q^2+\zeta^2)$ and $v=2q\zeta^2/(q^2+\zeta^2)$; dividing numerator and denominator
+by $\zeta^2$ gives \eqref{eq:ernstform}, and $\xi=\tan\vartheta$ gives the trigonometric forms.
+\end{proof}
+
+\Cref{lem:absv} is the identity $u^2+(v/\zeta)^2=1$: the pair $(u,v/\zeta)$ lies on the unit
+circle at angle $2\vartheta$. $\xi$ measures where the actual flip angle lies relative to the
+Ernst angle: $\xi<1$ ($u<0$) below it, $\xi=1$ ($u=0$, $v=\zeta$, the largest value of $v$) at
+it, and $\xi\to\infty$ ($u\to1$, $v\to0$) as $\alpha\to\pi$. For $\alpha\ll1$ and $\TR\ll\Tone$,
+\begin{equation}
+  \xi\approx\frac{\alpha}{\alpha_E}\approx\alpha\sqrt{\frac{\Tone}{2\TR}},\qquad
+  \zeta\approx\sqrt{\frac{\TR}{2\Tone}} ,
+  \label{eq:xismall}
+\end{equation}
+so $\xi^2$ is the exact counterpart of the similarity variable $c=\alpha^2\Tone/2\TR$ of
+\cref{prop:scaling}. At $15^\circ$ and $\TR=25$\,ms the Ernst angles of WM, GM and CSF are $13.8^\circ$,
+$11.0^\circ$ and $6.4^\circ$, so $\xi=1.09$, $1.37$ and $2.36$ ($u=0.08$, $0.30$ and $0.69$). The
+small-angle forms are close but not exact: for WM, $\xi^2=1.1787$, $(\alpha/\alpha_E)^2=1.1767$ and
+$\alpha^2\Tone/2\TR=1.1652$.
+
+On a logarithmic half-angle axis the invariants take an even simpler form. With
+$s=\ln|\tan(\alpha/2)|$ and $s_E=\ln\zeta=\ln\tan(\alpha_E/2)$, so that $|\xi|=\E^{s-s_E}$, \eqref{eq:ernstform} reads
+\begin{equation}
+  u=\tanh(s-s_E),\qquad |v|=\zeta\,\operatorname{sech}(s-s_E),\qquad \sgn v=\sgn\tan(\alpha/2).
+  \label{eq:logtan}
+\end{equation}
+As a function of $s$, the spoiled-gradient-echo amplitude $|v|$ is a bump of fixed shape
+($\operatorname{sech}$), centred at the tissue's Ernst angle $s_E$ and of height $\zeta$. $\Tone$ sets the position and
+height of the bump, and the actual flip angle sets the point $s$ at which a scan samples it.
+Every log-derivative with respect to $\Bone$ follows from
+$\mathrm d\ln|\tan(x/2)|/\mathrm d\ln x=x/\sin x$.
+
 \begin{corollary}[One scan cannot separate $\Mzero$, $\Bone$, $\Tone$]\label{cor:onescan}
 For a single scan, with $\Ttwo$, $\Ttwos$, $\dw$, $\phi_0$ fixed, the signal depends on
 $(\Mzero,\Bone,\Tone)$ only through the two functions $(u,\ \Mzero v)$. The Jacobian of the
@@ -170,25 +222,66 @@ parameters is $J^{\mathsf H}J/\sigma^2$ with $J$ of rank $\le2$, hence singular.
 
 \subsection{What the invariants mean, and what one scan measures}\label{sec:invariants}
 
-\paragraph{Interpretation.} Let $m_z=(1-E_1)/(1-E_1\cos\alpha)$ be the longitudinal magnetisation
-(per unit $\Mzero$) just before each pulse in the steady state of an ordinary \emph{spoiled}
-gradient echo with the same $\alpha$, $\TR$ and $\Tone$. Then
+\paragraph{Intuition.} \Cref{fig:logtan} draws \eqref{eq:logtan}. Plot the amplitude $\Mzero|v|$ against
+$s=\ln|\tan(\alpha/2)|$: it is a $\operatorname{sech}$ bump of height $\Mzero\zeta$ centred at the Ernst angle, and a scan
+samples it at $s=\ln|\tan(\Bone\alpha^{\rm nom}/2)|$. The MPME sequence is not spoiled, but by
+\cref{thm:uv} each of its nine signals is $v$ times a function of $u$ alone, so all of them
+report the same sample. The ratios between pathways give $u=\tanh(s-s_E)$, the offset of the
+sample from the centre of the bump, and the overall scale then gives the height $\Mzero\zeta$.
+Neither tells where the sample and the bump lie in absolute terms. Raising $\Bone$ moves the
+sample to the right by $\ln[\tan(B_1^{+\prime}\alpha^{\rm nom}/2)/\tan(\Bone\alpha^{\rm nom}/2)]\approx\ln(B_1^{+\prime}/\Bone)$; shortening $\Tone$
+by the right amount (about the square of the same factor, since $\zeta\approx\sqrt{\TR/2\Tone}$) moves the
+bump by the same distance; and lowering $\Mzero$ by the factor restores the height. The whole
+picture translates rigidly, and the scan cannot tell. In words: a larger flip angle in a tissue
+with a larger Ernst angle (shorter $\Tone$) is indistinguishable from a smaller flip angle in a
+tissue with a smaller Ernst angle.
+
+A second scan samples the same bump at a different $s$. A $330^\circ$ pulse is $-30^\circ$ modulo
+$360^\circ$, but its sample moves with $\Bone$ at the rate $\mathrm d\ln|\tan(\alpha_2/2)|/\mathrm d\ln\Bone=\alpha_2/\sin\alpha_2=-11.5$,
+against $+1.01$ for the $15^\circ$ pulse. When the family translates the picture to keep scan 1,
+the scan-2 sample therefore lands elsewhere on the bump (\cref{fig:logtan}a). A second small
+angle such as $30^\circ$ moves at almost the same rate as the first ($1.05$), so its sample
+translates with the bump and nearly preserves the data (\cref{fig:logtan}b). This is the
+leading-order degeneracy of \cref{prop:scaling} for small-angle protocols.
+
+For small angles, $\xi^2\approx\alpha^2\Tone/2\TR$ is the ratio of the saturation per pulse ($\propto\alpha^2$) to
+the recovery per repetition ($\propto\TR/\Tone$), a useful mnemonic for the spoiled part of the signal.
+The exact invariant uses half-angle tangents: along the family of \cref{tab:family}, the plain
+ratio of the flip angle to the Ernst angle drifts from $1.0851$ to $1.0836$, while $\xi=1.0857$ is
+constant.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{ernst_logtan.png}
+\caption{The single-scan degeneracy on the log half-angle axis (WM, $\TR=25$\,ms). Curves: the
+amplitude $\Mzero|v|=\Mzero\zeta\operatorname{sech}(s-s_E)$ for three members of the family \eqref{eq:family}
+($B_1^{+\prime}=0.8$, $1$, $1.25$); dotted lines: their Ernst angles $s_E$. Circles: the $15^\circ$ scan-1
+sample of each member, at the same offset from its bump and the same height, hence identical
+scan-1 data. Squares: the scan-2 sample. (a) For $330^\circ$ the scan-2 samples land at different
+heights (and, for $B_1^{+\prime}=1.25$, with the opposite sign of $v$). (b) For $30^\circ$ they almost
+coincide: a second small flip angle hardly separates the members.}
+\label{fig:logtan}
+\end{figure}
+
+\paragraph{Relation to the spoiled gradient echo.} Let $m_z=(1-E_1)/(1-E_1\cos\alpha)$ be the longitudinal
+magnetisation (per unit $\Mzero$) just before each pulse in the steady state of a spoiled gradient echo
+with the same $\alpha$, $\TR$ and $\Tone$. Then
 \begin{equation}
   v=\sin\alpha\;m_z,\qquad u=1-(1+\cos\alpha)\,m_z ,
   \label{eq:uvspoiled}
 \end{equation}
-since $1-u=(1-E_1)(1+\cos\alpha)/(1-E_1\cos\alpha)$. Thus $v$ is exactly the Ernst signal: the transverse
+since $1-u=(1-E_1)(1+\cos\alpha)/(1-E_1\cos\alpha)$. So $v$ is the spoiled (Ernst) signal: the transverse
 magnetisation that each pulse creates from recovered longitudinal magnetisation (the
-\emph{source}). $u\in[-1,1]$ describes how one pulse-plus-relaxation cycle carries existing
+\emph{source}). $u\in[-1,1]$ is the factor by which one pulse-and-relaxation cycle carries existing
 transverse magnetisation into the next repetition (the \emph{retention}, an effective cosine). In
-the proof of \cref{thm:uv} they appear as the coefficient and the inhomogeneous term of the
+the proof of \cref{thm:uv} they appear as the inhomogeneous term and the coefficient of the
 transverse steady-state equation \eqref{eq:mperp_lin}. Unbalanced SSFP differs from the spoiled
-sequence only in keeping the transverse magnetisation, and \cref{thm:uv} says it sees $\alpha$ and
-$\Tone$ only through this source and retention.
+sequence only in keeping the transverse magnetisation, and it sees $\alpha$ and $\Tone$ only through
+this source and retention.
 
 \paragraph{What one scan measures.} A scan yields 3 pathways $\times$ 3 echoes = 9 complex numbers
-(18 real values). By \cref{thm:uv} and \eqref{eq:signal} they depend on the parameters as
-follows.
+(18 real values). By \cref{thm:uv,prop:ernst} and \eqref{eq:signal}, they depend on the
+parameters as listed in \cref{tab:onescan}.
 
 \begin{table}[!htbp]
 \centering
@@ -199,8 +292,8 @@ follows.
 \toprule
 Feature of the data & Determined by\\
 \midrule
-overall scale & $\Mzero v$\\
-amplitude ratios between pathways, $a_k/a_0=G_k(u)/G_0(u)$ & $u$ (and $E_2$)\\
+amplitude ratios between pathways, $a_k/a_0=G_k(u)/G_0(u)$ & $u$, i.e.\ $\xi$ (and $E_2$)\\
+overall scale, $\Mzero v=\Mzero\zeta\sin2\vartheta$ & $\Mzero\zeta$, given $\xi$\\
 decay across the echoes of each pathway & $\Ttwo$ and $\Rtwop$ (hence $\Ttwos$)\\
 phase change across echoes & $\dw$\\
 common phase & $\phi_0$\\
@@ -208,66 +301,99 @@ common phase & $\phi_0$\\
 \end{tabular}
 \end{table}
 
-The 18 values therefore determine six quantities, $(\Mzero v,\,u,\,\Ttwo,\,\Rtwop,\,\dw,\,\phi_0)$, and are
+The 18 values therefore determine six quantities, $(\xi,\,\Mzero\zeta,\,\Ttwo,\,\Rtwop,\,\dw,\,\phi_0)$, and are
 redundant with respect to them (which averages noise and allows model checking). The
 deficiency is specific: the three unknowns $(\Mzero,\Bone,\Tone)$ enter only through the two
-functions $u$ and $\Mzero v$. More echoes or more pathways from the same scan do not help, because
-every one of them depends on $(\alpha,\Tone)$ through the same $u$ and $v$.
+combinations $\xi$ and $\Mzero\zeta$ (equivalently $u$ and $\Mzero v$). More echoes or more pathways
+from the same scan do not help, because every one of them depends on $(\alpha,\Tone)$ through the
+same pair.
 
-\paragraph{The data model for $(\Mzero,\Bone,\Tone)$.} Write $U_i$ and $V_i$ for the values of $u$ and
-$\Mzero v$ in scan $i$, which the data determine. With $\alpha_i=\Bone\alpha_i^{\rm nom}$ and $E_1=\E^{-\TR/\Tone}$, the
-equations that $(\Mzero,\Bone,\Tone)$ must satisfy are
+\paragraph{The data model for $(\Mzero,\Bone,\Tone)$.} Write $\xi_i$ and $A$ for the values of $\xi$
+and $\Mzero\zeta$ that the data of scan $i$ determine. With $\alpha_i=\Bone\alpha_i^{\rm nom}$, the equations
+that $(\Mzero,\Bone,\Tone)$ must satisfy are
 \begin{equation}
-  \frac{E_1-\cos(\Bone\alpha_i^{\rm nom})}{1-E_1\cos(\Bone\alpha_i^{\rm nom})}=U_i,\qquad
-  \Mzero\,\frac{\sin(\Bone\alpha_i^{\rm nom})\,(1-E_1)}{1-E_1\cos(\Bone\alpha_i^{\rm nom})}=V_i .
+  \frac{\tan(\Bone\alpha_i^{\rm nom}/2)}{\sqrt{\tanh(\TR/2\Tone)}}=\xi_i,\qquad
+  \Mzero\sqrt{\tanh(\TR/2\Tone)}=A ,
   \label{eq:datamodel}
 \end{equation}
-For \emph{one} scan these are two equations in three unknowns. Their solutions form a
-one-parameter family, which can be written in closed form with the trial transmit scale
-$B_1^{+\prime}$ as the parameter:
+equivalent to $u(\alpha_i,E_1)=U_i$ and $\Mzero v(\alpha_i,E_1)=V_i$ with $U_i=(\xi_i^2-1)/(\xi_i^2+1)$ and
+$V_i=2A\xi_i/(1+\xi_i^2)$. Because all scans share $\TR$, the amplitude equation is the same for every
+scan; only $\xi_i$ is new in each. For \emph{one} scan, \eqref{eq:datamodel} is two equations in three
+unknowns, and its solutions form a one-parameter family. With the trial transmit scale
+$B_1^{+\prime}$ as the parameter, $\tan(\alpha_E'/2)=\tan(B_1^{+\prime}\alpha^{\rm nom}/2)/\xi$, that is,
 \begin{equation}
-  \begin{gathered}
-  E_1'(B_1^{+\prime})=\frac{U+\cos(B_1^{+\prime}\alpha^{\rm nom})}{1+U\cos(B_1^{+\prime}\alpha^{\rm nom})},\qquad
-  \Tone'(B_1^{+\prime})=-\frac{\TR}{\ln E_1'(B_1^{+\prime})},\\
-  \Mzero'(B_1^{+\prime})=V\,\frac{1-E_1'\cos(B_1^{+\prime}\alpha^{\rm nom})}{\sin(B_1^{+\prime}\alpha^{\rm nom})\,(1-E_1')} .
-  \end{gathered}
+  \Tone'(B_1^{+\prime})=\frac{\TR}{2\,\operatorname{artanh}\bigl(\tan^2(B_1^{+\prime}\alpha^{\rm nom}/2)/\xi^2\bigr)},\qquad
+  \Mzero'(B_1^{+\prime})=\Mzero\,\frac{\xi\,\zeta}{\tan(B_1^{+\prime}\alpha^{\rm nom}/2)} .
   \label{eq:family}
 \end{equation}
-Every member reproduces the scan exactly (\cref{prop:singlescan}). With a \emph{second} scan, the
-first equation of \eqref{eq:datamodel} for $i=2$ adds the condition
+In terms of $E_1$ this is $E_1'=(U+c')/(1+Uc')$ with $c'=\cos(B_1^{+\prime}\alpha^{\rm nom})$, the form used in
+\cref{prop:singlescan}. A member exists whenever $|\tan(B_1^{+\prime}\alpha^{\rm nom}/2)|<|\xi|$, equivalently
+$c'>-U$ (the Ernst angle must stay below $90^\circ$). Every member reproduces the scan exactly
+(\cref{prop:singlescan}). With $x=B_1^{+\prime}\alpha^{\rm nom}$ and $\tau'=\TR/\Tone'$, differentiating \eqref{eq:family} gives
 \begin{equation}
-  \frac{E_1'(\Bone)-\cos(\Bone\alpha_2^{\rm nom})}{1-E_1'(\Bone)\cos(\Bone\alpha_2^{\rm nom})}=U_2 ,
+  \frac{\mathrm d\ln\Mzero'}{\mathrm d\ln B_1^{+\prime}}=-\frac{x}{\sin x},\qquad
+  \frac{\mathrm d\ln\Tone'}{\mathrm d\ln B_1^{+\prime}}=-2\,\frac{x}{\sin x}\,\frac{\sinh\tau'}{\tau'},
+  \label{eq:familyslopes}
+\end{equation}
+the exact forms of the factors $-1$ and $-2$ of \cref{prop:scaling}. For WM at $15^\circ$ they are
+$-1.0115$ and $-2.023$, the slope measured in \cref{tab:singlescan}.
+
+\paragraph{What a second flip angle adds.} Dividing the first equation of \eqref{eq:datamodel} for
+$i=2$ by that for $i=1$ eliminates $\Tone$ and $\Mzero$:
+\begin{equation}
+  f(\Bone)\equiv\frac{\tan(\Bone\alpha_2^{\rm nom}/2)}{\tan(\Bone\alpha_1^{\rm nom}/2)}=\frac{\xi_2}{\xi_1}.
   \label{eq:secondscan}
 \end{equation}
-a single equation in $\Bone$ alone, with $E_1'(\Bone)$ from scan 1. Its roots are isolated: the
-true $\Bone$ and the discrete aliases of \cref{prop:equiv}. $\Tone$ and $\Mzero$ then follow from
-\eqref{eq:family}. Because both scans share $\TR$, the second scan's $V_2$ adds nothing new:
-$|V_2|=\Mzero\sqrt{1-U_2^2}\sqrt{\tanh(\TR/2\Tone)}$ by \cref{lem:absv}. Its contribution is $U_2$.
+This is one equation in $\Bone$ alone, the half-angle analogue of the double-angle method. Its roots
+are isolated, and $\Tone$ and $\Mzero$ then follow from \eqref{eq:family}. Its sensitivity to $\Bone$ is
+the exact lever
+\begin{equation}
+  L=\frac{\mathrm d\ln|f|}{\mathrm d\ln\Bone}=\frac{\alpha_2}{\sin\alpha_2}-\frac{\alpha_1}{\sin\alpha_1}
+  \qquad(\text{actual angles}),
+  \label{eq:leverexact}
+\end{equation}
+$-12.53$ for $15^\circ/330^\circ$ and $+0.036$ for $15^\circ/30^\circ$ at $\Bone=1$ (\cref{sec:information}).
+
+The data fix $\xi_i^2$ through $u_i$. Complex data with a phase $\phi_0$ shared by the two scans also fix
+the relative sign of $v_1$ and $v_2$, hence the sign of $\xi_2/\xi_1$; magnitude data fix only
+$|\xi_2/\xi_1|$. The aliases of \cref{prop:equiv} are the other roots of $f(B_1^{+\prime})=f(\Bone)$ (complex
+data) or $|f(B_1^{+\prime})|=|f(\Bone)|$ (magnitude data). Their $\Bone$ values depend on the true $\Bone$ alone,
+not on the tissue; the tissue enters only through the alias $\Tone'$, from \eqref{eq:family}, and
+through admissibility ($\zeta'<1$). For the published protocol and true $\Bone=1$ ($f=-2.04$), the
+magnitude alias is $B_1^{+\prime}=1.20$ ($f=+2.04$, scan 2 negated); it lies inside the physiological range and
+is removed only by the shared phase (the FID-sign test of \cref{sec:magnitude}). The complex alias
+is $B_1^{+\prime}=2.01$, which the bound $\Bone\le540/330$ excludes. Within the fitting range
+$\Bone\in[\E^{-1},540/330]$, the complex equation has a single root for every true $\Bone$ between $6/11$ and
+$1.592$, i.e.\ true $\alpha_2$ between $180^\circ$ and $525^\circ$. Because $f$ is the same function in every
+voxel, a $\Bone$ shared by many voxels has the same aliases (\cref{sec:shared}).
 
 \paragraph{A concrete example.} \Cref{tab:family} evaluates \eqref{eq:family} for one
-white-matter voxel ($\Tone=850$\,ms, $\Mzero=1$, $\Bone=1$, scan 1 at $15^\circ$, $\TR=25$\,ms; $U=0.0820$,
-$V=0.1209$). Every member of the family reproduces all nine complex scan-1 signals to machine
-precision, from $(\Bone,\Tone)=(0.8,1334\,\mathrm{ms})$ to $(1.5,372\,\mathrm{ms})$, while the scan-2 ($330^\circ$) signals
-differ by $41\%$ to $200\%$ (of the largest scan-2 signal) for every member except the truth. This is
-why the second scan, and not any amount of scan-1 data, fixes $\Bone$.
+white-matter voxel ($\Tone=850$\,ms, $\Mzero=1$, $\Bone=1$, scan 1 at $15^\circ$, $\TR=25$\,ms; $\xi=1.086$). As $B_1^{+\prime}$
+runs from $0.8$ to $1.5$, the flip angle and the Ernst angle move together (their half-angle tangents
+keep the ratio $\xi$). $\Tone'$ falls from $1334$ to $372$\,ms and $\Mzero'$ from $1.25$ to $0.66$. Every
+member reproduces all nine complex scan-1 signals to machine precision, while the scan-2
+($330^\circ$) signals differ by $41\%$ to $200\%$ (of the largest scan-2 signal) for every member except
+the truth. The predicted ratio $\xi_2/\xi_1$ for a $330^\circ$ scan changes from $-10.6$ to $+12.1$ across the
+family, whereas for a $30^\circ$ scan it changes only from $2.022$ to $2.082$. The second scan fixes
+$\Bone$ when its angle moves differently with $\Bone$; more scan-1 data cannot.
 
 \begin{table}[!htbp]
 \centering
 \caption{The single-scan solution family \eqref{eq:family} for one white-matter voxel (truth:
-$\Bone=1$, $\Tone=850$\,ms, $\Mzero=1$). Last two columns: largest difference of the nine complex signals
-from the true ones, relative to the largest true signal of that scan.}
+$\Bone=1$, $\Tone=850$\,ms, $\Mzero=1$). $B_1^{+\prime}\alpha$: actual scan-1 flip angle; $\alpha_E'$: Ernst angle of
+$\Tone'$. Misfit: largest difference of the nine complex signals from the true ones, relative to
+the largest true signal of that scan. Predicted $\xi_2/\xi_1$: the ratio $f(B_1^{+\prime})$ of
+\eqref{eq:secondscan} that the member predicts for a second scan at $330^\circ$ or $30^\circ$; the data
+have $f(1)$. Generated by \texttt{scripts/single\_scan\_family.py}.}
 \label{tab:family}
-\small\setlength{\tabcolsep}{5pt}
-\begin{tabular}{cccccc}
+\small\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{ccccccccc}
 \toprule
-$B_1^{+\prime}$ & $E_1'$ & $\Tone'$ (ms) & $\Mzero'$ & scan 1 ($15^\circ$) & scan 2 ($330^\circ$)\\
+& & & & & \multicolumn{2}{c}{misfit} & \multicolumn{2}{c}{predicted $\xi_2/\xi_1$}\\
+\cmidrule(lr){6-7}\cmidrule(lr){8-9}
+$B_1^{+\prime}$ & $B_1^{+\prime}\alpha$ ($^\circ$) & $\alpha_E'$ ($^\circ$) & $\Tone'$ (ms) & $\Mzero'$ & scan 1 ($15^\circ$) & scan 2 ($330^\circ$) & $330^\circ$ & $30^\circ$\\
 \midrule
-0.80 & 0.98143 & 1334 & 1.253 & $4\times10^{-16}$ & 0.69\\
-0.90 & 0.97651 & 1052 & 1.112 & $1\times10^{-16}$ & 0.41\\
-1.00 & 0.97102 & 850 & 1.000 & $8\times10^{-16}$ & 0\\
-1.10 & 0.96495 & 701 & 0.908 & $7\times10^{-16}$ & 1.36\\
-1.20 & 0.95832 & 587 & 0.831 & $5\times10^{-16}$ & 2.00\\
-1.50 & 0.93504 & 372 & 0.662 & $3\times10^{-16}$ & 1.27\\
+\input{tables/family_one.tex}
 \bottomrule
 \end{tabular}
 \end{table}

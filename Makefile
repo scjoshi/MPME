@@ -11,6 +11,9 @@ technote: technote-results technote-pdf
 
 technote-results:
 	$(PY) scripts/crlb_analysis.py
+	$(PY) scripts/single_scan_family.py
+	$(PY) scripts/shared_b1_check.py
+	$(PY) scripts/beyond_ideal_model.py
 	$(PY) scripts/start_count.py
 	$(PY) scripts/phantom_experiment.py --snr 1000
 	$(PY) scripts/phantom_experiment.py --snr 300

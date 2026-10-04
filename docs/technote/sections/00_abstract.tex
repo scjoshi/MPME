@@ -26,9 +26,12 @@ deceptively benign.
 \begin{enumerate}
 \item \textbf{Two invariants per scan (exact).} Each pathway amplitude is
   $a_k=v\,G_k(u,E_2,\dw)$ with $u=(E_1-\cos\alpha)/(1-E_1\cos\alpha)$ and
-  $v=\sin\alpha\,(1-E_1)/(1-E_1\cos\alpha)$ (\cref{thm:uv}). One scan identifies only
-  $(u,\Mzero v)$: its Fisher information about $(\Mzero,\Bone,\Tone)$ is singular at every
-  flip angle (\cref{cor:onescan}).
+  $v=\sin\alpha\,(1-E_1)/(1-E_1\cos\alpha)$ (\cref{thm:uv}). In terms of the Ernst angle $\alpha_E=\arccos E_1$,
+  one scan measures only $\xi=\tan(\alpha/2)/\tan(\alpha_E/2)$, where the actual flip angle lies relative to
+  the tissue's Ernst angle, and the amplitude $\Mzero\tan(\alpha_E/2)$ (\cref{prop:ernst}). A larger
+  flip angle in a tissue with a shorter $\Tone$ looks exactly like a smaller one in a tissue with a
+  longer $\Tone$, and the Fisher information about $(\Mzero,\Bone,\Tone)$ is singular at every flip
+  angle (\cref{cor:onescan}).
 \item \textbf{Small flip angles are degenerate to leading order.} In the joint limit of small
   $\alpha$ and $\TR/\Tone$ the signal is invariant under
   $(\Mzero,\Bone,\Tone)\mapsto(\Mzero/\kappa,\kappa\Bone,\Tone/\kappa^2)$ (\cref{prop:scaling}).
@@ -37,11 +40,15 @@ deceptively benign.
 \item \textbf{A single scan cannot be rescued by a smooth $\Bone$ model.} For one scan, every
   physically plausible $\Bone$ field---polynomial or otherwise---fits the data exactly, with
   compensating per-voxel $\Tone$ and $\Mzero$ (\cref{prop:singlescan}); the profiled information of
-  any parametric field is zero (\cref{cor:parametric}). A second acquisition with a different
-  flip angle is required, but it can be short and coarse (\cref{sec:twoscans}).
+  any parametric field is zero (\cref{cor:parametric}). Voxels that share one $\Bone$ slide together:
+  their $\Mzero$ ratios are preserved exactly and their $\Tone$ ratios to about $10^{-4}$, but the common
+  scale is undetermined (\cref{prop:shared}). A second acquisition with a different flip angle is
+  required, but it can be short and coarse (\cref{sec:twoscans}).
 \item \textbf{The near-$360^\circ$ pulse breaks the degeneracy.} At $\Bone=1$, $330^\circ$ and
   $-30^\circ$ carry the same information (\cref{prop:period}); the benefit of $330^\circ$ is
-  the eleven-fold faster response of its effective angle to $\Bone$. The condition number
+  the faster response of its angle to $\Bone$. Two scans determine $\Bone$ through
+  $\tan(\Bone\alpha_2/2)/\tan(\Bone\alpha_1/2)$, in which $\Tone$ and $\Mzero$ cancel, with the lever
+  $\alpha_2/\sin\alpha_2-\alpha_1/\sin\alpha_1=-12.5$ ($0.036$ for $15^\circ/30^\circ$). The condition number
   drops to 173 and the bound on $\log\Tone$ is $40.5\,\sigma/\Mzero$.
 \item \textbf{Exact global aliases.} Magnitudes admit an exact alias with
   $\alpha_2=360^\circ+x$ inside the physiological range; complex data with a shared phase

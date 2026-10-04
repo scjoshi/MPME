@@ -15,14 +15,17 @@ $(a_v/\kappa,\kappa b)$ leaves every $y_v$ unchanged. The smoothness of $b$ does
 $a_v$ is free and absorbs the change locally. A second acquisition that depends on $b$
 differently, for example $y'_v=a_v\,b^2$, breaks the degeneracy in every voxel: $b=y'_v/y_v$. The
 single MPME scan is this situation with $a_v\leftrightarrow(\Mzero,\Tone)$ and $b\leftrightarrow\Bone$. The data
-determine only $\Mzero v$ and $u$ (\cref{tab:onescan}), and for every trial $B_1^{+\prime}$ the voxel's own
-$(\Mzero',\Tone')$ compensates exactly through \eqref{eq:family} (\cref{tab:family}).
+determine only the flip angle relative to the Ernst angle, $\xi=\tan(\Bone\alpha/2)/\tan(\alpha_E/2)$, and the
+amplitude $\Mzero\tan(\alpha_E/2)$ (\cref{prop:ernst,tab:onescan}). For every trial $B_1^{+\prime}$ the voxel's own
+$\Tone'$ moves its Ernst angle to restore $\xi$, and its own $\Mzero'$ restores the amplitude
+(\eqref{eq:family}, \cref{tab:family}). Sharing $\Bone$ with other voxels does not change this, because
+each voxel compensates with its own parameters (\cref{sec:shared}).
 
 \paragraph{Counting.} With $N$ voxels and a $\Bone$ model with $p$ coefficients, one scan supplies
 $2N$ independent equations for these unknowns (the two invariants per voxel), while the unknowns
 number $2N+p$ ($\Mzero$ and $\Tone$ in each voxel, plus the field). The system is underdetermined by
 exactly $p$ for every $N$, so adding voxels never closes the gap. A second flip angle adds $N$
-equations ($U_2$ in each voxel, \eqref{eq:secondscan}), giving $3N\ge2N+p$. With a smooth $\Bone$
+equations ($\xi_2$ in each voxel, which with $\xi_1$ gives \eqref{eq:secondscan}), giving $3N\ge2N+p$. With a smooth $\Bone$
 model only about $p$ of the new equations are needed to fix the field, which is why the second
 scan can be short (\cref{sec:design}).
 
@@ -114,28 +117,217 @@ true $\times(1+0.15x-0.10y^2)$ & $8\times10^{-15}$ & $+0.055$ [$-0.225$, $+0.274
 \end{tabular}
 \end{table}
 
+\subsection{Voxels that share $\Bone$}\label{sec:shared}
+
+The extreme case of a smooth field is a constant one: a group of voxels with the same $\Bone$ and
+otherwise different tissue. Joint estimation with one shared $\Bone$ still leaves an exact
+one-parameter family, but within the group it preserves the ratios of $\Mzero$ exactly and the
+ratios of $\Tone$ almost exactly.
+
+\begin{proposition}[Voxels sharing $\Bone$]\label{prop:shared}
+Let voxels $j=1,\dots,N$ share $\Bone$, with arbitrary $M_{0,j}$, $T_{1,j}$, $T_{2,j}$, $T_{2,j}^{*}$, $\Delta\omega_j$, $\phi_{0,j}$,
+and let $\xi_j$, $\zeta_j=\tan(\alpha_{E,j}/2)$ be their scan-1 quantities (\cref{prop:ernst}). For every
+$B_1^{+\prime}$ with $|\tan(B_1^{+\prime}\alpha^{\rm nom}/2)|<\min_j|\xi_j|$, the parameters
+\begin{equation}
+  \zeta_j'=\frac{\tan(B_1^{+\prime}\alpha^{\rm nom}/2)}{\xi_j},\qquad
+  T_{1,j}'=\frac{\TR}{2\operatorname{artanh}\zeta_j'^2},\qquad
+  M_{0,j}'=M_{0,j}\frac{\zeta_j}{\zeta_j'},
+  \label{eq:sharedfamily}
+\end{equation}
+with all other parameters unchanged, reproduce the scan-1 signal of every voxel exactly. Along
+this family, for all $j,l$,
+\begin{equation}
+  \frac{M_{0,j}'}{M_{0,l}'}=\frac{M_{0,j}}{M_{0,l}},\qquad
+  \frac{\tanh(\TR/2T_{1,j}')}{\tanh(\TR/2T_{1,l}')}=\frac{\tanh(\TR/2T_{1,j})}{\tanh(\TR/2T_{1,l})}
+  \label{eq:sharedratios}
+\end{equation}
+exactly, and $T_{1,l}'/T_{1,j}'=(T_{1,l}/T_{1,j})\bigl(1+O\bigl((\TR/2T_{1,\min}')^2\bigr)\bigr)$.
+\end{proposition}
+\begin{proof}
+For each voxel, \eqref{eq:sharedfamily} is \eqref{eq:family} with the common $B_1^{+\prime}$; it keeps $\xi_j$
+and $M_{0,j}\zeta_j$, hence the voxel's signal (\cref{prop:singlescan}), and the condition on $B_1^{+\prime}$ makes
+every $\zeta_j'<1$. The voxels' likelihood terms share no other parameter, so the joint data are
+reproduced. Dividing, $\zeta_j'/\zeta_l'=\xi_l/\xi_j$ does not depend on $B_1^{+\prime}$, and it equals $\zeta_j/\zeta_l$ at
+$B_1^{+\prime}=\Bone$; since $\zeta^2=\tanh(\TR/2\Tone)$ this is the second identity. Then
+$M_{0,j}'/M_{0,l}'=(M_{0,j}\zeta_j/M_{0,l}\zeta_l)(\zeta_l'/\zeta_j')=M_{0,j}/M_{0,l}$. Finally
+$\operatorname{artanh}y=y\,(1+y^2/3+O(y^4))$ with $y=\zeta^2\approx\TR/2\Tone$ gives the $\Tone$ ratio.
+\end{proof}
+
+In words: changing the shared $\Bone$ multiplies $\tan(\Bone\alpha/2)$ by a factor $\kappa$, and every voxel keeps
+its own $\xi_j$ by multiplying its own $\tan(\alpha_{E,j}/2)$ by the same $\kappa$. All Ernst angles therefore
+slide together, all $\Tone$ values change by about $\kappa^{-2}$ and all $\Mzero$ values by exactly
+$\kappa^{-1}$. The shared parameter is never tested, because no voxel's data
+involve another voxel's parameters. This is \cref{cor:parametric} with a single constant basis
+function: $2N$ equations for $2N+1$ unknowns.
+
+\Cref{tab:sharedfamily} shows the family for a WM voxel ($\Mzero=0.69$, $\Tone=850$\,ms) and a GM voxel
+($\Mzero=0.82$, $\Tone=1350$\,ms) that share $\Bone=1$ and differ in every other parameter as well. Both
+voxels reproduce their scan-1 signals to machine precision for every $B_1^{+\prime}$ from $0.7$ to $1.5$, while
+the absolute $\Tone$ values change by a factor of $4.7$. The ratio $\Mzero^{\rm GM}/\Mzero^{\rm WM}$ stays at
+$0.82/0.69=1.188406$ to all printed digits, and $\Tone^{\rm GM}/\Tone^{\rm WM}$ stays between $1.5882$ and
+$1.5885$ (true value $1.5882$). Scan 2 again rejects every member but the truth.
+
+\begin{table}[!htbp]
+\centering
+\caption{Two voxels with the same $\Bone$ (truth $1$) fitted jointly from scan 1: the shared-$\Bone$
+family \eqref{eq:sharedfamily}. Misfit columns as in \cref{tab:family}, maximum over the two
+voxels. Generated by \texttt{scripts/single\_scan\_family.py}.}
+\label{tab:sharedfamily}
+\small\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{ccccccccc}
+\toprule
+& \multicolumn{3}{c}{$\Tone'$ (ms)} & \multicolumn{3}{c}{$\Mzero'$} & \multicolumn{2}{c}{misfit}\\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-9}
+$B_1^{+\prime}$ & WM & GM & GM/WM & WM & GM & GM/WM & scan 1 & scan 2\\
+\midrule
+\input{tables/family_two.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{A joint fit can look as if it worked.} \Cref{tab:sharedfit} fits the WM and GM voxels of
+\cref{tab:sharedfamily} jointly, with one shared $\Bone$, to noisy data ($\sigma=10^{-3}$, one
+realisation). The method is a block Levenberg--Marquardt with exact Jacobians, started from a
+generic point ($\Mzero=0.8$, $\Tone=1000$\,ms, $\Ttwo=80$\,ms, $\Ttwos=56$\,ms) at five values of $\Bone$. From
+scan 1 alone, every fit reaches the same cost, $22.9687\,\sigma^2$, but the final $\Bone$ depends on the
+start (from $0.90$ to $1.00$): the optimiser stops at the first point of the solution curve it
+reaches. A shared-$\Bone$ fit that starts near the truth and ends near it is therefore no
+evidence that the data determine $\Bone$. The other diagnostics agree:
+\begin{itemize}
+\item \emph{Profile.} Over $B_1^{+\prime}\in[0.6,1.6]$ the profile cost is constant to $5\times10^{-14}\sigma^2$, and to
+  $5\times10^{-13}\sigma^2$ for a set of 20 voxels with random tissue parameters.
+\item \emph{Fisher information.} The joint Fisher matrix has one zero eigenvalue (below
+  $4\times10^{-16}$ after normalisation), whose eigenvector is the family tangent
+  \eqref{eq:familyslopes} to $10^{-13}$. The profiled information on $\log\Bone$ is zero to rounding.
+\end{itemize}
+With both scans, every start up to $1.1$ reaches the minimum at $\Bone=1.005$ (20 voxels: $1.0004$).
+The curvature of the profile there gives $\mathrm{SD}(\log\Bone)=2.14\times10^{-3}$, equal to the
+information at the estimate (20 voxels: $5.52\times10^{-4}$ against the bound $5.54\times10^{-4}$). Starts at
+$1.2$ and above end on the bound $540/330$ at a much higher cost, which a multi-start fit discards.
+Without the bound they reach the complex alias $2.016$ at exactly the minimal cost. Because
+$f$ in \eqref{eq:secondscan} is the same in every voxel, sharing $\Bone$ does not remove the alias.
+
+\begin{table}[!htbp]
+\centering
+\caption{Joint fit of the WM and GM voxels with a shared $\Bone$ (truth $1$), $\sigma=10^{-3}$, from a
+generic start at five values of $\Bone$; fitting box $\Bone\in[\E^{-1},540/330]$. Generated by
+\texttt{scripts/shared\_b1\_check.py}.}
+\label{tab:sharedfit}
+\small
+\begin{tabular}{ccccc}
+\toprule
+& \multicolumn{2}{c}{scan 1 only} & \multicolumn{2}{c}{both scans}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+start $\Bone$ & final $\Bone$ & cost$/\sigma^2$ & final $\Bone$ & cost$/\sigma^2$\\
+\midrule
+\input{tables/shared_b1.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+So one scan with a shared (or smooth) $\Bone$ determines \emph{relative} $\Tone$ and $\Mzero$ maps
+within a region of constant $\Bone$, to within $O((\TR/2\Tone)^2)$, but not their common scale: an
+error $\delta\log\Bone$ multiplies every $\Tone$ by about $\E^{-2\delta\log\Bone}$ and every $\Mzero$ by about
+$\E^{-\delta\log\Bone}$. The scale can be fixed only by information from outside the scan, for example a
+reference voxel whose $\Tone$ is assumed known: then $\Bone=(2/\alpha^{\rm nom})\arctan(\xi_{\rm ref}\zeta_{\rm ref})$.
+A relative error $\delta$ in the assumed reference $\Tone$ then becomes a $\Bone$ error of about $-\delta/2$
+and an error of about $\delta$ in every $\Tone$ of the region. This is a prior of the kind discussed
+next, and the accuracy of the maps is that of the assumption.
+
 \subsection{What a prior would do instead}
 
 Identifiability can be restored by constraining $\Tone$ or $\Mzero$ spatially, for example $\Tone$
 constant within each tissue class, or $\Mzero=C\cdot\mathrm{PD}$ with a smooth $C$ and class-constant $\mathrm{PD}$. The
 field is then determined by the prior, not by the data: any departure of the true $\Tone$ from the
 assumed uniformity is absorbed into $\Bone$. By the compensation law $\delta\log\Tone=-2\,\delta\log\Bone$, a real
-regional $\Tone$ difference $\varepsilon$ within a tissue is converted into a $\Bone$ change of about $-\varepsilon/2$ and
+regional $\Tone$ difference $\delta$ within a tissue is converted into a $\Bone$ change of about $-\delta/2$ and
 removed from the $\Tone$ map. For quantitative mapping, whose purpose is to detect such
 differences, this is circular. Priors are useful on top of a second acquisition (e.g.\ the
 hierarchical model of \cref{sec:future}), not in place of one.
 
+\subsection{Physics outside the ideal model}\label{sec:beyond}
+
+The degeneracy belongs to the ideal model: instantaneous pulses, one flip angle per voxel and
+no diffusion. Real data contain effects that make the signal depend on the flip angle in other
+ways, and each could in principle give a single scan some information about $\Bone$.
+\Cref{tab:beyond} adds each effect to the model and gives the scan-1 bound on $\log\Bone$, with every
+other parameter free, against $2.2$ ($\sigma/\Mzero$ units, WM) for the ideal two-scan protocol.
+
+\begin{table}[!htbp]
+\centering
+\caption{Information about $\Bone$ in scan 1 ($15^\circ$) when the ideal model is extended: CRLB on
+$\log\Bone$ in units of $\sigma/\Mzero$, all other parameters free ($\log\Mzero$, $\log\Tone$, $\log\Ttwo$, $\log\Ttwos$, $\dw$,
+$\phi_0$, plus the extra parameter where one is unknown). ``Exactly degenerate'': zero
+information to rounding. Generated by \texttt{scripts/beyond\_ideal\_model.py}.}
+\label{tab:beyond}
+\small\setlength{\tabcolsep}{4pt}
+\begin{tabular}{p{0.30\linewidth}p{0.24\linewidth}cc}
+\toprule
+Effect & Assumption & WM & GM\\
+\midrule
+\input{tables/beyond_model.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+\item \emph{Flip-angle distribution within the voxel} (slice or slab profile), each position in
+  its own steady state. With the profile shape known exactly, the bound is finite but
+  $5.9\times10^5$--$1.2\times10^7$, five to seven orders of magnitude above the two-scan value. With
+  the profile width unknown, the degeneracy is exact again.
+\item \emph{Relaxation during an on-resonance pulse} ($\tau=1$--$2$\,ms). The signal changes by
+  $0.15$--$0.8\%$, but the degeneracy remains exact. As for an ideal pulse, the pathway amplitudes
+  keep a one-ratio structure: $a_k/a_0=r^k$ for $k\ge0$ and $a_{-1}/a_0=(r-E_2)/(1-E_2r)$ (verified to
+  $10^{-16}$).
+\item \emph{Off-resonance during a $1$\,ms pulse} (8--160\,Hz). Bound $2.7\times10^3$--$5.3\times10^4$, carried by
+  small pathway-dependent changes that unmodelled gradient delays or eddy currents would
+  easily mask.
+\item \emph{Diffusion in the unbalanced gradient} ($D=0.7\times10^{-3}$\,mm$^2$/s, one cycle of dephasing per
+  $1$ or $0.5$\,mm). With $D$ known the bound is $1.2$--$4.8\times10^3$; with $D$ free the degeneracy is
+  exact.
+\end{itemize}
+
+A simple count explains the pattern. The echo decay and phases of a scan determine $\Ttwo$, $\Ttwos$,
+$\dw$ and $\phi_0$, which leaves three real pathway amplitudes for $(\Mzero,\Bone,\Tone)$. In the ideal model
+they depend on only two combinations. An effect that adds structure supplies a weak third,
+unless it brings an unknown of its own (a profile width, $D$), which absorbs it exactly.
+
+Even in the best cases this information is of no practical use. Pooled through a smooth
+field \eqref{eq:smoothsd} with $p=35$ and $N=10^5$ at SNR 300, the bounds of \cref{tab:beyond} give
+$\mathrm{SD}(\log\Bone)\approx0.09$ (diffusion, $0.5$\,mm, $D$ known) to $0.17$ (160\,Hz), against $1.4\times10^{-4}$ for
+the two-scan protocol. Even these values require the extra physics to be modelled exactly,
+and the profile shows how strongly a model error biases the answer. If the true Gaussian
+profile is $2\%$ narrower than assumed, the scan-1 fit converges exactly (residual $10^{-16}$) to
+$\Bone=1.47$, $\Tone=386$\,ms for WM (truth $1$ and $850$\,ms); $5\%$ narrower gives $\Bone=1.89$; for the ramp,
+$2\%$ gives $\Bone=1.73$; for the Hann-sinc profile the bias has the opposite sign ($\Bone=0.93$). If the
+true Gaussian or ramp profile is wider than assumed, no exact solution exists. The fit then
+runs to $\Bone\to0$, $\Tone\to\infty$ with a residual of $10^{-7}$--$10^{-4}$ of the signal, far below the noise. A single scan cannot be rescued by modelling more physics, any more than by a
+smoother $\Bone$.
+
 \subsection{What a second acquisition does}
 
-With a second scan of the same $\TR$ and a different nominal flip angle, $\alpha_2=\rho\,\alpha_1$ with a
+With a second scan of the same $\TR$ and a different nominal flip angle, $\alpha_2=r\,\alpha_1$ with a
 common $\Bone$, a voxel provides $u_1$, $u_2$ and, by \cref{lem:absv}, $\Mzero\sqrt{\tanh(\TR/2\Tone)}$: three numbers
 for the three unknowns $(\Mzero,\Bone,\Tone)$. The construction of \cref{prop:singlescan} now fails:
 $E_1'$ must satisfy $u(B_1^{+\prime}\alpha_1,E_1')=u_1$ and $u(B_1^{+\prime}\alpha_2,E_1')=u_2$ simultaneously, which are the two
-equations \eqref{eq:aliaseq} in two unknowns. Their solutions are isolated: the per-voxel null
+equations \eqref{eq:aliaseq} in two unknowns. In Ernst-angle form, the ratio $\xi_2/\xi_1$ of the two scans
+is the function $f(\Bone)$ of \eqref{eq:secondscan}, in which $\Tone$ and $\Mzero$ cancel. Its solutions are isolated: the per-voxel null
 curve collapses to discrete points, the true parameters and the aliases of
 \cref{prop:equiv}, which the FID phase and the range bound remove. Locally the information
 is nonsingular (\cref{tab:crlb}), and the profiled information of a parametric field is
 positive definite.
+
+The single-scan family is the familiar $\Bone$ sensitivity of variable-flip-angle (VFA, DESPOT1)
+$\Tone$ mapping. With $\Bone$ known, one MPME scan determines $\Tone$ and $\Mzero$, as a complete VFA
+experiment does; with $\Bone$ unknown, it inherits the VFA error law $\delta\ln\Tone\approx-2\,\delta\ln\Bone$,
+$\delta\ln\Mzero\approx-\delta\ln\Bone$ (exactly \eqref{eq:familyslopes}). Its pathways and echoes do not change this.
+Spoiled VFA data give one amplitude per angle: two angles cannot determine $\Bone$ (two numbers
+for three unknowns), and more angles determine it only weakly, because on the axis of
+\cref{fig:logtan} their samples move with $\Bone$ at nearly equal rates $\alpha_i/\sin\alpha_i$ and
+translate almost together with the bump. Each MPME scan also reports its offset from the
+bump, so two scans suffice in principle; but two small angles are again nearly degenerate
+(\cref{fig:logtan}b), and the published design relies on a second angle whose sample moves at
+a very different rate.
 
 Two variants achieve the same in principle: a second scan with the same flip angle and a
 different $\TR$ (then $E_1$ changes while $\alpha$ does not, the principle of actual-flip-angle imaging),

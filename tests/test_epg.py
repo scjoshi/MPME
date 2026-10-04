@@ -158,3 +158,67 @@ def test_abs_v_identity_and_single_scan_family():
         B = mpme_signal(two, M0=M0p, T1=T1p, B1=B1p, **args)
         torch.testing.assert_close(A, S1, rtol=0, atol=1e-13)
         assert (B - S2).abs().max() / S2.abs().max() > 0.3
+
+
+@pytest.mark.parametrize("deg", [3.0, 15.0, 90.0, 170.0, 330.0])
+@pytest.mark.parametrize("T1", [300.0, 850.0, 4000.0])
+def test_ernst_angle_form_of_invariants(deg, T1):
+    """Proposition ernst: u = (xi^2-1)/(xi^2+1), v = zeta 2 xi/(1+xi^2) with
+    zeta = tan(alpha_E/2) = sqrt(tanh(TR/2T1)), xi = tan(alpha/2)/zeta."""
+    TR, a = 25.0, math.radians(deg)
+    E1 = math.exp(-TR / T1)
+    u = (E1 - math.cos(a)) / (1 - E1 * math.cos(a))
+    v = math.sin(a) * (1 - E1) / (1 - E1 * math.cos(a))
+    zeta = math.tan(math.acos(E1) / 2)
+    assert zeta**2 == pytest.approx(math.tanh(TR / (2 * T1)), rel=1e-12)
+    xi = math.tan(a / 2) / zeta
+    assert u == pytest.approx((xi**2 - 1) / (xi**2 + 1), abs=1e-12)
+    assert v == pytest.approx(zeta * 2 * xi / (1 + xi**2), abs=1e-12)
+
+
+def test_shared_b1_family_preserves_ratios():
+    """Proposition shared: voxels sharing B1 refit with any common B1' reproduce scan 1 exactly;
+    M0 ratios and tanh(TR/2T1) ratios are exactly invariant."""
+    from mpme.sequence import Protocol, paper_protocol
+    from mpme.signal import mpme_signal
+    TR, a = 25.0, math.radians(15)
+    vox = [dict(M0=0.69, T1=850.0, T2=66.0, R2p=1 / 50 - 1 / 66, dw=0.05, phi0=0.3),
+           dict(M0=0.82, T1=1350.0, T2=90.0, R2p=1 / 60 - 1 / 90, dw=-0.03, phi0=1.1)]
+    one = Protocol(paper_protocol().pathways, (paper_protocol().scans[0],))
+    for B1p in (0.7, 1.3):
+        fam = []
+        for t in vox:
+            zeta = math.sqrt(math.tanh(TR / (2 * t["T1"])))
+            zeta_p = math.tan(B1p * a / 2) / (math.tan(a / 2) / zeta)
+            T1p, M0p = TR / (2 * math.atanh(zeta_p**2)), t["M0"] * zeta / zeta_p
+            kw = {k: t[k] for k in ("T2", "R2p", "dw", "phi0")}
+            S = mpme_signal(one, M0=t["M0"], T1=t["T1"], B1=1.0, n_iso=512, **kw)
+            Sp = mpme_signal(one, M0=M0p, T1=T1p, B1=B1p, n_iso=512, **kw)
+            torch.testing.assert_close(Sp, S, rtol=0, atol=1e-13)
+            fam.append((M0p, T1p))
+        (Ma, Ta), (Mb, Tb) = fam
+        assert Mb / Ma == pytest.approx(0.82 / 0.69, rel=1e-12)
+        th = lambda T: math.tanh(TR / (2 * T))
+        assert th(Ta) / th(Tb) == pytest.approx(th(850.0) / th(1350.0), rel=1e-12)
+        assert Tb / Ta == pytest.approx(1350.0 / 850.0, rel=1e-3)
+
+
+def test_family_slopes_and_exact_lever():
+    """eq:familyslopes: d ln M0'/d ln B1' = -x/sin x, d ln T1'/d ln B1' = -2 (x/sin x) sinh(tau)/tau;
+    eq:leverexact: d ln|tan(B1 a2/2)/tan(B1 a1/2)|/d ln B1 = a2/sin a2 - a1/sin a1."""
+    TR, a, T1 = 25.0, math.radians(15), 850.0
+    zeta = math.sqrt(math.tanh(TR / (2 * T1)))
+    xi = math.tan(a / 2) / zeta
+
+    def member(B1p):
+        z = math.tan(B1p * a / 2) / xi
+        return math.log(TR / (2 * math.atanh(z * z))), math.log(zeta / z)    # ln T1', ln M0'/M0
+
+    h = 1e-6
+    (t1p, m0p), (t1m, m0m) = member(math.exp(h)), member(math.exp(-h))
+    x, tau = a, TR / T1
+    assert (m0p - m0m) / (2 * h) == pytest.approx(-x / math.sin(x), rel=1e-8)
+    assert (t1p - t1m) / (2 * h) == pytest.approx(-2 * x / math.sin(x) * math.sinh(tau) / tau, rel=1e-8)
+    a2 = math.radians(330)
+    f = lambda lb: math.log(abs(math.tan(math.exp(lb) * a2 / 2) / math.tan(math.exp(lb) * a / 2)))
+    assert (f(h) - f(-h)) / (2 * h) == pytest.approx(a2 / math.sin(a2) - a / math.sin(a), rel=1e-7)
