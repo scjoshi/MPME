@@ -1,37 +1,27 @@
 \documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
-\usepackage{amsmath,amssymb,amsthm}
-\usepackage{mathtools}
+\usepackage{amsmath,amssymb}
 \usepackage{microtype}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage[section]{placeins}
+
 \usepackage{xcolor}
 \usepackage[hidelinks]{hyperref}
+\usepackage[capitalise,nameinlink]{cleveref}
 
-\graphicspath{{../figures/}}
-
-\newtheorem{theorem}{Theorem}
-\newtheorem{proposition}{Proposition}
-\newtheorem{corollary}{Corollary}
-\theoremstyle{remark}
-\newtheorem{remark}{Remark}
+\graphicspath{{../figures/}{../technote/figures/}}
 
 \newcommand{\Bone}{B_1^{+}}
 \newcommand{\Tone}{T_1}
 \newcommand{\Ttwo}{T_2}
 \newcommand{\Ttwos}{T_2^{*}}
-\newcommand{\Rtwop}{R_2'}
 \newcommand{\Mzero}{M_0}
 \newcommand{\TR}{T_R}
 \newcommand{\dw}{\Delta\omega}
 \newcommand{\E}{\mathrm{e}}
-\newcommand{\Fi}{\mathcal{I}}
-\renewcommand{\Re}{\operatorname{Re}}
-\input{mag_counts.tex}
 
-\title{Simultaneous $\Bone$ and $\Tone$ estimation in multi-pathway multi-echo (MPME)
-imaging:\\ forward model and fundamental limits}
+\title{Separating $\Bone$ and $\Tone$ in MPME imaging:\\ an intuitive account\\[4pt]
+\large Companion to the MPME technical note}
 \author{Sarang Joshi}
 \date{\today}
 
@@ -39,1321 +29,298 @@ imaging:\\ forward model and fundamental limits}
 \maketitle
 
 \begin{abstract}
-We derive the steady-state signal model of the multi-pathway multi-echo (MPME) sequence of
-Cheng et al.~\cite{cheng2019} and analyse the joint estimation of the transmit field $\Bone$
-and the longitudinal relaxation time $\Tone$ through the Fisher information and the
-Cram\'er--Rao lower bound (CRLB). The central difficulty is a property of the
-\emph{forward model}: for small flip angles and $\TR\ll\Tone$ every pathway amplitude is
-invariant, to leading order, under $(\Mzero,\Bone,\Tone)\mapsto(\Mzero/\kappa,\,\kappa\Bone,\,\Tone/\kappa^2)$.
-Protocols whose flip angles are all small therefore have a severely ill-conditioned
-information matrix: the parameters remain identifiable in principle, but separating them
-is extremely noise-sensitive (log-$\Tone$ bound of order one at realistic SNR). The
-near-$360^\circ$ second pulse of the published protocol lifts the invariance through the
-$2\pi$ wrap of the rotation, reducing the condition number from $5\times10^5$ to $173$. What
-remains is a finite bound ($40.5\,\sigma/\Mzero$ on the standard deviation of $\log\Tone$)
-set by the data. The published \emph{analytic inverse} adds an estimator-specific loss: in
-Monte Carlo its $\Tone$ standard deviation is $3.2$--$7.1$ times the bound, with large bias
-and undefined estimates at moderate SNR. A joint maximum-likelihood fit of the same model,
-with the physical constraint $\Rtwop\ge0$ enforced, attains the bound (ratio $0.99$--$1.02$) at
-the SNRs where its assumptions hold, and comes close at lower SNR where the constraint is
-often active. For magnitude data we show that the published protocol has an exact alias
-inside the physiological $\Bone$ range, because magnitudes lose the sign of $\sin\alpha$; the
-relative phase of the two FID images supplies the missing bit, and with it a magnitude
-least-squares fit performs like complex maximum likelihood, whereas the analytic inverse,
-using the same data, remains well above the bound.
+The multi-pathway multi-echo (MPME) sequence of Cheng et al.~\cite{cheng2019} estimates the
+transmit scale $\Bone$ and $\Tone$ from two steady-state scans. This note explains, without proofs,
+why separating the two is hard and what makes it possible. One scan sees its flip angle only
+relative to the tissue's Ernst angle, so a larger flip angle in a tissue with a shorter $\Tone$
+looks exactly like a smaller one in a tissue with a longer $\Tone$, at any flip angle and whatever
+is assumed about $\Bone$ across the image. Two scans separate them only to the extent that their
+samples move at different rates when $\Bone$ changes, a difference we call the lever. The lever
+predicts the $\Bone$ bound to within a factor of about five over four orders of magnitude, explains why
+small flip angles fail and the $330^\circ$ pulse works, and also governs the aliases. The proofs and the full analysis are in the
+technical note~\cite{technote}; the choice of flip angles is in the design note~\cite{flipnote}.
 \end{abstract}
 
-\section*{How to read this note}
+\section*{The answer in brief}
 
-Section~\ref{sec:model} builds the forward model from the configuration-state
-(extended phase graph) description up to the measured voxel signal.
-Section~\ref{sec:crlb} sets up the estimation-theoretic tools.
-Section~\ref{sec:symmetry} proves that each scan depends on the flip angle and $\Tone$ only
-through two invariants (Theorem~\ref{thm:uv}), derives the small-angle scaling invariance
-that underlies the $\Bone$/$\Tone$ problem, explains how the published protocol escapes it,
-and identifies the exact global aliases. Section~\ref{sec:results} gives the bounds and the
-conditioning of the information matrix. Section~\ref{sec:inverse} answers the question
-\emph{is the limitation in the forward model or in the inverse?} by comparing the analytic
-reconstruction and a maximum-likelihood fit against the bound. Section~\ref{sec:magnitude}
-treats magnitude data and explains why a magnitude fit needs the FID-sign branch test while
-complex maximum likelihood does not. Section~\ref{sec:jacobian} derives exact Jacobians by
-implicit differentiation of the steady state, which make both fits 10--34 times faster. Table~\ref{tab:verdict} summarises the answer.
+\begin{enumerate}
+\item \textbf{One scan cannot separate $\Mzero$, $\Bone$ and $\Tone$, at any flip angle} (\cref{sec:one}). It
+  measures only the offset of its flip angle from the Ernst angle and an amplitude. More echoes,
+  a smooth or shared $\Bone$, or more physics in the model do not change this in practice.
+\item \textbf{Two scans separate them through the lever} $L=c(x_2)-c(x_1)$, $c(x)=x/\sin x$, the
+  difference in how fast the two samples move with $\Bone$ (\cref{sec:two}). Two small flip
+  angles have $L\approx0$; a $330^\circ$ pulse has $L=-12.5$.
+\item \textbf{With the published protocol, $\Bone$ is no longer the dominant limit on $\Tone$} (\cref{sec:t1}):
+  knowing it exactly would lower the $\Tone$ bound only by a factor of $1.45$. A $\Bone$ supplied from
+  elsewhere is worth using with both scans only if it is more accurate than the $\Bone$ the two scans
+  measure themselves: their high-flip data amplify its error tenfold at $\Bone=1$ and up to about
+  $260$-fold near the $360^\circ$ crossing.
+\item \textbf{Aliases are the other roots of one equation in $\Bone$} (\cref{sec:alias}). They lie beyond
+  a value of $\Bone$ at which a pulse crosses a multiple of $180^\circ$; the $360^\circ$ crossing is where the best
+  local $\Bone$ measurement meets the worst global behaviour.
+\item \textbf{Two systematic limits are often undetectable in the data} (\cref{sec:invisible}): a
+  pulse-ratio error, which every design passes to $\Tone$ with a factor of at least $1.6$, and model
+  errors near $360^\circ$.
+\end{enumerate}
 
-All numbers are reproducible with the code in the accompanying repository
-(Appendix~\ref{app:repro}).
+\section{Setting}\label{sec:setting}
 
-%=====================================================================================
-\section{Forward model}\label{sec:model}
-%=====================================================================================
+Each MPME scan records three configuration pathways, three echoes each, of an unbalanced
+steady-state gradient echo; the two scans share $\TR=25$\,ms and the readout and differ in the
+nominal flip angle ($15^\circ$ and $330^\circ$); in the published protocol scan 2 covers only the centre of
+$k$-space and serves mainly to map $\Bone$. The actual flip angle of scan $i$ is $x_i=\Bone\alpha_i$. The unknowns
+are $\Mzero$, $\Bone$, $\Tone$, $\Ttwo$, $\Ttwos$, the off-resonance $\dw$ and a phase $\phi_0$. Precision is measured by
+Cram\'er--Rao bounds on the logarithms of the positive parameters (relative standard deviations),
+per unit $\sigma/\Mzero$ for complex Gaussian noise; at SNR$(\Mzero)=300$ divide by 300. Numbers refer to the
+tissue used by Cheng et al.\ to optimise their protocol ($\Tone/\Ttwo/\Ttwos=1500/70/60$\,ms) at $\Bone=1$ unless
+stated. Everything assumes the ideal model of~\cite[Sec.~2]{technote} (instantaneous pulses, one
+flip angle per voxel); \cref{sec:invisible} says what happens outside it.
 
-\subsection{Sequence}
+\section{One scan sees only the offset from the Ernst angle}\label{sec:one}
 
-The MPME sequence is a 3D gradient-echo sequence without RF spoiling, with a constant RF
-phase $\varphi$ and repetition time $\TR$. Only the readout gradient $G_x$ is unbalanced;
-its net area per repetition, $A=\int_0^{\TR}G_x\,dt$, dephases the magnetisation by many
-cycles across a voxel (the \emph{fully dephased} regime). Two acquisitions $i=1,2$ use the
-same gradient waveform with nominal flip angles $\alpha_1^{\rm nom}=15^\circ$ and
-$\alpha_2^{\rm nom}=330^\circ$ and $\TR=25$\,ms~\cite{cheng2019}. The actual flip angles are
-\begin{equation}
-  \alpha_i = \Bone\,\alpha_i^{\rm nom},
-  \label{eq:b1}
-\end{equation}
-so $\Bone$ scales all pulses by the same factor.
-
-Each of three readout windows of alternating polarity sweeps the cumulative gradient
-moment through three adjacent integer multiples of $A$ (lobe areas
-$+1.5:-3:+3:-3:+0.5$ in units of $-A$), sampling three \emph{pathways} (a two-pathway predecessor is described in~\cite{cheng2016})
-$k\in\{+1,0,-1\}$ spaced by $1/\mathrm{BW}\approx 2$\,ms. A state of order $k$ created by
-an RF pulse is refocused when the moment accumulated since the pulse equals $-kA$. This gives
-each pathway three echo times $t_{ijk}\in(0,\TR)$ (in ms, assuming 4.5\,ms from the pulse to
-the first echo): $k=+1$: $4.5,14.5,16.5$; $k=0$: $6.5,12.5,18.5$; $k=-1$: $8.5,10.5,20.5$.
-
-\subsection{Configuration states}
-
-Let $M^+=M_x+iM_y$ and let $\psi\in[0,2\pi)$ be the intravoxel phase imparted by one
-repetition of the unbalanced gradient. Expand
-\begin{equation}
-  M^+(\psi)=\sum_{k}F_k\,\E^{ik\psi},\qquad M_z(\psi)=\sum_k Z_k\,\E^{ik\psi},\qquad
-  Z_{-k}=\overline{Z_k}.
-\end{equation}
-One repetition of the operators acts as follows~\cite{weigel2015,hennig1991}.
-
-\paragraph{RF pulse} (flip $\alpha$, phase $\varphi$; rotation
-$R=R_z(\varphi)R_x(\alpha)R_z(-\varphi)$):
-\begin{align}
-  F_k' &= \cos^2\tfrac{\alpha}{2}\,F_k + \E^{2i\varphi}\sin^2\tfrac{\alpha}{2}\,\overline{F_{-k}}
-          - i\E^{i\varphi}\sin\alpha\,Z_k,\\
-  Z_k' &= -\tfrac{i}{2}\E^{-i\varphi}\sin\alpha\,F_k + \tfrac{i}{2}\E^{i\varphi}\sin\alpha\,
-          \overline{F_{-k}} + \cos\alpha\,Z_k .
-\end{align}
-\paragraph{Relaxation} over $\TR$, with $E_1=\E^{-\TR/\Tone}$ and $E_2=\E^{-\TR/\Ttwo}$:
-\begin{equation}
-  F_k\to E_2F_k,\qquad Z_k\to E_1Z_k\ (k\neq0),\qquad Z_0\to E_1Z_0+\Mzero(1-E_1).
-\end{equation}
-\paragraph{Gradient} $F_k\to F_{k+1}$. Free precession by $\dw$ for a time $t$ multiplies
-$M^+$ by $\E^{i\dw t}$ (same sense as the gradient twist).
-
-\subsection{Steady state}
-
-Write $a_k(\alpha,\Tone,\Ttwo,\TR)$ for the steady-state amplitude of $F_k$ immediately after
-the RF pulse, per unit $\Mzero$. It can be computed exactly without truncating the state
-space: an isochromat with total precession $\beta=\psi+\dw\TR$ per repetition has the
-post-pulse steady state
-\begin{equation}
-  \bigl(I-R\,R_z(\beta)\,\mathrm{diag}(E_2,E_2,E_1)\bigr)\,\mathbf{M}^+
-     = (1-E_1)\,R\,\hat{\mathbf z},
-  \label{eq:iso}
-\end{equation}
-and $F_k$ is the $k$-th Fourier coefficient of $M^+(\psi)$ over $\psi$.
-
-\begin{proposition}[Off-resonance only adds phase]\label{prop:offres}
-In the fully dephased regime,
+The Ernst angle $\alpha_E=\arccos\E^{-\TR/\Tone}$ maximises the signal of a spoiled gradient echo; for
+$\Tone=1500$\,ms it is $10.4^\circ$, for 850\,ms $13.8^\circ$. Put flip angles on the log half-angle axis
+$s=\ln|\tan(x/2)|$. On this axis the steady state of one scan has a remarkably simple form
+\cite[Thm.~1, Prop.~2, eq.~13]{technote}: every pathway amplitude is the tissue's \emph{amplitude}
+$\Mzero\tan(\alpha_E/2)$ times a function of one number (for given $\Ttwo$ and off-resonance), the \emph{offset} of
+the sample from the Ernst angle,
 \[
-  a_k(\dw)=a_k(0)\,\E^{ik\dw\TR};
+  w=\ln|\tan(x/2)|-\ln\tan(\alpha_E/2).
 \]
-in particular $|a_k|$ does not depend on $\dw$.
-\end{proposition}
-\begin{proof}
-By \eqref{eq:iso} the steady state depends on $\psi$ and $\dw$ only through
-$\beta=\psi+\dw\TR$, so $M^+_{\dw}(\psi)=M^+_0(\psi+\dw\TR)$. Shifting a periodic
-function by $\theta$ multiplies its $k$-th Fourier coefficient by $\E^{ik\theta}$.
-\end{proof}
+The spoiled-signal curve is a bell-shaped bump ($\operatorname{sech}w$) of fixed shape centred on the Ernst
+angle (\cref{fig:bump}); the ratios between pathways tell where on the bump the scan samples, and
+the overall scale tells the bump's height. That is all a scan reveals about $(\Mzero,\Bone,\Tone)$; the
+echo decays and phases are spent on $\Ttwo$, $\Ttwos$, $\dw$ and $\phi_0$.
 
-For the two lowest pathways the steady-state magnitudes have closed forms (unbalanced
-FISP and PSIF), which we verified against \eqref{eq:iso} to $10^{-6}$:
-\begin{align}
-  |a_0| &= \Bigl|\tan\tfrac{\alpha}{2}\Bigl[1-\frac{(E_1-\cos\alpha)(1-E_2^2)}{r}\Bigr]\Bigr|,
-  \label{eq:fisp}\\
-  |a_{-1}| &= \Bigl|\frac{\tan\frac{\alpha}{2}}{E_2}\Bigl[1-\frac{(1-E_1\cos\alpha)(1-E_2^2)}{r}\Bigr]\Bigr|,
-  \nonumber\\
-  r^2 &= p^2-q^2,\quad p = 1-E_1\cos\alpha-E_2^2(E_1-\cos\alpha),\quad q=E_2(1-E_1)(1+\cos\alpha).
-  \nonumber
-\end{align}
-The PSIF expression in the literature is the echo amplitude at $t=\TR$, hence the factor
-$1/E_2$ for the post-pulse state.
-
-\subsection{Echo evolution and the voxel signal}
-
-Pathway $k$ read at time $t$ after the pulse carries, for one isochromat, the off-resonance
-phase $\dw(t+k\TR)$ (Proposition~\ref{prop:offres} plus precession since the pulse).
-Averaging over a Lorentzian intravoxel frequency distribution of half-width $\Rtwop$,
-$\langle\E^{i\delta\tau}\rangle=\E^{-\Rtwop|\tau|}$, gives the signal of scan $i$, echo $j$,
-pathway $k$:
-\begin{equation}
-  \boxed{\;S_{ijk}=\Mzero\,a_k\bigl(\Bone\alpha_i^{\rm nom},\Tone,\Ttwo,\TR\bigr)\,
-  \E^{-t_{ijk}/\Ttwo}\,\E^{-\Rtwop|t_{ijk}+k\TR|}\,
-  \E^{i(\phi_0+\dw(t_{ijk}+k\TR))}\;}
-  \label{eq:signal}
-\end{equation}
-with $\Ttwos=1/(1/\Ttwo+\Rtwop)$. For $k\ge0$ the magnitude decays at $\Ttwo^{-1}+\Rtwop$;
-for $k<0$ and $t<|k|\TR$ at $\Ttwo^{-1}-\Rtwop$ (a spin echo forming at $t=|k|\TR$).
-
-\begin{remark}[Relation to the published equations]
-Eq.~1 of~\cite{cheng2019}, $S=F^+\E^{-(R_2\pm\Rtwop)\mathrm{TE}}$ ($+$ for $k\ge0$), has
-the same echo-time dependence as \eqref{eq:signal}; its intercept is
-$F^+_k=a_k\E^{-\Rtwop|k|\TR}$. The extra factor depends only on $|k|$, so every relation
-between the $\pm k$ states used in~\cite{cheng2019} (their Eqs.~4--13), and the mixing
-factor, are unchanged. We verified numerically that their Eqs.~7, 16 and 17 hold exactly on
-the steady states of \eqref{eq:iso} (Eq.~16 read as $\Tone=\TR/\ln[(Xc-1)/(X-c)]$).
-\end{remark}
-
-\subsection{Imaging and noise}
-
-Image formation $y_{ijkc}=\mathcal{M}_i\mathcal{F}(C_c\,S_{ijk})+n_{ijkc}$ (coil maps
-$C_c$, Fourier transform $\mathcal F$, sampling $\mathcal M_i$; scan 2 covers only the central
-$25\%\times25\%$ of $k_y$--$k_z$) is linear. For the voxel-wise analysis below we model
-the coil-combined complex images as $S_{ijk}+n_{ijk}$ with independent circular Gaussian
-noise of standard deviation $\sigma$ per real and imaginary part.
-
-%=====================================================================================
-\section{Estimation-theoretic framework}\label{sec:crlb}
-%=====================================================================================
-
-Collect the unknowns of one voxel as
-\begin{equation}
-  \theta=(\log\Mzero,\ \log\Bone,\ \log\Tone,\ \log\Ttwo,\ \log\Ttwos,\ \dw,\ \phi_0).
-\end{equation}
-For the complex Gaussian model the Fisher information is
-\begin{equation}
-  \Fi(\theta)=\frac{1}{\sigma^2}\sum_{i,j,k}\Re\!\left[
-     \overline{\partial_\theta S_{ijk}}\,\partial_\theta S_{ijk}^{\mathsf T}\right],
-  \qquad
-  \operatorname{Cov}(\hat\theta)\succeq\Fi^{-1}
-\end{equation}
-for any unbiased estimator (more precisely, any estimator that is locally unbiased at
-$\theta$). Biased estimators, including constrained, regularised and learned ones, are not
-covered: they can have smaller variance and smaller mean-squared error, at the price of a
-bias that the CRLB does not quantify (for those, a Bayesian bound such as the van Trees
-inequality is the appropriate tool). Because positive parameters enter through their
-logarithm, $\sqrt{(\Fi^{-1})_{ll}}$ bounds the standard deviation of $\log\hat\theta_l$, which
-equals the relative standard deviation of $\hat\theta_l$ only to first order (Section~\ref{sec:log}).
-With $\sigma$ expressed in units of $\Mzero$ every bound scales as
-$\sigma/\Mzero=1/\mathrm{SNR}(\Mzero)$; we report bounds \emph{per unit $\sigma/\Mzero$}. The brightest MPME image has
-$|S|\approx0.088\,\Mzero$, so the image SNR is about $0.088\,\mathrm{SNR}(\Mzero)$.
-
-We use three diagnostics of conditioning:
-\begin{itemize}
-\item the \emph{normalised information} $\tilde\Fi=D^{-1/2}\Fi D^{-1/2}$, $D=\mathrm{diag}\,\Fi$,
-  its condition number $\kappa(\tilde\Fi)$, and its smallest eigenvalue $\lambda$ with
-  eigenvector $u$. The eigenvector lives in normalised coordinates; the corresponding
-  direction in the original coordinates is $w\propto D^{-1/2}u$, the solution of the
-  generalised eigenproblem $\Fi w=\lambda Dw$. Conversely, a near-null direction $v$ of
-  $\Fi$ appears in normalised coordinates as $u\propto D^{1/2}v$;
-\item the \emph{variance inflation} $(\Fi^{-1})_{ll}\,\Fi_{ll}\ge1$, the factor by which the
-  bound on $\theta_l$ grows because the other parameters are unknown;
-\item the \emph{fixed-parameter bias}: if $\theta_m$ is held at a wrong value $\theta_m+\delta$
-  and the rest is fitted, the estimates move by
-  $\delta\theta_r=-\Fi_{rr}^{-1}\Fi_{rm}\,\delta$ to first order.
-\end{itemize}
-Jacobians are obtained by automatic differentiation through \eqref{eq:iso}--\eqref{eq:signal}
-and checked against finite differences.
-
-\subsection{Why logarithmic parameters}\label{sec:log}
-
-The five quantities $\Mzero,\Bone,\Tone,\Ttwo,\Ttwos$ are positive \emph{scale} parameters:
-they carry units (or, for $\Bone$, multiply a quantity that does), are only meaningful
-relative to other scales in the problem, and are naturally compared by ratios. Their
-logarithms are the natural coordinates for five reasons, of different weight.
-
-\paragraph{1. The model depends on them only through dimensionless ratios.} Rewrite
-\eqref{eq:signal} as
-\begin{equation}
-  \frac{S_{ijk}}{\Mzero}=G\Bigl(\Bone\alpha_i^{\rm nom},\ \frac{\TR}{\Tone},\
-  \frac{\TR}{\Ttwo},\ \frac{t_{ijk}}{\Ttwo},\ \Rtwop t_{ijk},\ \dw\, t_{ijk}\Bigr),
-  \label{eq:dimless}
-\end{equation}
-since $E_1=\E^{-\TR/\Tone}$, $E_2=\E^{-\TR/\Ttwo}$ and the echo terms depend only on products
-of rates and times. A change of units, or a common rescaling of all times, is an additive
-shift in log coordinates and leaves $G$ unchanged. The derivatives with respect to the log
-parameters are dimensionless \emph{elasticities}, comparable across parameters:
-\begin{align}
-  \frac{\partial S}{\partial\log\Mzero}&=S, &
-  \frac{\partial S}{\partial\log\Bone}&=\alpha_i\frac{\partial S}{\partial\alpha_i},\\
-  \frac{\partial S}{\partial\log\Tone}&=-\frac{\TR}{\Tone}\,\frac{\partial S}{\partial(\TR/\Tone)}, &
-  \frac{\partial S}{\partial\log\Ttwo}&=\frac{t}{\Ttwo}\,S
-     -\frac{\TR}{\Ttwo}\,\frac{\partial S}{\partial(\TR/\Ttwo)}\Big|_{\rm steady\ state}.
-  \nonumber
-\end{align}
-(The $\Ttwo$ elasticity is written at fixed $\Rtwop$; with $\Ttwos$ held fixed instead, as in
-$\theta$, $\Rtwop=1/\Ttwos-1/\Ttwo$ also changes and contributes a further dimensionless term
-$-\frac{|t+k\TR|}{\Ttwo}\,S$ (since $\partial\Rtwop/\partial\log\Ttwo=1/\Ttwo$), again a ratio of
-times.)
-In linear coordinates the corresponding columns of the Jacobian differ by factors of order
-$\Tone/\Bone\sim10^3$ simply because of units, which says nothing about information.
-
-\paragraph{2. The central symmetry is a straight line.} The invariance \eqref{eq:sym} is the
-action of the multiplicative group $\kappa>0$,
-$(\Mzero,\Bone,\Tone)\mapsto(\kappa^{-1}\Mzero,\kappa\Bone,\kappa^{-2}\Tone)$. In log
-coordinates it is a translation,
-\begin{equation}
-  (\log\Mzero,\log\Bone,\log\Tone)\mapsto(\log\Mzero,\log\Bone,\log\Tone)+\log\kappa\,(-1,+1,-2),
-\end{equation}
-so the near-null direction $v=(-1,1,-2,0,0,0,0)$ of Corollary~\ref{cor:singular} is the
-\emph{same constant vector at every point} of parameter space, and the orbits are straight
-lines. In linear coordinates the orbits are curves $\{(\Mzero/\kappa,\kappa\Bone,\Tone/\kappa^2)\}$
-whose tangent $(-\Mzero,\Bone,-2\Tone)$ changes from voxel to voxel, and the degeneracy can
-only be stated locally. The scaling-type structure of the problem is what makes log
-coordinates the ones in which it looks simplest.
-
-\paragraph{3. The bounds become relative errors.} With $D=\mathrm{diag}(\Mzero,\Bone,\Tone,
-\Ttwo,\Ttwos,1,1)$, the Fisher information in linear coordinates is
-$\Fi_{\rm lin}=D^{-1}\Fi D^{-1}$, hence
-\begin{equation}
-  \sqrt{(\Fi^{-1})_{ll}}=\frac{\sqrt{(\Fi_{\rm lin}^{-1})_{ll}}}{\theta^{\rm lin}_l},
-\end{equation}
-which is the local (first-order) coefficient of variation. Relative error is the quantity
-of clinical interest (a 30\,ms error matters at $\Tone=300$\,ms, not at 3000\,ms) and is
-comparable across parameters with different units. For estimates, the delta method gives
-$\operatorname{Var}(\log\hat\theta)\approx\operatorname{Var}(\hat\theta)/\theta^2$, again only
-to first order. For large spreads the two differ substantially: if $\log\hat\theta$ has
-standard deviation $s$ and is Gaussian, the coefficient of variation of $\hat\theta$ is
-$\sqrt{\E^{s^2}-1}$, which is $\approx s$ for $s\lesssim0.2$ but $9.1$ for $s=2.1$. We
-therefore call large values \emph{log-parameter spreads} and read them as multiplicative
-factors: a spread $s$ corresponds to a one-sigma interval $[\theta\E^{-s},\theta\E^{s}]$.
-
-\paragraph{4. The likelihood is closer to quadratic for the relaxation times.} The CRLB and
-the asymptotic normality of maximum likelihood are second-order statements; they become
-accurate at lower SNR in coordinates where the log-likelihood is closer to quadratic over
-the noise-induced spread. We measured the asymmetry of the noise-free cost
-$\|s(\theta)-s(\theta_0)\|^2$ for equal steps up and down in each coordinate, holding the
-others fixed (reference tissue; a ratio of 1 means symmetric):
-\begin{center}
-\small
-\begin{tabular}{lcccc}
-\toprule
- & \multicolumn{2}{c}{$\pm20\%$} & \multicolumn{2}{c}{$\pm40\%$}\\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}
-Parameter & linear & log & linear & log\\
-\midrule
-$\Tone$ & 0.58 & 0.87 & 0.32 & 0.75\\
-$\Ttwo$ & 0.78 & 1.16 & 0.60 & 1.34\\
-$\Bone$ & 8.2 & 8.3 & 1.85 & 1.82\\
-$\Mzero$ & 1.00 & 1.49 & 1.00 & 2.23\\
-\bottomrule
-\end{tabular}
-\end{center}
-The log coordinates are clearly better for $\Tone$, which has the largest bound and hence
-the largest excursions, and somewhat better for $\Ttwo$. For $\Bone$ the asymmetry comes
-from the $360^\circ$ structure of scan 2 and is the same in both coordinates. For $\Mzero$
-linear coordinates are exactly quadratic, because the signal is linear in $\Mzero$. So
-argument 4 does not justify $\log\Mzero$; arguments 2 and 3 do. Consistently, estimates of
-relaxation times are right-skewed in linear units (for example $\Tone=\TR/\ln(\cdot)$ in
-Eq.~16 has a heavy right tail), and we analyse Monte Carlo errors on $\log\hat\theta$, reporting
-standard deviation, bias, RMSE and a robust spread side by side (Section~\ref{sec:inverse}).
-
-\paragraph{5. Optimisation.} Log coordinates make positivity automatic. A step of size
-0.1 is a $10\%$ change whatever the magnitude of the parameter, and the Jacobian columns
-have comparable norms, so the damped Gauss--Newton steps are well scaled from the first
-iteration. Positivity is not the whole physical domain, however: see the ordering
-constraint below.
-
-\paragraph{What does not depend on the choice.} The change from linear to log coordinates
-has a diagonal Jacobian $D$. Therefore the correlation matrix of $\Fi^{-1}$, the
-normalised information $\tilde\Fi$ (and its eigenvalues and condition number), the
-variance inflation factors, and every statement of the form ``parameter $l$ is (not)
-determined'' are \emph{identical} in both parameterisations at a given point. The
-conclusions of Sections~\ref{sec:symmetry}--\ref{sec:inverse} do not rest on this
-choice. What the logarithm adds is a global picture (straight symmetry orbits), unit-free
-and relative error measures, better-behaved statistics, and easier optimisation.
-
-\paragraph{Which parameters are not logged.} $\dw$ is a signed frequency and $\phi_0$ a
-periodic phase: neither is a scale parameter, and both enter \eqref{eq:signal} linearly in
-the exponent, so they stay linear. For the reversible decay we use $\log\Ttwos$ rather than
-$\log\Rtwop$: $\Rtwop$ can be arbitrarily close to zero (here $\Rtwop=1/60-1/70$\,ms$^{-1}$),
-and a relative error on a near-zero rate is large and uninformative. In the same
-coordinates the bound on $\log\Rtwop$ is 366 per unit $\sigma/\Mzero$, against 47 for
-$\log\Ttwos$, for exactly the same information.
-
-\paragraph{The ordering constraint.} The Lorentzian model requires
-$\Rtwop=1/\Ttwos-1/\Ttwo\ge0$, i.e.\ $\Ttwos\le\Ttwo$. Independent $\log\Ttwo$ and $\log\Ttwos$
-coordinates enforce positivity of each but not this ordering. The CRLB is computed at an
-interior point ($\Rtwop>0$) and is unaffected, but an estimator must enforce the ordering
-explicitly; our maximum-likelihood fit projects onto $\log\Ttwos\le\log\Ttwo$
-(Section~\ref{sec:ml}) and reports how often the constraint is active. When it is active
-the estimator is no longer (locally) unbiased and the comparison with the CRLB loses its
-footing for those voxels.
-
-%=====================================================================================
-\section{The fundamental limitation: a scaling invariance}\label{sec:symmetry}
-%=====================================================================================
-
-\subsection{Two invariants per scan}
-
-The steady state of one scan depends on the flip angle and $\Tone$ only through two
-combinations. This exact result underlies everything in this section and in
-Section~\ref{sec:magnitude}.
-
-\begin{theorem}[Exact two-invariant reduction]\label{thm:uv}
-Let $\varphi=0$ and define, for one scan with flip angle $\alpha$,
-\begin{equation}
-  u=\frac{E_1-\cos\alpha}{1-E_1\cos\alpha},\qquad
-  v=\frac{\sin\alpha\,(1-E_1)}{1-E_1\cos\alpha}.
-  \label{eq:uv}
-\end{equation}
-Then for every pathway $k$ and every off-resonance $\dw$,
-\begin{equation}
-  a_k(\alpha,\Tone,\Ttwo,\dw)=v\;G_k(u,E_2,\dw)
-  \label{eq:uvform}
-\end{equation}
-for functions $G_k$ that do not depend on $\alpha$ or $\Tone$ otherwise. The magnitude of $v$ is
-itself a function of $u$ and $\Tone$:
-\begin{equation}
-  |v|=\sqrt{1-u^2}\;\sqrt{\tanh\!\Bigl(\frac{\TR}{2\Tone}\Bigr)}.
-  \label{eq:absv}
-\end{equation}
-\end{theorem}
-\begin{proof}
-Write the pre-pulse state of one isochromat as $(x,y,z)$ and $w=x+iy$. The pulse
-$R_x(\alpha)$ maps it to $(x,\ cy-sz,\ sy+cz)$ with $c=\cos\alpha$, $s=\sin\alpha$; relaxation
-and precession by $\beta=\psi+\dw\TR$ then give the next pre-pulse state. The steady-state
-equations are
-\begin{equation}
-  w=E_2\E^{i\beta}\bigl(x+i(cy-sz)\bigr),\qquad z=E_1(sy+cz)+1-E_1 .
-\end{equation}
-The second gives $z=(E_1sy+1-E_1)/(1-E_1c)$. Substituting,
-\[
-  cy-sz=y\,\frac{c-E_1c^2-E_1s^2}{1-E_1c}-\frac{s(1-E_1)}{1-E_1c}=-u\,y-v .
-\]
-The post-pulse transverse magnetisation is therefore $m_\perp=x-iuy-iv$ with $w=E_2\E^{i\beta}m_\perp$,
-i.e.\
-\[
-  m_\perp=\mathrm{Re}\bigl(E_2\E^{i\beta}m_\perp\bigr)-iu\,\mathrm{Im}\bigl(E_2\E^{i\beta}m_\perp\bigr)-iv .
-\]
-This is a real-linear equation for $m_\perp$ whose coefficients involve only $u$, $E_2$ and
-$\beta$, with inhomogeneous term $-iv$. Hence $m_\perp=v\,g(u,E_2,\beta)$, and its Fourier
-coefficients over $\psi$ have the form \eqref{eq:uvform}. For \eqref{eq:absv}, use
-$1\mp u=(1\mp E_1)(1\pm c)/(1-E_1c)$, so $1-u^2=(1-E_1^2)s^2/(1-E_1c)^2$ and
-$v^2=(1-u^2)(1-E_1)/(1+E_1)$, with $(1-E_1)/(1+E_1)=\tanh(\TR/2\Tone)$.
-\end{proof}
-
-\begin{corollary}[One scan cannot separate $\Mzero$, $\Bone$, $\Tone$]\label{cor:onescan}
-For a single flip angle, the signal depends on $(\Mzero,\Bone,\Tone)$ only through
-$(u,\ \Mzero v)$. The level sets of these two functions are curves in the
-three-dimensional parameter space, so the Fisher information about
-$(\Mzero,\Bone,\Tone)$ from one scan is exactly singular, at every flip angle.
-\end{corollary}
-
-Numerically, for one scan at $15^\circ$ the amplitudes of six pathways are reproduced to
-relative precision $10^{-15}$ by $(\kappa\alpha,\Tone',\Mzero')$ for every $\kappa$ tested
-($1.05$ to $2$), and the scan-1-only bound on $\log\Tone$ with $\Bone$ unknown is
-$2.4\times10^8$ (Section~\ref{sec:results}): singular to numerical precision. In the
-small-angle limit, $u\to(\alpha^2/2-\rho)/(\alpha^2/2+\rho)$ and $v\to\alpha\rho/(\rho+\alpha^2/2)$
-depend on $\alpha$ and $\rho$ only through $\alpha^2/\rho$ and an overall factor $\alpha$, which is
-the scaling of Proposition~\ref{prop:scaling} below. The two-scan problem is the question of
-when two such reductions, tied together by a common $\Bone$, have a unique joint solution.
-
-\begin{proposition}[Small-angle scaling invariance]\label{prop:scaling}
-Let $\rho=\TR/\Tone$, $\varphi=0$, and fix $\TR$, $\Ttwo$ (hence $E_2<1$) and a pathway order
-$k$. In the joint limit $\alpha\to0$, $\rho\to0$ with $c=\alpha^2/(2\rho)$ held fixed,
-\begin{equation}
-  a_k(\alpha,\Tone)=\alpha\,f_k(c,E_2)+O(\alpha^3+\alpha\rho),
-  \label{eq:leading}
-\end{equation}
-with $f_k$ given in \eqref{eq:fk} below. Consequently, for any \emph{fixed} $\kappa>0$,
-\begin{equation}
-  \Mzero\,a_k(\alpha,\Tone)-\tfrac{\Mzero}{\kappa}\,a_k\bigl(\kappa\alpha,\ \Tone/\kappa^2\bigr)
-  =O(\alpha^3+\alpha\rho),
-\end{equation}
-i.e.\ the signal \eqref{eq:signal} of every scan with a small flip angle, in every pathway
-and echo, is invariant to leading order under
-\begin{equation}
-  (\Mzero,\ \Bone,\ \Tone)\ \longmapsto\ (\Mzero/\kappa,\ \kappa\Bone,\ \Tone/\kappa^2).
-  \label{eq:sym}
-\end{equation}
-The remainder is additive (safe where $f_k$ is small) and is not uniform in $\kappa$: the
-limit is taken with $\kappa$ fixed.
-\end{proposition}
-
-\begin{proof}
-Work with one isochromat, $\dw=0$, and write $m_\perp=m_x+im_y$ and $m_z$ for the state just
-after the pulse. Free precession and relaxation give the pre-pulse state
-$m_\perp^-=E_2\E^{i\psi}m_\perp$, $Z\equiv m_z^-=E_1m_z+(1-E_1)$. The pulse $R_x(\alpha)$ gives
-\begin{equation}
-  m_\perp=m_\perp^- -i\sin\alpha\,Z + i(\cos\alpha-1)\,\mathrm{Im}\,m_\perp^-,\qquad
-  m_z=\sin\alpha\,\mathrm{Im}\,m_\perp^- +\cos\alpha\,Z .
-\end{equation}
-In the steady state $Z=O(1)$ and $m_\perp=O(\alpha)$, so the last term in $m_\perp$ is
-$O(\alpha^3)$ and $\sin\alpha=\alpha+O(\alpha^3)$. Solving the transverse equation,
-\begin{equation}
-  m_\perp=\frac{-i\alpha Z}{1-E_2\E^{i\psi}}+O(\alpha^3).
-  \label{eq:mperp}
-\end{equation}
-The denominator is bounded away from zero, $|1-E_2\E^{i\psi}|\ge1-E_2>0$, uniformly in $\psi$.
-For the longitudinal equation use $E_1=1-\rho+O(\rho^2)$, so
-$m_z=Z-\rho(1-Z)+O(\rho^2)$, and $\cos\alpha=1-\alpha^2/2+O(\alpha^4)$:
-\begin{equation}
-  \rho(1-Z)=-\alpha\,\mathrm{Im}\,m_\perp^- +\tfrac{\alpha^2}{2}Z+O(\alpha^4+\rho^2+\alpha^2\rho).
-\end{equation}
-From \eqref{eq:mperp},
-$\mathrm{Im}\,m_\perp^-=-\alpha Z\,\mathrm{Re}\bigl[E_2\E^{i\psi}/(1-E_2\E^{i\psi})\bigr]
-=-\alpha Z\,(E_2\cos\psi-E_2^2)/|1-E_2\E^{i\psi}|^2$, and
-\[
-  \frac{E_2\cos\psi-E_2^2}{|1-E_2\E^{i\psi}|^2}+\frac12=\frac{1}{2}H(\psi),\qquad
-  H(\psi)=\frac{1-E_2^2}{|1-E_2\E^{i\psi}|^2}=\frac{1-E_2^2}{1-2E_2\cos\psi+E_2^2}.
-\]
-Hence $\rho(1-Z)=\tfrac{\alpha^2}{2}H(\psi)\,Z$ to leading order, i.e.
-$Z=\bigl[1+c\,H(\psi)\bigr]^{-1}$ with $c=\alpha^2/(2\rho)$, and
-\begin{equation}
-  m_\perp(\psi)=\frac{-i\alpha}{(1-E_2\E^{i\psi})\,\bigl[1+c\,H(\psi)\bigr]}+O(\alpha^3+\alpha\rho),
-\end{equation}
-where $1+cH\ge1$ keeps the expression uniformly bounded, so the remainder is uniform in
-$\psi$. The pathway amplitude is the Fourier coefficient
-\begin{align}
-  a_k&=\frac{1}{2\pi}\int_0^{2\pi}m_\perp(\psi)\,\E^{-ik\psi}\,d\psi
-  =\alpha\,f_k(c,E_2)+O(\alpha^3+\alpha\rho),\nonumber\\
-  f_k(c,E_2)&=\frac{1}{2\pi}\int_0^{2\pi}\frac{-i\,\E^{-ik\psi}\,d\psi}{(1-E_2\E^{i\psi})[1+cH(\psi)]},
-  \label{eq:fk}
-\end{align}
-and a uniform remainder in $\psi$ bounds the remainder of every Fourier coefficient. Under
-$\alpha\to\kappa\alpha$, $\rho\to\kappa^2\rho$, $c$ is unchanged and the leading term scales
-by $\kappa$, which $\Mzero\to\Mzero/\kappa$ compensates. Since $\Bone$ multiplies every flip
-angle \eqref{eq:b1}, $\alpha\to\kappa\alpha$ is $\Bone\to\kappa\Bone$. The echo factors in
-\eqref{eq:signal} do not involve $\alpha$ or $\Tone$.
-\end{proof}
-
-\begin{remark}[Checks]
-For $k=0$ and $k=-1$ the same conclusion follows directly from the closed forms
-\eqref{eq:fisp}: to leading order $E_1-\cos\alpha\simeq\alpha^2/2-\rho$,
-$1-E_1\cos\alpha\simeq\rho+\alpha^2/2$ and $q\simeq2E_2\rho$ are homogeneous of degree one in
-$(\rho,\alpha^2)$, so the brackets depend only on $c$, and $\tan(\alpha/2)\simeq\alpha/2$.
-Numerically, with $c=0.75$, the leading-order formula \eqref{eq:fk} matches the exact solver
-\eqref{eq:iso} for all pathways $k=-3,\dots,2$ with maximum error (relative to $|a_0|$)
-$2.5\times10^{-3}$, $6.2\times10^{-4}$, $1.5\times10^{-4}$ and $3.8\times10^{-5}$ at
-$\alpha=15^\circ,7.5^\circ,3.75^\circ,1.875^\circ$, the factor of four per halving expected from an
-$O(\alpha^2)$ relative remainder; the scaling defect for $\kappa=2$ falls at the same rate.
-On the full model with all three pathways and the $15^\circ/30^\circ$ protocol, fixing $\Bone$
-wrong by $\varepsilon$ shifts the best fit by $\delta\log\Tone=-2.06\,\varepsilon$ and
-$\delta\log\Mzero=-1.02\,\varepsilon$, against the predicted $-2$ and $-1$.
-\end{remark}
-
-\begin{corollary}[Leading-order degeneracy]\label{cor:singular}
-Let $v=(-1,+1,-2,0,0,0,0)$ in the coordinates of $\theta$. If all flip angles are small,
-$\partial_vS_{ijk}$ vanishes at leading order (it is $O(\alpha^3+\alpha\rho)$ while the other
-directional derivatives are $O(\alpha)$), so $v^{\mathsf T}\Fi v$ is small relative to the
-diagonal of $\Fi$ and $\Fi$ is ill-conditioned. Small-angle acquisitions, however many and
-however their angles differ, cannot remove this leading-order degeneracy, because $\Bone$
-scales all of them by the same factor.
-\end{corollary}
-
-\begin{remark}[What the corollary does and does not say]
-The degeneracy is only of leading order. At finite angles the higher-order terms break it,
-$\Fi$ is nonsingular, and the parameters are identifiable in principle; the corollary says
-that separating them is extremely noise-sensitive. For the reference tissue the condition
-number of $\tilde\Fi$ is $2.6\times10^4$ for $30^\circ/60^\circ$, $5.0\times10^5$ for
-$15^\circ/30^\circ$ and $2.5\times10^7$ for $3.75^\circ/7.5^\circ$. Repeating acquisitions adds
-information in the usual way (all bounds shrink as $1/\sqrt{N}$), so a sufficiently high SNR
-resolves the poorly determined direction; it does not improve the conditioning. The bounds
-apply to unbiased estimators. A biased estimator (a prior, regularisation, or a learned
-network) can report a smaller spread along $v$, but that reduction comes from the prior,
-not from the data.
-\end{remark}
-
-\subsection{How the published protocol escapes}
-
-\begin{proposition}[Periodicity]\label{prop:period}
-$|a_k(\alpha)|$ is even and $2\pi$-periodic in $\alpha$, and $a_k(-\alpha)=-a_k(\alpha)$ for
-all $k$ (a global sign). Hence two protocols whose \emph{actual} flip angles agree up to sign
-and multiples of $2\pi$ in every scan carry identical Fisher information about every
-parameter when $\Bone$ is known. In particular, at $\Bone=1$ the protocols
-$15^\circ/330^\circ$ and $15^\circ/30^\circ$ are equivalent with $\Bone$ known.
-\end{proposition}
-\begin{proof}
-$R_x(-\alpha)=R_z(\pi)R_x(\alpha)R_z(-\pi)$, i.e.\ RF phase $\varphi=\pi$. Since precession
-and relaxation commute with $R_z$, the steady state for phase $\pi$ is $R_z(\pi)$ applied
-to the one for phase $0$, which multiplies every $F_k$ by $-1$. Periodicity is that of
-$R_x$. A known, scan-wide sign does not change $\Fi$, and with $\Bone$ known the actual angles
-are fixed.
-\end{proof}
-
-The equivalence is a statement about actual angles, not nominal ones: $330^\circ\Bone$ and
-$-30^\circ\Bone$ agree modulo $360^\circ$ only when $360^\circ\Bone\equiv0$, i.e.\ at $\Bone=1$
-within the physical range. At $\Bone=1.1$, for example, the second angles are $363^\circ$ and
-$33^\circ$, and the known-$\Bone$ $\Tone$ bounds are 29.6 and 29.0 per unit $\sigma/\Mzero$.
-Near $\Bone=1$ the information about $\Tone$ given $\Bone$ is therefore nearly the same for both
-protocols, and the value of the large pulse lies in the $\Bone$ derivative. The effective
-angle of scan 2 is $\alpha_2^{\rm eff}=330^\circ\Bone-360^\circ$, so
-\begin{equation}
-  \frac{\partial\log|\alpha_2^{\rm eff}|}{\partial\log\Bone}
-  =\frac{330\,\Bone}{330\,\Bone-360},
-  \qquad\text{whereas}\qquad
-  \frac{\partial\log\alpha_1}{\partial\log\Bone}=+1 .
-  \label{eq:lever}
-\end{equation}
-At $\Bone=1$ the first ratio is $-11$; it is $-2.75$ at $\Bone=0.8$ and diverges as
-$\alpha_2^{\rm eff}\to360^\circ$. The invariance \eqref{eq:sym} requires all angles to scale by the
-same factor; under a $\Bone$ change the second angle moves much faster and in the opposite
-direction, so the near-null direction $v$ is lifted. The near-$360^\circ$ pulse acts as a
-built-in $\Bone$ measurement.
-
-\subsection{Global aliases}\label{sec:aliases}
-
-The local analysis says nothing about \emph{distant} parameter values that produce the same
-data. Theorem~\ref{thm:uv} makes them easy to find. For given $\Ttwo$, the amplitudes of
-scan $i$ determine $u_i$ and $\Mzero v_i$. For a trial value of $E_1$, inverting the M\"obius
-map \eqref{eq:uv} gives
-\begin{equation}
-  \cos\alpha_i=\frac{E_1-u_i}{1-u_iE_1},
-\end{equation}
-and $\Bone$ must satisfy $\Bone\alpha_i^{\rm nom}=\pm\arccos(\cos\alpha_i)+2\pi m_i$ for both scans
-at once. Each choice of sign and of $m_i$ is a candidate branch; the true parameters are one
-solution, and other branches generally admit exact solutions of their own. Which of them
-the data can exclude depends on what the data retain:
-\begin{itemize}
-\item \emph{Magnitudes} retain $u_i$ and $\Mzero|v_i|$, i.e.\ $\cos\alpha_i$ but not the sign of
-  $\sin\alpha_i$. The branch $\alpha_2=360^\circ+x$ is then indistinguishable from the true
-  $\alpha_2=360^\circ-x$ (Section~\ref{sec:magnitude}).
-\item \emph{Complex data} with a phase shared by both scans also retain the relative sign of
-  $v_1$ and $v_2$, i.e.\ of $\sin\alpha_1\sin\alpha_2$. This removes the
-  $360^\circ+x$ branch. It cannot remove branches with the same sign pattern that differ by
-  $2\pi$ in $\alpha_2$, such as $\alpha_2=720^\circ-x'$.
-\end{itemize}
-Table~\ref{tab:aliases} lists the aliases found by least squares restricted to each branch,
-on noise-free data. All fit to machine precision.
-
-\begin{table}[h]
+\begin{figure}[!tb]
 \centering
-\caption{Exact aliases on noise-free data (relative residual below $10^{-14}$ in every case).
-Magnitude alias: best magnitude fit with the opposite FID sign ($\alpha_2$ on the other side of
-$360^\circ$). Complex alias: best complex fit with $\alpha_2\ge540^\circ$.}
-\label{tab:aliases}
-\small
-\begin{tabular}{cccccc}
-\toprule
-\multicolumn{2}{c}{Truth} & \multicolumn{2}{c}{Magnitude alias} & \multicolumn{2}{c}{Complex alias}\\
-\cmidrule(lr){1-2}\cmidrule(lr){3-4}\cmidrule(lr){5-6}
-$\Bone$ & $\Tone$ (ms) & $\Bone$ & $\Tone$ (ms) & $\Bone$ & $\Tone$ (ms)\\
-\midrule
-1.00 & 1500 & 1.199 & 1038 & 2.008 & 359\\
-0.90 & 1200 & 1.350 & 527  & 1.865 & 271\\
-1.05 & 850  & 1.135 & 726  & 2.100 & 204\\
-0.80 & 2500 & 1.480 & 717  & 1.769 & 497\\
-1.08 & 1000 & 1.102 & 960  & 2.160 & 240\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The complex aliases need $\Bone\approx1.8$--$2.2$ and are excluded by the assumption, stated
-in~\cite{cheng2019}, that $\alpha_2^{\rm nom}\Bone\in[180^\circ,540^\circ]$, i.e.\
-$\Bone<540/330\approx1.64$ for this protocol. The magnitude aliases lie at
-$\Bone\approx1.1$--$1.5$, inside the physiological range, so no range assumption removes them.
-This is why~\cite{cheng2019} uses the relative phase of the two FID images to choose the
-branch. As $\alpha_2^{\rm eff}\to360^\circ$ the true and alias solutions merge (last row): the
-branch question then becomes moot, but also unanswerable, since the scan-2 FID vanishes.
-Being a global property, none of this is visible in the local CRLB; locally, $\Bone$ is
-determined \emph{best} near $360^\circ$ (Fig.~\ref{fig:sweeps}).
-
-%=====================================================================================
-\section{Cram\'er--Rao bounds and conditioning}\label{sec:results}
-%=====================================================================================
-
-Unless stated otherwise the tissue is the reference used for protocol optimisation
-in~\cite{cheng2019}: $\Tone/\Ttwo/\Ttwos=1500/70/60$\,ms, $\Bone=1$.
-
-\begin{table}[h]
-\centering
-\caption{CRLB per unit $\sigma/\Mzero$: bound on the standard deviation of $\log\Mzero$,
-$\log\Bone$, $\log\Tone$, $\log\Ttwo$, $\log\Ttwos$; rad/ms for $\dw$. Multiply by
-$\sigma/\Mzero$ for a given SNR; the result approximates a relative standard deviation only
-when it is small (Section~\ref{sec:log}).}
-\label{tab:crlb}
-\small
-\begin{tabular}{llcccccc}
-\toprule
-Protocol & Tissue ($\Tone/\Ttwo/\Ttwos$, ms) & $\Mzero$ & $\Bone$ & $\Tone$ & $\Ttwo$ & $\Ttwos$ & $\dw$\\
-\midrule
-$15^\circ/330^\circ$ & WM ($850/66/50$) & 12.5 & 2.21 & 27.3 & 16.0 & 27.2 & 0.30\\
-$15^\circ/330^\circ$ & GM ($1350/90/60$) & 14.7 & 2.75 & 33.1 & 20.7 & 38.2 & 0.31\\
-$15^\circ/330^\circ$ & reference ($1500/70/60$) & 19.0 & 2.91 & 40.5 & 23.1 & 47.3 & 0.37\\
-$15^\circ/330^\circ$ & reference, $\Bone$ known & 16.1 & -- & 28.0 & 20.7 & 44.2 & 0.37\\
-\midrule
-$15^\circ/30^\circ$ & reference & 1050 & 1020 & 2110 & 23.1 & 47.3 & 0.37\\
-$15^\circ/30^\circ$ & reference, $\Bone$ known & 16.1 & -- & 28.0 & 20.7 & 44.2 & 0.37\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Table~\ref{tab:crlb} shows the two effects at once. With $15^\circ/30^\circ$ the
-$\Mzero$--$\Bone$--$\Tone$ block is essentially singular while $\Ttwo$, $\Ttwos$ and $\dw$ are
-untouched; with $\Bone$ known the two protocols coincide (Proposition~\ref{prop:period}).
-
-\begin{table}[h]
-\centering
-\caption{Conditioning of the information matrix (reference tissue).}
-\label{tab:cond}
-\small
-\begin{tabular}{p{0.40\linewidth}p{0.24\linewidth}p{0.26\linewidth}}
-\toprule
- & $15^\circ/330^\circ$ & $15^\circ/30^\circ$\\
-\midrule
-Eigenvalues of $\tilde\Fi$ & $0.024,\ 0.11,\ 0.22,\ 0.51,$ $0.52,\ 1.49,\ 4.13$ &
-  $7.7{\times}10^{-6},\ 0.11,\ 0.29,$ $0.51,\ 0.76,\ 1.49,\ 3.84$\\
-Condition number $\kappa(\tilde\Fi)$ & 173 & $5.0\times10^{5}$\\
-Variance inflation $\Mzero/\Bone/\Tone$ & $16.7/4.6/26.6$ & $51\,000/7\,700/72\,000$\\
-Correlations $(\Bone,\Tone)$, $(\Bone,\Mzero)$, $(\Tone,\Mzero)$ & $0.72,\ 0.53,\ 0.77$ &
-  $-0.9999,\ -0.9999,$ $0.9999$\\
-$\partial\log\Tone/\partial\log\Bone$, $\Bone$ fixed, all data & $+10.1$ & $-2.06$\\
-$\partial\log\Tone/\partial\log\Bone$, $\Bone$ fixed, scan 1 only & $-2.02$ & $-2.02$\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{crlb_correlation.png}
-\caption{Correlation matrices of the CRLB covariance $\Fi^{-1}$. Right: the
-$\Mzero$--$\Bone$--$\Tone$ block of the small-angle protocol is perfectly correlated, the
-signature of the invariance~\eqref{eq:sym}.}
-\label{fig:corr}
+\includegraphics[width=\linewidth]{ernst_logtan.png}
+\caption{The signal amplitude on the log half-angle axis for three combinations of $\Bone$, $\Tone$ and
+$\Mzero$ that give identical scan-1 data (white matter, $\Tone=850$\,ms; scan 1 at $15^\circ$). Raising $\Bone$ moves the sample (circles) to the right;
+shortening $\Tone$ moves the bump (dotted: Ernst angles) by the same amount; lowering $\Mzero$ keeps the
+height. Squares: the second scan, at $330^\circ$ (a) or $30^\circ$ (b). From~\cite[Fig.~2]{technote}.}
+\label{fig:bump}
 \end{figure}
 
-\begin{figure}[t]
+\paragraph{Why one scan cannot separate $\Bone$ from $\Tone$.} Raise $\Bone$: the sample moves to the right.
+Shorten $\Tone$ by the right amount: the Ernst angle grows and the bump moves to the right by the same
+distance. Lower $\Mzero$: the height is restored. The whole picture translates rigidly and the data
+do not change, at any flip angle, exactly. For small angles and $\TR\ll\Tone$, $\Bone\to\kappa\Bone$ is compensated by
+$\Tone\to\Tone/\kappa^2$ and $\Mzero\to\Mzero/\kappa$, the familiar $\Bone$ sensitivity of variable-flip-angle $\Tone$
+mapping~\cite{deoni2003} (at $15^\circ$ the exact logarithmic slopes are $-2.02$ and $-1.01$~\cite[eq.~17]{technote}). A $10\%$ error in $\Bone$ becomes an error of about
+$-18\%$ in $\Tone$.
+
+\paragraph{Nothing inside one scan rescues it.} More echoes or pathways sample the same point of the
+same bump. A smooth (e.g.\ polynomial) $\Bone$ field does not help either: every voxel has its own $\Tone$
+and $\Mzero$ to absorb the change, so $N$ voxels give $2N$ equations for $2N+p$ unknowns, and any field fits
+the data exactly~\cite[Prop.~7, Cor.~3]{technote}. Voxels that share one $\Bone$ slide together, keeping
+their $\Mzero$ ratios exactly and their $\Tone$ ratios to about $10^{-4}$, but their common scale stays free
+\cite[Prop.~8]{technote}. Modelling more physics does not help in practice: relaxation during the
+pulse leaves the degeneracy exact, and a known slice profile, off-resonance during the pulse or
+diffusion give bounds on $\ln\Bone$ 400 to $5\times10^6$ times larger than a second scan does, and no information
+at all as soon as the extra physics has an unknown parameter of its own~\cite[Sec.~5.4]{technote}.
+
+\section{Two scans: the lever}\label{sec:two}
+
+A second scan samples the same bump at another point. When $\Bone$ changes, each sample moves along
+the $s$-axis at its own \emph{rate}
+\[
+  c(x)=\frac{\mathrm d\ln|\tan(x/2)|}{\mathrm d\ln\Bone}=\frac{x}{\sin x}\qquad(x\text{ in radians}),
+\]
+written $c_i=c(x_i)$ for scan $i$, while the bump (the tissue) moves the same for both. The compensation that worked for one scan now
+fails unless the two samples move at the same rate. $\Bone$ is therefore visible only through the
+difference of the rates, the \emph{lever} $L=c(x_2)-c(x_1)$: the bound on $\ln\Bone$ is the uncertainty of the
+difference of the two offsets divided by $|L|$~\cite[Prop.~3]{flipnote}.
+
+\begin{figure}[!tb]
 \centering
-\includegraphics[width=\linewidth]{crlb_eigen.png}
-\caption{Left: eigenvalues of the normalised information $\tilde\Fi$. Right: the weakest
-direction mapped back to the original log coordinates, $w\propto D^{-1/2}u$ with $u$ the
-eigenvector of the smallest eigenvalue of $\tilde\Fi$ (normalised to unit length, sign
-fixed by the $\Tone$ component). For $15^\circ/30^\circ$ it coincides with the symmetry
-direction $(-1,1,-2)/\sqrt6$ (black marks). For $15^\circ/330^\circ$ the smallest eigenvalue
-is three thousand times larger and the weakest direction is mostly $\Tone$, with $\Mzero$ and
-$\Ttwos$; its $\Bone$ component is only $-0.05$.}
-\label{fig:eigen}
+\includegraphics[width=\linewidth]{limits_lever.png}
+\caption{(a) The rate $c(x)=x/\sin x$ (dotted: multiples of $180^\circ$). Small angles move at rate $\approx1$; a $330^\circ$ pulse is a $30^\circ$ pulse in
+disguise ($|\tan165^\circ|=\tan15^\circ$) that moves eleven times faster and in the opposite direction. (b) Bound on
+$\ln\Bone$ against $1/|L|$ for scan 1 at $15^\circ$ with scan 2 from $30^\circ$ to $345^\circ$, and for four pairs of small angles
+(all seven parameters free). The bound spans four orders of magnitude while $|L|$ times the bound
+stays between 26 and 144 (shaded); pulses with the same $|\tan(x/2)|$ (e.g.\ $30^\circ$ and $330^\circ$) give
+identical products.}
+\label{fig:lever}
 \end{figure}
 
-\paragraph{Where the remaining $\Tone$ uncertainty comes from.} Freeing parameters one group
-at a time gives the hierarchy
-\begin{center}
-\small
-\begin{tabular}{lc}
-\toprule
-Unknown parameters & $\Tone$ bound (per unit $\sigma/\Mzero$)\\
-\midrule
-$\Tone$ only & 7.9\\
-$+\ \Ttwo,\ \Ttwos,\ \dw,\ \phi_0$ & 21.1\\
-$+\ \Mzero$ & 28.0\\
-$+\ \Bone$ ($15^\circ/330^\circ$) & 40.5\\
-$+\ \Bone$ ($15^\circ/30^\circ$) & 2110\\
-\bottomrule
-\end{tabular}
-\end{center}
-With the published protocol, freeing $\Bone$ last costs a factor 1.45; freeing the
-transverse relaxation times costs 2.7 and $\Mzero$ 1.3. (These factors depend on the order
-in which the groups are freed; the variance inflation factors of Table~\ref{tab:cond} are the
-order-free summary.) At $15^\circ$ and $\TR=25$\,ms ($\Tone\gg\TR$), $\Tone$ is weakly encoded in
-the steady-state amplitudes. Consistently, the weakest direction of the paper protocol in
-log coordinates (Fig.~\ref{fig:eigen}) is dominated by $\Tone$ (component $-0.85$), with
-$\Mzero$ and $\Ttwos$ ($-0.36$ each) and $\Ttwo$ ($+0.15$); its $\Bone$ component is only
-$-0.05$. With this protocol $\Bone$ is no longer the main source of $\Tone$ uncertainty.
+\Cref{fig:lever}b shows that this one number organises the problem: over 19 protocols the $\Bone$ bound
+ranges from $1.1$ to $13\,000$, while $|L|$ times the bound stays within a factor of about five.
 
-\paragraph{Which measurements carry the information.} Separating the data used from
-whether $\Bone$ is known gives the $\Tone$ bounds
-\begin{center}
+\paragraph{Why small angles fail.} For small angles $c(x)\approx1+x^2/6$, so two small flip angles have
+nearly the same rate and $L\approx(x_2^2-x_1^2)/6\to0$. For $15^\circ/30^\circ$, $L=0.036$ and the $\Bone$ bound is $1023$: the
+parameters are identifiable in principle, but separating them needs an SNR of order $10^4$. This is
+the leading-order scaling invariance $(\Mzero,\Bone,\Tone)\mapsto(\Mzero/\kappa,\kappa\Bone,\Tone/\kappa^2)$ of small-angle
+protocols~\cite[Prop.~4]{technote}, seen as the limit $L\to0$; adding more small angles does not help.
+
+\paragraph{Why the $330^\circ$ pulse works.} A $330^\circ$ pulse carries exactly the information of a $30^\circ$ pulse
+about its own offset, but its rate is $-11.5$, so $L=-12.5$. The $\Bone$ bound falls from 1023 to $2.9$, by
+the factor $|L_{330}/L_{30}|=351$ exactly~\cite[Prop.~5, Sec.~4.4]{technote}. Any second pulse whose rate differs
+strongly from the first scan's, and whose sample still sits on the informative part of the bump,
+would do (where the samples sit accounts for the remaining factor of five in \cref{fig:lever}b); it
+does not need to be near $360^\circ$ (a $270^\circ$ pulse has rate $-4.7$).
+
+\paragraph{An equation in $\Bone$ alone.} Each scan fixes its offset, i.e.\ the ratio
+$\xi_i=\tan(x_i/2)/\tan(\alpha_E/2)$ (up to sign). Dividing the two ratios eliminates $\Tone$ and $\Mzero$:
+\begin{equation}
+  f(\Bone)=\frac{\tan(\Bone\alpha_2/2)}{\tan(\Bone\alpha_1/2)}=\frac{\xi_2}{\xi_1},\ \text{a number the data fix},
+  \label{eq:f}
+\end{equation}
+the half-angle analogue of double-angle $\Bone$ mapping. Its logarithmic slope is the lever itself,
+\[
+  \frac{\mathrm d\ln|f|}{\mathrm d\ln\Bone}=L,
+\]
+so the same number controls how precisely and how uniquely $\Bone$ is determined (\cref{sec:alias}).
+
+\section{What limits $\Tone$ once $\Bone$ is resolved}\label{sec:t1}
+
+\Cref{tab:budget} frees the parameters one group at a time (the factors depend on the order). With
+the published protocol, knowing $\Bone$ exactly would lower the $\Tone$ bound only by a factor of $1.45$,
+against $75$ for $15^\circ/30^\circ$: most of the uncertainty now comes from the weak $\Tone$ encoding of a $15^\circ$
+scan with $\TR\ll\Tone$, shared with $\Mzero$, $\Ttwo$ and $\Ttwos$. The cost of not knowing $\Bone$ has an exact and simple
+form,
+\begin{equation}
+  \mathrm{Var}(\ln\Tone)=\mathrm{Var}(\ln\Tone\mid\Bone\text{ known})+\beta^2\,\mathrm{Var}(\ln\Bone),
+  \label{eq:budget}
+\end{equation}
+where $\beta$ is the factor with which an error in a supplied $\Bone$ reaches $\Tone$ (next paragraph): for the
+published protocol $40.5^2=28.0^2+(10.1\times2.9)^2$, and for $15^\circ/30^\circ$, $\beta=-2.06$ but the $\Bone$ bound is $1023$.
+
+\begin{table}[!tb]
+\centering
+\caption{Bound on $\ln\Tone$ (per unit $\sigma/\Mzero$) as parameters are freed in turn ($\Bone=1$, reference tissue;
+the factors between rows depend on the order).}
+\label{tab:budget}
 \small
 \begin{tabular}{lcc}
 \toprule
-Data & $\Bone$ unknown & $\Bone$ known\\
+Unknown parameters & $15^\circ/330^\circ$ & $15^\circ/30^\circ$\\
 \midrule
-both scans (full resolution) & 40.5 & 28.0\\
-scan 1 only & $2.4\times10^{8}$ & 57.1\\
-\bottomrule
-\end{tabular}
-\end{center}
-Scan 1 alone cannot determine $\Bone$ and $\Tone$ jointly at all: by
-Corollary~\ref{cor:onescan} the one-scan information is exactly singular, whatever the flip
-angle. With $\Bone$ known, adding the
-high-flip scan still halves the bound on the standard deviation of $\log\Tone$ (57.1 to 28.0), because
-scan 2 carries $\Tone$ information of its own.
-
-\paragraph{Protocol dependence.} Fig.~\ref{fig:flip} shows that the $\Tone$ bound with
-$\Bone$ unknown falls steeply with $\alpha_2^{\rm nom}$ and, from about $210^\circ$, stays
-within $1.5\times$ of the $\Bone$-known bound. Over $(\alpha_1,\alpha_2)$ the optimum is
-$10^\circ/340^\circ$ (bound 32.9), only $19\%$ better than $15^\circ/330^\circ$
-(Fig.~\ref{fig:map}). Across a 3\,T-typical $\Bone$ range $0.7$--$1.3$ the $\Tone$ bound stays
-between 40 and 65, and it grows with $\Tone$ itself (15 at 300\,ms, 100 at 4000\,ms;
-Fig.~\ref{fig:sweeps}). Removing the $k=+1$ pathway raises the $\Tone$ bound from 40.5 to 67;
-removing the echo pathway $k=-1$ raises it to 146 and the $\Ttwo$ bound from 23 to 208.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{crlb_flip_sweep.png}
-\caption{Bounds and condition number versus the nominal second flip angle
-($\alpha_1^{\rm nom}=15^\circ$).}
-\label{fig:flip}
-\end{figure}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{crlb_b1_t1_sweeps.png}
-\caption{Left: bounds versus the true $\Bone$ for the published protocol; $\Bone$ is best
-determined where $\alpha_2^{\rm eff}=360^\circ$. Right: $\Tone$ bound versus $\Tone$.}
-\label{fig:sweeps}
-\end{figure}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.8\linewidth]{crlb_flip_map.png}
-\caption{$\Tone$ bound with $\Bone$ unknown over nominal $(\alpha_1,\alpha_2)$.}
-\label{fig:map}
-\end{figure}
-
-%=====================================================================================
-\section{Forward model or inverse?}\label{sec:inverse}
-%=====================================================================================
-
-The CRLB characterises the forward model and protocol; it says nothing about whether a
-particular reconstruction attains it. To separate the two we compare three estimators of
-the \emph{same} model on simulated data:
-\begin{enumerate}
-\item the \textbf{analytic inverse} of~\cite{cheng2019}, implemented equation by equation:
-  $\dw$ from echo phases; $R_2$, $\Rtwop$ from a log-linear fit of their Eq.~1 to scan~1;
-  real-valued $F$ states (Eq.~18); the mixing factor (Eqs.~10--11); the flip angle from
-  Eq.~15; $\Tone$ and $\Mzero$ from Eqs.~16--17 using scan~1. We also run it with $\Bone$
-  given, mimicking the paper's low-resolution, polynomial-smoothed $\Bone$ map;
-\item a \textbf{model-fit baseline}: the same sequential structure, but with $\Bone$, $\Tone$,
-  $\Mzero$ fitted by least squares to the FID and echo amplitudes of both scans;
-\item a \textbf{joint maximum-likelihood (ML) fit} of \eqref{eq:signal} to all complex data
-  (Section~\ref{sec:ml}).
-\end{enumerate}
-All three are exact on noise-free data (relative errors below $10^{-11}$ for the analytic
-inverse). Table~\ref{tab:mc} reports robust standard deviations (interquartile range$/1.349$
-of the log-estimates) over 1000 noise realisations.
-
-\subsection{The joint maximum-likelihood estimator}\label{sec:ml}
-
-\paragraph{Objective.} Stack the real and imaginary parts of all measured voxel signals
-(2 scans $\times$ 3 pathways $\times$ 3 echoes) into $y\in\mathbb{R}^{36}$ and the model
-\eqref{eq:signal} into $s(\theta)\in\mathbb{R}^{36}$, with $\theta$ as in
-Section~\ref{sec:crlb}. Under independent Gaussian noise of variance $\sigma^2$ per
-component the negative log-likelihood is, up to constants,
-\begin{equation}
-  -\log p(y\mid\theta)=\frac{1}{2\sigma^2}\,\|r(\theta)\|^2,\qquad r(\theta)=s(\theta)-y,
-\end{equation}
-so the ML estimate is the nonlinear least-squares solution
-$\hat\theta=\arg\min_\theta\|r(\theta)\|^2$. It does not depend on $\sigma$. The model
-$s(\theta)$ is evaluated with the exact steady-state solver \eqref{eq:iso} (256 isochromats),
-so the estimator uses the same forward model as the CRLB, including all three pathways,
-both scans, and the phase.
-
-\paragraph{Parameterisation and constraints.} The five positive parameters are optimised
-in log coordinates (Section~\ref{sec:log}); $\dw$ and $\phi_0$ are unconstrained. The fit is
-a \emph{projected} Levenberg--Marquardt iteration: after every step the parameters are
-projected onto
-\begin{itemize}
-\item the physical domain of the Lorentzian model, $\log\Ttwos\le\log\Ttwo$ ($\Rtwop\ge0$);
-\item a safeguard box $\Bone\in[\E^{-1},\E]$, $\Tone\in[10,20\,000]$\,ms,
-  $\Ttwo\in[1,5000]$\,ms, which excludes far-unphysical steps (at which the steady-state
-  system can become singular).
-\end{itemize}
-For every voxel we record whether a constraint is active at the solution. Such estimates
-are constrained ML estimates: they are not locally unbiased and are not covered by the
-interior CRLB.
-
-\paragraph{Initialisation.} The magnitude parameters and $\dw$ are taken from a sequential
-estimator: the model-fit baseline, or the analytic inverse where its output is valid. The
-global phase, which the sequential estimators do not provide, has a closed-form optimum
-for fixed remaining parameters. With $S^{(0)}_{ijk}$ the model evaluated at the initial
-values and $\phi_0=0$,
-\begin{equation}
-  \phi_0^{(0)}=\arg\Bigl(\sum_{i,j,k}S_{ijk}\,\overline{S^{(0)}_{ijk}}\Bigr),
-\end{equation}
-which minimises $\|r\|^2$ over $\phi_0$ alone.
-
-\paragraph{Levenberg--Marquardt iteration.} Each voxel is fitted independently; all voxels
-are processed in parallel as a batch. At iteration $n$, with
-$J=\partial r/\partial\theta\in\mathbb{R}^{36\times7}$:
-\begin{enumerate}
-\item \emph{Jacobian.} Forward differences, $J_{:,l}=[r(\theta+h e_l)-r(\theta)]/h$ with
-  $h=10^{-6}$ (all quantities in double precision).
-\item \emph{Damped Gauss--Newton step} with Marquardt's diagonal scaling,
-  \begin{equation}
-    \bigl(J^{\mathsf T}J+\lambda\,\mathrm{diag}(J^{\mathsf T}J)\bigr)\,\Delta=-J^{\mathsf T}r,
-    \qquad \theta_{\rm new}=\theta+\Delta .
-  \end{equation}
-  The diagonal scaling makes the step invariant to rescaling individual parameters, which
-  matters here because the information matrix spans several orders of magnitude.
-\item \emph{Acceptance.} If $\|r(\theta_{\rm new})\|^2<\|r(\theta)\|^2$ the step is accepted
-  and $\lambda\leftarrow0.3\lambda$ (towards Gauss--Newton); otherwise it is rejected and
-  $\lambda\leftarrow10\lambda$ (towards scaled gradient descent). $\lambda$ starts at
-  $10^{-2}$ and is kept in $[10^{-9},10^{9}]$.
-\end{enumerate}
-We run a fixed 40 iterations. Near the optimum $\lambda\to0$ and the iteration becomes
-Gauss--Newton. For a zero-residual problem (noise-free data) and a nonsingular Jacobian,
-Gauss--Newton converges locally quadratically; in noise-free tests the parameters are
-recovered to $10^{-15}$ relative error from starts perturbed by $5\%$. With noise the
-residual at the solution is nonzero and the local convergence of Gauss--Newton is in general
-only linear, with a rate governed by the residual size and the curvature of the model;
-40 iterations were ample in our experiments (the cost no longer decreases).
-
-\paragraph{Multiple starts.} Nonlinear least squares can converge to a local minimum, in
-particular across the $360^\circ$ branch of the second flip angle or, for the small-angle
-protocol, anywhere along the nearly flat symmetry valley \eqref{eq:sym}. We therefore run
-the iteration from four starts and keep, per voxel, the solution with the lowest final
-cost: the model-fit estimate; for $15^\circ/330^\circ$ the analytic-inverse estimate (where
-valid), for $15^\circ/30^\circ$ the model-fit estimate moved along the symmetry direction
-($\Bone\times1.1$, $\Tone/1.21$, $\Mzero/1.1$); and the model-fit estimate with $\Tone$ replaced by
-700\,ms and by 2000\,ms (and $\Ttwos\le0.85\,\Ttwo$).
-
-In simulation the global optimum can be checked: if the final cost exceeds the cost at the
-true parameters, the optimiser has certainly not found the maximum likelihood. With only
-the first two starts this happened in 19 of 1000 voxels at SNR$(\Mzero)=300$ (spurious
-minima near $\Tone\approx6000$--$10\,000$\,ms with $\Rtwop=0$), which inflated the standard
-deviation of $\log\hat\Tone$ from 0.13 to 0.26 and produced the heavy tails noted by a
-reviewer of an earlier version. With four starts no voxel failed this check (Table~\ref{tab:mcdiag}).
-
-\paragraph{When the ML fit should attain the bound.} At the solution, the Gauss--Newton
-approximation of the covariance is $\sigma^2(J^{\mathsf T}J)^{-1}$, and
-$J^{\mathsf T}J/\sigma^2$ evaluated at the true parameters is exactly the Fisher
-information of Section~\ref{sec:crlb}. Under standard regularity conditions (interior true
-parameter, identifiability, smoothness) the unconstrained ML estimator is consistent and
-asymptotically efficient: as SNR$\to\infty$ its covariance converges to $\Fi^{-1}$ and its bias
-vanishes. At finite SNR none of this is guaranteed. The estimator can be biased, it can
-have heavy tails, and when constraints are active it can even have a variance \emph{below}
-the bound, because it is then no longer unbiased. A meaningful efficiency comparison
-therefore needs (i) the ordinary standard deviation, not only a robust spread, (ii) the
-bias and RMSE, and (iii) the fraction of estimates on a constraint; Table~\ref{tab:mc}
-reports all of them.
-
-\paragraph{Cost.} Each iteration needs eight model evaluations (one plus seven
-finite-difference directions). For $10^3$ voxels the full fit takes about a minute on a
-laptop CPU. That is fast enough for simulation studies, but slow for whole-brain data
-($\sim5\times10^6$ voxels), which is one motivation for the learned estimators in the
-project plan.
-
-\input{mc_table.tex}
-
-\paragraph{Reading Tables~\ref{tab:mc}--\ref{tab:mcdiag}.} All ratios below use ordinary
-standard deviations (SD); robust spreads are listed alongside because they can hide heavy
-tails. The Monte Carlo standard error of an SD estimated from 1000 samples is about $2\%$.
-\begin{itemize}
-\item \textbf{The bound is attained where its assumptions hold.} For $15^\circ/330^\circ$ at
-  SNR$(\Mzero)=1000$ and $3000$ the joint ML fit has SD/CRLB between 0.99 and 1.02 for
-  $\Tone$, $\Bone$, $\Ttwo$ and $\Mzero$, negligible bias ($|\text{mean}|<10^{-3}$ in log units),
-  no constrained estimates (at most $0.3\%$) and no optimiser failures. In this regime the
-  forward model \emph{contains} the information that Table~\ref{tab:crlb} promises, and an
-  estimator extracts it; the published protocol can separate $\Bone$ and $\Tone$.
-\item \textbf{At SNR 300 the comparison is only approximate.} The ML SD/CRLB is 1.00 for
-  $\Bone$ and 0.95 for $\Tone$, but the constraint $\Rtwop\ge0$ is active in $19.5\%$ of voxels
-  (true $\Rtwop$ is small: $\Ttwos=60$ vs $\Ttwo=70$\,ms). Those estimates are not unbiased, which
-  is how the $\Tone$ SD can fall slightly below the bound. The bias is small
-  ($-0.007$ in $\log\Tone$).
-\item \textbf{The analytic inverse is well above the bound.} Its $\Tone$ SD is $3.2\times$ the
-  bound at SNR 3000, $5.1\times$ at SNR 1000 and $7.1\times$ at SNR 300, where it is also
-  strongly biased ($+0.44$ in $\log\Tone$, a factor $1.56$) and $1.9\%$ of voxels have no valid
-  $\Tone$ (Eq.~16 needs $(Xc-1)/(X-c)>1$). Its $\Bone$ SD is $4.8\times$ the bound at SNR 3000 but
-  $23\times$ and $28\times$ at SNR 1000 and 300, with heavy tails (SD much larger than the
-  robust spread at SNR 1000). The model-fit baseline, which shares the sequential structure
-  but not the closed forms, is similar ($\Tone$: $2.8\times$, $3.9\times$, $7.0\times$): the loss
-  comes mainly from the sequential structure.
-\item \textbf{With $\Bone$ given, compare with the matched bound.} The analytic inverse
-  computes $\Tone$ from scan 1 with $\Bone$ fixed, so its matched bound is the scan-1,
-  $\Bone$-known bound of 57.1 per unit $\sigma/\Mzero$. Its SD is then $1.9\times$ that bound at SNR
-  1000 and 3000 and $2.8\times$ at SNR 300 (Table~\ref{tab:mcdiag}). Against the two-scan,
-  $\Bone$-known bound of 28.0 the ratios are $3.8$--$5.7$; against the $\Bone$-unknown bound of
-  40.5 (the reference used in an earlier version of this note) the comparison is not
-  like-for-like.
-\item \textbf{The small-angle control does not support an efficiency claim.} For
-  $15^\circ/30^\circ$ the safeguard box is active in $35\%$ (SNR 1000) and $10\%$ (SNR 3000) of ML
-  estimates, which are biased ($+0.41$ and $+0.24$ in $\log\Tone$). At SNR 1000 the ML SD is
-  therefore \emph{below} the bound (0.65 of it), and at SNR 3000 above it (1.23); neither
-  comparison is meaningful, because the estimator is bounded and biased. What the control
-  does show is that the bound itself is of order one in log units: 2.1 in $\log\Tone$ at SNR
-  1000, i.e.\ a one-sigma factor of $\E^{2.1}\approx8$, and still 0.70 (a factor 2) at SNR 3000,
-  while $\Ttwo$ is unaffected. With small angles, $\Bone$ and $\Tone$ cannot be separated
-  usefully at these SNRs by any unbiased estimator; this is the forward model and protocol
-  (Corollary~\ref{cor:singular}).
-\end{itemize}
-
-\paragraph{Sources of the estimator-specific loss.} The analytic inverse (i) is
-\emph{sequential}: $R_2$ and $\Rtwop$ are fixed from scan~1 before the flip angle and
-$\Tone$ are estimated, so their errors propagate instead of being traded off jointly;
-(ii) uses \emph{closed-form nonlinear transformations} (differences of extrapolated
-states, ratios, logarithms) whose noise amplification is not controlled and whose domain
-can be left by noise; (iii) computes $\Tone$ from \emph{scan~1} only, with $\Bone$ held
-fixed; and (iv) discards phase (Eq.~18), which costs little here because $\dw$ and $\phi_0$
-decouple from the other parameters (Fig.~\ref{fig:corr}).
-
-Point (iii) combines two separate changes relative to the joint bound of 40.5, which the
-table in Section~\ref{sec:results} separates: treating $\Bone$ as known (40.5 to 28.0 with
-both scans) and dropping scan 2 from the $\Tone$ step (28.0 to 57.1 with $\Bone$ known). The
-matched reference for the analytic inverse with $\Bone$ given is therefore 57.1, not 40.5 or
-28.0 (Table~\ref{tab:mcdiag}). In addition, holding $\Bone$ fixed turns a $\Bone$ error
-$\varepsilon$ into a $\Tone$ bias of $-2.02\,\varepsilon$ in this step (Table~\ref{tab:cond}).
-Dropping scan 2 is partly an acquisition choice: scan~2 is acquired only at low resolution,
-so a full-resolution bound using both scans is not available to any estimator in the
-published design. At the low resolution both scans have about four times the per-voxel SNR,
-giving a $\Bone$ bound of $2.91/4\approx0.73$ per low-resolution voxel before spatial
-smoothing.
-
-\begin{table}[h]
-\centering
-\caption{Origin of each difficulty.}
-\label{tab:verdict}
-\small
-\begin{tabular}{p{0.38\linewidth}p{0.2\linewidth}p{0.34\linewidth}}
-\toprule
-Difficulty & Origin & Remedy\\
-\midrule
-Leading-order $\Mzero$--$\Bone$--$\Tone$ invariance \eqref{eq:sym} for small flip angles
-  (severe ill-conditioning, not exact singularity) &
-  forward model $+$ protocol & a pulse whose effective angle does not scale with $\Bone$
-  (e.g.\ near $360^\circ$, as published); otherwise very high SNR\\
-Residual $\Tone$ bound (40.5 per unit $\sigma/\Mzero$): confounding with $\Ttwo$, $\Ttwos$,
-  $\Mzero$, $\Bone$ & forward model $+$ protocol & SNR, averaging, spatial priors; protocol
-  tuning ($\le20\%$)\\
-Exact magnitude alias $\alpha_2=360^\circ\mp x$ at physiological $\Bone$
-  (Section~\ref{sec:magnitude}) & forward model: magnitudes lose the sign of $\sin\alpha$ &
-  FID-sign test, or complex data with a shared phase\\
-Exact complex alias $\alpha_2>540^\circ$ ($\Bone\approx2$) & forward model: $2\pi$ periodicity &
-  range assumption $\Bone<1.64$\\
-Error well above the bound; large bias and undefined $\Tone$ at moderate SNR &
-  analytic inverse (sequential, closed-form) & joint (ML or learned) estimation\\
-$\Tone$ bound 57.1 instead of 28.0 with $\Bone$ known; $\Tone$ bias $-2\varepsilon$ per $\Bone$
-  error $\varepsilon$ & design: scan-1-only $\Tone$ step, low-resolution scan~2 &
-  joint estimation with a smooth-$\Bone$ prior\\
-Constrained estimates ($\Rtwop=0$) at low SNR & forward model domain $+$ small true $\Rtwop$ &
-  report; Bayesian or constrained bounds\\
-In-vivo calibration $\beta=1.24$ (Eq.~19 of~\cite{cheng2019}) & model mismatch (not
-  variance) & richer forward model (finite pulses, MT, \dots)\\
+\input{limits_budget.tex}
 \bottomrule
 \end{tabular}
 \end{table}
 
-%=====================================================================================
-\section{Magnitude data and the flip-angle branch}\label{sec:magnitude}
-%=====================================================================================
+\paragraph{A $\Bone$ supplied from elsewhere.} Suppose $\Bone$ comes from a separate map with a small error
+and the rest is fitted. With scan 1 alone, the $\Tone$ error is $\beta=-2.0$ times the $\Bone$ error at every $\Bone$,
+as in \cref{sec:one}. With both scans the fit must reconcile two samples that move at different
+rates, and $\beta=-\bar c/h$, where $\bar c$ is the average of the two rates weighted by the information each
+scan carries about its offset and $h=\tau/(2\sinh\tau)\approx\tfrac12$, $\tau=\TR/\Tone$, is how far the bump moves per unit
+$\ln\Tone$ (checked against direct computation to $10^{-15}$). For the published protocol $\beta=+2.4$ at
+$\Bone=0.8$ and $+10$ at $\Bone=1$; it swings from about $+260$ to $-270$ within a fraction of a percent of the
+$360^\circ$ crossing at $\Bone=1.09$, and is $-15$ at $\Bone=1.2$ (\cref{fig:crossing}c). By \eqref{eq:budget}, a supplied
+$\Bone$ improves on the joint fit only if its error is below the joint $\Bone$ bound ($2.9\,\sigma/\Mzero$, about $1\%$ at
+SNR 300). Otherwise $\Bone$ should be fitted jointly from both scans ($40.5$), or, when scan 2 is
+low-resolution as in the published protocol, the map should be used with scan 1 alone ($57.1$,
+error transfer $-2$).
 
-The analytic inverse of~\cite{cheng2019} works with magnitudes, made real-valued by the sign
-convention of their Eq.~18. This section asks how much information magnitudes carry, how a
-direct least-squares fit to magnitudes compares with the analytic inverse, and why a
-magnitude fit needs an explicit branch test that complex maximum likelihood does not.
+\section{Aliases and the $360^\circ$ crossing}\label{sec:alias}
 
-\subsection{Information in magnitude data}
+An \emph{alias} is a different set of parameters that produces exactly the same noise-free data; no
+SNR separates it from the truth, only prior knowledge or more data. In MPME the aliases are simply
+the other roots of \eqref{eq:f}: any $\Bone$ with the same ratio reproduces both scans once $\Tone$ and $\Mzero$
+are adjusted, provided the adjusted $\Tone$ exists (its Ernst angle stays below $90^\circ$)~\cite[eq.~18]{technote}. A \emph{complex alias} has the same signed ratio; a \emph{magnitude
+alias} has the opposite sign, which negates scan 2 relative to scan 1 and is invisible in magnitude
+images. The alias values of $\Bone$ depend on the true $\Bone$ alone, not on the tissue.
 
-With complex Gaussian noise of standard deviation $\sigma$ per component, a magnitude
-$m=|S+n|$ is Rician with amplitude $A=|S|$. Its Fisher information about $A$ is
-$g(A/\sigma)/\sigma^2$, where
-\begin{equation}
-  g(a)=\mathbb{E}\Bigl[x^2\,\frac{I_1(xa)^2}{I_0(xa)^2}\Bigr]-a^2,\qquad x=m/\sigma,
-\end{equation}
-with $I_0,I_1$ modified Bessel functions. $g$ rises from $0$ at $a=0$ to $1$ as $a\to\infty$
-(e.g.\ $g(0.5)=0.20$, $g(2)=0.85$, $g(5)=0.98$). The information about $\theta$ is
-\begin{equation}
-  \Fi_{\rm mag}=\frac{1}{\sigma^2}\sum_{j}g\bigl(A_j/\sigma\bigr)\,\nabla_\theta A_j\,\nabla_\theta A_j^{\mathsf T},
-  \qquad \nabla_\theta A_j=\mathrm{Re}\bigl(\overline{S_j}\,\nabla_\theta S_j\bigr)/A_j ,
-\end{equation}
-over the five magnitude parameters ($\dw$ and $\phi_0$ do not affect magnitudes). Unlike the
-complex case it is not simply proportional to $1/\sigma^2$, so it is evaluated at each SNR.
+For the published protocol at $\Bone=1$ (\cref{fig:crossing}a) the magnitude alias is $\Bone=1.20$, inside
+the physiological range: the scan-2 pulse becomes $396^\circ\equiv+36^\circ$ instead of $330^\circ\equiv-30^\circ$. Complex data with a
+phase shared by the two scans remove it, and so, for magnitude data, does the sign of the relative
+phase of the two FID images (Cheng et al.'s FID-sign test). The complex alias is $\Bone=2.01$, excluded
+by the fitting range $\Bone\le540/330$ (scan-2 angle at most $540^\circ$). Because $\mathrm d\ln|f|/\mathrm d\ln\Bone=L$,
+aliases arise where $f$ has zeros or poles, i.e.\ where a pulse crosses a multiple of $180^\circ$; a
+design whose two pulses stay within $(0^\circ,180^\circ)$ and $(180^\circ,360^\circ)$ over the fitting range has none at all
+\cite[Prop.~5]{flipnote}. A $270^\circ$ second pulse fitted within $\Bone\in[0.667,1.333]$ is such a design.
 
-For the published protocol and the reference tissue the weakest measured amplitude is
-$0.0074\,\Mzero$ (scan 2, pathway $+1$), so even at SNR$(\Mzero)=300$ every measurement has
-$A/\sigma\ge2.2$ and $g\ge0.85$. The magnitude bounds equal the complex bounds to within
-$0.5\%$ for $\Tone$, $\Bone$, $\Ttwo$ and $\Mzero$ at SNR 300, 1000 and 3000
-(Table~\ref{tab:mag}). Discarding the phase costs essentially no \emph{local} information,
-because the phase mainly carries $\dw$ and $\phi_0$, which decouple from the other parameters
-(Fig.~\ref{fig:corr}). What the phase does carry is a single \emph{global} bit, discussed
-next.
-
-\subsection{Why magnitude fits need the branch test and complex ML does not}
-
-\paragraph{1. Magnitudes lose the sign of $\sin\alpha$.} By Theorem~\ref{thm:uv} the
-magnitudes of scan $i$ determine $u_i$ and $\Mzero|v_i|$; by \eqref{eq:absv} the latter
-carries no information beyond $u_i$ and $\Tone$. The data therefore fix $\cos\alpha_i$ for any
-trial $E_1$, but not the sign of $\sin\alpha_i$. Concretely, $|a_k(\alpha)|$ is even and
-$2\pi$-periodic in $\alpha$, hence symmetric about every multiple of $180^\circ$.
-
-\paragraph{2. This produces an exact alias inside the physiological range.} For scan 2,
-$\alpha_2=360^\circ-x$ (the truth for $\Bone<1.09$) and $\alpha_2=360^\circ+x'$ give magnitudes of the
-same form. A different $\Bone$ also changes $\alpha_1$, but Theorem~\ref{thm:uv} shows that a
-change of $\alpha_1$ can be absorbed by $\Tone$ and $\Mzero$ through $(u_1,\Mzero v_1)$. The result
-is an exact alias (Table~\ref{tab:aliases}): for the reference tissue,
-$(\Bone,\Tone,\Mzero)=(1,1500\,\mathrm{ms},1)$ and $(1.199,1038\,\mathrm{ms},0.832)$ give the same 18
-magnitudes to machine precision. The alias is close to the small-angle scaling
-$\Tone\propto(\Bone)^{-2}$, $\Mzero\propto(\Bone)^{-1}$ ($1500/1.199^2=1043$), but exact.
-
-\paragraph{3. It is a symmetry of the magnitude likelihood, not a noise effect.} Because the
-alias exists for every parameter value (all rows of Table~\ref{tab:aliases}), the map
-$\theta\mapsto|s(\theta)|$ takes the same values on two separate sheets of parameter space. Any
-likelihood that depends on the data only through magnitudes, Gaussian or Rician, then has
-two equal global maxima for \emph{every} noise realisation. We checked this directly: fitting
-noisy magnitudes on each side of $360^\circ$ gives final costs that agree to a median relative
-difference of $10^{-12}$ at SNR 300, 1000 and 3000. No SNR resolves it, and the local CRLB,
-which is identical for both sheets, cannot detect it. An unconstrained magnitude fit simply
-returns the maximum nearest its starting point. In our Monte Carlo it returned the wrong
-branch in 47, 3 and \MagWrongThree{} of 1000 voxels at SNR 300, 1000 and 3000; these counts
-describe the starting points, not the data.
-
-\paragraph{4. Complex data carry the missing bit.} The complex model keeps the sign:
-$a_k(-\alpha)=-a_k(\alpha)$ for all $k$ (Proposition~\ref{prop:period}), so moving $\alpha_2$ from
-$360^\circ-x$ to $360^\circ+x'$ flips the sign of every scan-2 signal relative to scan 1. A single
-phase $\phi_0$ (and a single $\dw$) is shared by both scans, so this relative sign cannot be
-absorbed. The best complex fit restricted to $360^\circ<\alpha_2<540^\circ$ moves to the edge
-$\alpha_2=360^\circ$, where scan 2 vanishes, and leaves the entire scan-2 signal as residual
-($0.144\,\Mzero$). Its cost exceeds the true-branch cost by $1.9\times10^3\,\sigma^2$ at SNR 300
-($2.1\times10^4\,\sigma^2$ at SNR 1000), a likelihood ratio of about $\E^{-935}$ or smaller: the
-complex likelihood has no competing maximum on that branch, and complex ML selects the
-correct branch automatically.
-
-\paragraph{5. The FID sign test restores exactly that bit.} The test of~\cite{cheng2019},
-\begin{equation}
-  \operatorname{sign}\,\mathrm{Re}\sum_j S_{1j0}\,\overline{S_{2j0}}
-  =\operatorname{sign}\bigl(\sin\alpha_1\sin\alpha_2\bigr),
-\end{equation}
-uses the relative phase of the two FID images, and only its sign. It is the one bit that
-magnitude processing discards and complex ML uses implicitly. We implement it in the
-magnitude fit as a constraint: $\Bone$ is confined to the interval between consecutive zeros of
-$\sin(\Bone\alpha_i^{\rm nom})$ on which $\sin\alpha_1\sin\alpha_2$ has the measured sign; a start on
-the wrong side is reflected across the nearest zero (where $|a_k|$ is symmetric), and every
-step is projected back into the interval.
-
-\paragraph{6. What the test cannot do.} Branches with the same sign pattern (the complex
-aliases of Table~\ref{tab:aliases}, $\alpha_2>540^\circ$) are invisible to both the FID test and
-complex ML; they are excluded only by the range assumption $\Bone<1.64$. Near
-$\alpha_2^{\rm eff}=360^\circ$ the scan-2 FID vanishes, the sign is unreliable, and the two branches
-merge, so a wrong decision there costs little. Finally, both the test and complex ML require
-that the relative phase of the two scans is preserved: the same receiver phase and coil
-combination, and no motion or $B_0$ drift between the sequential acquisitions. If each scan
-had its own unknown phase, complex ML would need a phase per scan, the relative sign would
-be lost, and the magnitude alias would reappear for complex data too.
-
-\subsection{Comparison on identical data}
-
-We compare, on the same noise realisations as Table~\ref{tab:mc}: the analytic inverse; a
-Gaussian least-squares fit to the magnitudes, $\min_\theta\sum_j(|y_j|-|s_j(\theta)|)^2$, with the
-same projected Levenberg--Marquardt iteration and four starts as the ML fit, without and with
-the FID-sign constraint; and complex ML. Magnitude least squares is \emph{not} maximum
-likelihood for Rician data, because it ignores the noise floor
-$\mathbb{E}|y|-A\approx\sigma^2/(2A)$; for the weakest amplitude this is $10\%$ at SNR 300, $1\%$ at
-SNR 1000 and $0.1\%$ at SNR 3000.
-
-\input{mag_table.tex}
-
-\paragraph{Reading Table~\ref{tab:mag}.}
-\begin{itemize}
-\item \textbf{With the branch test, magnitude least squares performs like complex ML.} Its
-  SD/CRLB for $\Tone$ and $\Bone$ is within the Monte Carlo error of complex ML at every SNR, and
-  no voxel ends on the wrong branch. At SNR 300 the Rician floor adds a small bias
-  ($-0.005$ in $\log\Tone$), and, as for complex ML, the constraint $\Rtwop\ge0$ is active in
-  about a fifth of the voxels.
-\item \textbf{Without it, wrong-branch voxels dominate the $\Bone$ error.} Their robust spread
-  is at the bound, but the standard deviation is up to seven times larger, and the wrong
-  branch also biases $\Tone$ by a factor of about $(\Bone)^{-2}$.
-\item \textbf{The analytic inverse is the outlier.} It uses the same magnitudes and the same
-  FID sign, yet its errors are 3--7 times larger for $\Tone$ and up to 28 times for $\Bone$
-  (Table~\ref{tab:mc}). Since magnitudes carry essentially all the local information and a
-  joint magnitude fit extracts it, the loss is entirely algorithmic: the sequential,
-  closed-form structure of the inversion, not the decision to use magnitudes.
-\end{itemize}
-
-%=====================================================================================
-\section{Exact Jacobians by implicit differentiation}\label{sec:jacobian}
-%=====================================================================================
-
-Both least-squares estimators (complex ML, Section~\ref{sec:ml}, and the magnitude fit,
-Section~\ref{sec:magnitude}) spend nearly all their time forming Jacobians. The
-forward-difference version evaluates the model once per parameter at every iteration. This
-section derives the exact Jacobian from the structure of the steady state and shows that it
-is an order of magnitude faster, with identical estimates.
-
-\subsection{Which differentiation mode}
-
-Per voxel the Jacobian is $36\times7$ for complex data (18 complex values, real and imaginary
-parts) and $18\times5$ for magnitudes. Reverse-mode differentiation (back-propagation)
-produces one \emph{row} per backward pass, the gradient of one scalar output; even with all
-voxels batched in one pass (voxels are independent), it needs 36 or 18 passes. Forward mode
-produces one \emph{column} per pass, so 7 or 5 passes, each about as costly as a model
-evaluation. Because there are fewer parameters than outputs, forward mode is the natural
-choice, and finite differences are a (less accurate) forward mode. Exploiting the structure
-of the model does better than either.
-
-\subsection{Differentiating the steady state}
-
-With RF phase $0$ and intravoxel phase $\psi$, the post-pulse steady state of one isochromat
-solves the $3\times3$ linear system \eqref{eq:iso},
-\begin{equation}
-  A\,\mathbf M=\mathbf b,\qquad A=I-R\,Q,\qquad Q=R_z(\psi)\,\mathrm{diag}(E_2,E_2,E_1),\qquad
-  \mathbf b=(1-E_1)\,R\,\hat{\mathbf z},
-\end{equation}
-with $R=R_x(\alpha)$. Off-resonance enters only as a phase factor (Proposition~\ref{prop:offres}),
-so the steady state is computed at $\dw=0$. Differentiating $A\mathbf M=\mathbf b$ with respect to
-any $x\in\{\alpha,E_1,E_2\}$ gives
-\begin{equation}
-  \frac{\partial\mathbf M}{\partial x}=A^{-1}\Bigl(\frac{\partial\mathbf b}{\partial x}
-  -\frac{\partial A}{\partial x}\,\mathbf M\Bigr),
-  \label{eq:implicit}
-\end{equation}
-which needs no new matrix inversion: the same $A^{-1}$ serves the solution and all three
-derivatives. The ingredients are closed form. With $R'=\partial R_x/\partial\alpha$ and
-$\Pi_z=\mathrm{diag}(0,0,1)$, $\Pi_{xy}=\mathrm{diag}(1,1,0)$ (note $R_z\Pi_z=\Pi_z$):
-\begin{align}
-  \frac{\partial A}{\partial\alpha}&=-R'Q, &
-  \frac{\partial\mathbf b}{\partial\alpha}&=(1-E_1)\,R'\hat{\mathbf z},\nonumber\\
-  \frac{\partial A}{\partial E_1}&=-R\,\Pi_z, &
-  \frac{\partial\mathbf b}{\partial E_1}&=-R\hat{\mathbf z},\\
-  \frac{\partial A}{\partial E_2}&=-R\,R_z(\psi)\,\Pi_{xy}, &
-  \frac{\partial\mathbf b}{\partial E_2}&=\mathbf 0 .\nonumber
-\end{align}
-The three right-hand sides of \eqref{eq:implicit} are therefore
-\begin{equation}
-  (1-E_1)R'\hat{\mathbf z}+R'Q\mathbf M,\qquad -R\hat{\mathbf z}+R\hat{\mathbf z}\,M_z,\qquad
-  R\,R_z(\psi)\,\Pi_{xy}\mathbf M .
-\end{equation}
-
-\paragraph{Inverting $3\times3$ matrices.} There are $N\times n_{\rm iso}$ such systems per
-scan (e.g.\ $65\,536\times128$ for one slice). Batched general-purpose solvers carry a large
-per-matrix overhead at this size, so we form $A^{-1}$ explicitly by the adjugate formula,
-$A^{-1}=\mathrm{adj}(A)/\det A$, which is nine cofactors and one determinant computed
-elementwise over the whole batch. $A$ is well conditioned for physical parameters
-($\det A\ne0$ whenever $E_1,E_2<1$).
-
-\paragraph{Pathways and magnitudes.} The pathway amplitudes are discrete Fourier
-coefficients, over the isochromats, of the transverse magnetisation $m_\perp(\psi_n)$. The
-transform is linear, so
-$\partial a_k/\partial x$ is the same FFT applied to $\partial m_\perp/\partial x$. For
-magnitude data,
-\[
-  \frac{\partial|a_k|}{\partial x}=\frac{\mathrm{Re}\bigl(\overline{a_k}\,\partial a_k/\partial x\bigr)}{|a_k|}.
-\]
-
-\subsection{Chain rule to the fitted parameters}
-
-With $\Phi=\phi_0+\dw\,\tau$, $\tau=t+k\TR$, $D=\exp(-t/\Ttwo-\Rtwop|\tau|)$ and
-$\Rtwop=1/\Ttwos-1/\Ttwo$, the signal is $S=\Mzero\,a_k\,D\,\E^{i\Phi}$, and
-$\partial\alpha/\partial\log\Bone=\alpha$, $\partial E_1/\partial\log\Tone=E_1\TR/\Tone$,
-$\partial E_2/\partial\log\Ttwo=E_2\TR/\Ttwo$. Then
-\begin{align}
-  \frac{\partial S}{\partial\log\Mzero}&=S, &
-  \frac{\partial S}{\partial\log\Bone}&=\Mzero D\E^{i\Phi}\,\alpha\,\frac{\partial a_k}{\partial\alpha},
-  \nonumber\\
-  \frac{\partial S}{\partial\log\Tone}&=\Mzero D\E^{i\Phi}\,\frac{E_1\TR}{\Tone}\,\frac{\partial a_k}{\partial E_1}, &
-  \frac{\partial S}{\partial\log\Ttwo}&=\Mzero D\E^{i\Phi}\,\frac{E_2\TR}{\Ttwo}\,\frac{\partial a_k}{\partial E_2}
-     +S\,\frac{t-|\tau|}{\Ttwo},\\
-  \frac{\partial S}{\partial\log\Ttwos}&=S\,\frac{|\tau|}{\Ttwos}, &
-  \frac{\partial S}{\partial\dw}&=i\tau S,\qquad \frac{\partial S}{\partial\phi_0}=iS. \nonumber
-\end{align}
-The second term of $\partial S/\partial\log\Ttwo$ combines the echo decay $\E^{-t/\Ttwo}$ and the
-coupling through $\Rtwop$ ($\partial\Rtwop/\partial\log\Ttwo=1/\Ttwo$). For the magnitude model the
-same expressions hold with $|a_k|$ in place of $a_k$ and without the phase factor and the last
-two derivatives.
-
-\subsection{Levenberg--Marquardt with exact Jacobians}
-
-A forward-difference iteration costs one trial evaluation plus one evaluation per parameter
-(8 for complex data, 6 for magnitudes). With exact Jacobians each trial evaluation returns
-the residual \emph{and} its Jacobian. If the step is accepted, that Jacobian is the one needed
-for the next iteration; if it is rejected, the current Jacobian is kept and only $\lambda$
-changes. Each iteration therefore costs one model-plus-Jacobian evaluation, i.e.\ one
-explicit inverse and four right-hand sides per isochromat. Exact derivatives also make
-single precision usable: forward differences in float32 would need steps of order
-$10^{-3}$ and give inaccurate Jacobians, whereas the implicit Jacobian is accurate to about
-$10^{-6}$ in float32. A small Jacobian error affects only the convergence path, not the
-solution, which is determined by the residual.
-
-\subsection{Verification and benchmark}
-
-On random parameters the implicit Jacobians agree with automatic differentiation of the
-reference model to $6\times10^{-15}$ (magnitude) and $3\times10^{-16}$ (complex) in double
-precision, and to $10^{-6}$ in single precision; both are unit tests. Table~\ref{tab:bench}
-compares wall times on 4096 voxels with random tissue ($\Tone$ 600--3000\,ms, $\Ttwo$
-40--120\,ms, $\Bone$ 0.8--1.1), the paper protocol, SNR$(\Mzero)=1000$, one start and 15
-iterations (enough: 15 and 40 iterations differ by less than $10^{-9}$ in $\log\Tone$), on a
-laptop CPU with 8 threads and no GPU.
-
-\begin{table}[!htbp]
+\begin{figure}[!tb]
 \centering
-\caption{Fitting time per voxel and for a $256\times256$ slice, and agreement with the
-forward-difference float64 reference (largest $|\Delta\log\hat\Tone|$ over the 4096 voxels). The
-noise-induced spread of $\log\hat\Tone$ is $0.164$ in every magnitude variant and $0.163$ in every
-complex variant, so all differences are negligible.}
-\label{tab:bench}
+\includegraphics[width=\linewidth]{limits_crossing.png}
+\caption{(a) The quantity \eqref{eq:f} and its mirror image for $15^\circ/330^\circ$; the horizontal line is the value
+at $\Bone=1$, its other crossings are the aliases (grey band: $\Bone\in[0.7,1.3]$; vertical line: $540/330$).
+(b) Bounds on $\ln\Bone$ and $\ln\Tone$ across $\Bone$ for $15^\circ/330^\circ$ (solid) and $18^\circ/270^\circ$ (dashed). (c) $\Tone$ error per
+unit error of a supplied $\Bone$, using both scans or scan 1 alone.}
+\label{fig:crossing}
+\end{figure}
+
+\paragraph{The $360^\circ$ crossing.} The published second pulse reaches $360^\circ$ at $\Bone=1.09$. There the
+scan-2 signal vanishes, and scan 2 measures $\Bone$ alone, through the derivative of a null: locally
+$\Bone$ is determined best ($0.09$ against $2.9$ at $\Bone=1$, \cref{fig:crossing}b). Everything else goes wrong
+there. The $\Tone$ bound rises to the scan-1 value with $\Bone$ known (56 against 41 at $\Bone=1$), because scan 2
+now informs $\Bone$ alone and no longer helps with $\Tone$, $\Mzero$, $\Ttwo$ or $\Ttwos$; the supplied-$\Bone$ factor swings
+between about $\pm260$ (\cref{fig:crossing}c); the magnitude alias comes within a few percent of the truth;
+the likelihood has distant near-equal maxima at the other scan-2 nulls, which account for the large
+errors that remain in the phantom after a spatial restart~\cite[Secs.~7 and~9]{technote}; and model
+errors bias $\Tone$ most there (\cref{sec:invisible}). A second pulse near $270^\circ$ keeps the crossing outside
+$\Bone\in[0.7,1.3]$ and has smoother bounds across the range (dashed), although its own crossing, at
+$\Bone=1.33$, is close enough that its effects reappear near $\Bone=1.3$.
+
+\section{Limits the bound cannot see}\label{sec:invisible}
+
+\paragraph{Pulse-ratio errors.} If the two pulses do not have their nominal ratio, as with two pulses
+of different shape or duration, the fit absorbs the error exactly: two scans give three numbers for
+the three unknowns $(\Mzero,\Bone,\Tone)$, so a shifted offset is reproduced by other values with zero
+residual. The $\Tone$ error is at least $1.64$ times the ratio error for every choice of angles ($1.6$--$2.1$ at $\Bone=1$
+for the shortlisted designs of~\cite[Table~2]{flipnote}; much more for small-angle pairs)~\cite[Prop.~4]{flipnote}. The ratio must be calibrated; the in-vivo factor $\beta=1.24$ of
+\cite{cheng2019}, which multiplies this ratio, cannot be validated from the data.
+
+\paragraph{Model errors near $360^\circ$.} Near $360^\circ$ the effective angle of the second pulse is small, so
+small imperfections change it by a large fraction. Unmodelled finite pulses ($1$\,ms for $330^\circ$ at a
+fixed peak $\Bone$) bias $\Tone$ by $10$--$20\%$ where the scan-2 angle passes $330$--$350^\circ$, and a $10\%$ flip-angle ramp
+across a voxel at the slab edge by $13$--$74\%$ near or across $360^\circ$, often without a misfit that a $\chi^2$
+test would flag~\cite[Sec.~6]{flipnote}. Partial volume with CSF gives
+biased estimates with falsely confident uncertainty maps~\cite[Sec.~10]{technote}.
+
+\section{Summary}\label{sec:summary}
+
+\Cref{tab:limits} collects the limits and what does and does not remove them.
+
+\begin{table}[!htb]
+\centering
+\caption{Limits of $\Bone$/$\Tone$ separation in MPME.}
+\label{tab:limits}
 \small
-\begin{tabular}{llcccc}
+\begin{tabular}{p{0.19\linewidth}p{0.24\linewidth}p{0.21\linewidth}p{0.24\linewidth}}
 \toprule
-Fit & Jacobian, precision, isochromats & ms/voxel & $256^2$ slice & speed-up & max $|\Delta\log\hat\Tone|$\\
+Limit & Origin & Removed by & Not removed by\\
 \midrule
-Magnitude & finite differences, f64, 256 & 15.0 & 16.4 min & 1.0 & reference\\
- & implicit, f64, 256 & 1.41 & 1.5 min & 10.7 & $1.6\times10^{-5}$\\
- & implicit, f64, 128 & 0.73 & 0.8 min & 20.6 & $1.6\times10^{-5}$\\
- & implicit, f32, 256 & 0.74 & 0.8 min & 20.2 & $1.2\times10^{-3}$\\
- & implicit, f32, 128 & 0.44 & 0.5 min & 33.7 & $1.0\times10^{-3}$\\
-\midrule
-Complex ML & finite differences, f64, 256 & 19.2 & 21.0 min & 1.0 & reference\\
- & implicit, f64, 256 & 1.55 & 1.7 min & 12.4 & $1.4\times10^{-5}$\\
- & implicit, f64, 128 & 0.83 & 0.9 min & 23.2 & $1.4\times10^{-5}$\\
- & implicit, f32, 256 & 0.90 & 1.0 min & 21.3 & $1.2\times10^{-3}$\\
- & implicit, f32, 128 & 0.56 & 0.6 min & 34.4 & $1.2\times10^{-3}$\\
+One scan: exact degeneracy & data depend on the offset from the Ernst angle only &
+  a second scan with a different rate & more echoes, smooth or shared $\Bone$, more physics in the model\\
+Small angles & equal rates, $L\approx0$ & a second pulse with a very different rate & more small-angle scans\\
+Magnitude alias & sign of scan 2 lost & shared phase or FID sign; crossing-free fitting range & SNR\\
+Complex alias & another root of \eqref{eq:f} & a fitting range for $\Bone$ & SNR, shared $\Bone$\\
+Residual $\Tone$ bound & confounding with $\Ttwo$, $\Ttwos$, $\Mzero$ & SNR, priors & knowing $\Bone$ (gains only $1.45$)\\
+Supplied $\Bone$ error & high-flip data amplify it & fitting $\Bone$ jointly; reduced to $\times2$ with scan 1 alone & using it with both scans\\
+Pulse-ratio error & absorbed exactly & calibration & any choice of angles, residuals\\
+Model error near $360^\circ$ & small effective angle & modelling the pulse; crossing outside the range & residuals (often)\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The exact Jacobian alone gives a factor of 10--12, more than the reduction in model
-evaluations (from 6--8 to one per iteration) would suggest, because the explicit adjugate
-inverse also avoids the per-matrix overhead of the general solver. Halving the number of
-isochromats and moving to single precision each roughly halve the time again; neither
-changes the estimates by more than $10^{-3}$ in $\log\hat\Tone$, less than $1\%$ of the noise-induced
-spread. The remaining differences against the reference, of order $10^{-5}$ in double
-precision, come from the inexact forward-difference Jacobian, which converges slightly
-differently in a few voxels. A $256\times256$ slice now fits in about half a minute and a whole
-brain (about 160 slices) in about 80 minutes on this CPU with one start, or about half that
-with a brain mask. Multiple starts multiply these times; with the branch fixed by the FID
-sign, one start plus a check of the final cost is likely sufficient, but this has not yet
-been tested at low SNR.
+\paragraph{Estimators and design.} The bounds are attainable: joint maximum likelihood on complex
+data reaches them (SD/bound $0.99$--$1.03$ at SNR 1000--3000), and so does magnitude least squares with the
+FID sign, while the published analytic inverse is $3$--$7$ times above them, an algorithmic rather than
+an informational loss~\cite[Secs.~6--7]{technote}. For the choice of flip angles, the design note
+\cite{flipnote} finds the optimum flat around the published protocol: the angles buy robustness,
+not precision, and a second pulse near $255$--$270^\circ$ with $\alpha_1\approx17$--$21^\circ$, finite pulses in the model and a
+calibrated pulse ratio is the recommended default.
 
-%=====================================================================================
-\section{Implications}
-%=====================================================================================
-
-\begin{enumerate}
-\item The published protocol is sound from an information standpoint: the near-$360^\circ$
-  pulse lifts the leading-order invariance that makes $\Bone$/$\Tone$ separation extremely
-  noise-sensitive with small angles.
-\item No \emph{unbiased} voxel-wise estimator can beat Table~\ref{tab:crlb}. The realistic
-  voxel-wise gain of an unbiased estimator over the analytic inverse is the gap that the ML
-  fit closes (Table~\ref{tab:mc}). Biased estimators, including learned ones trained with a
-  prior over tissue parameters, can have lower variance or MSE than the bound; their benefit
-  then comes from the prior, and their bias must be characterised (for example with a
-  Bayesian bound) rather than ignored.
-\item Larger gains require prior information across voxels. $\Bone$ is spatially smooth,
-  so treating it as nearly known removes its factor 1.45; the remaining confounding with
-  $\Mzero$ and the transverse relaxation times can only be reduced by image priors.
-\item When $\Bone$ is supplied to a joint estimator that also uses the high-flip data, a
-  $\Bone$ error is amplified about tenfold into $\Tone$ (Table~\ref{tab:cond}); $\Bone$ should
-  be estimated jointly or the high-flip data excluded from the $\Tone$ step.
-\end{enumerate}
-
-\paragraph{Caveats.} The CRLB is local and assumes an exact model, Gaussian noise, an
-interior true parameter and (locally) unbiased estimators; constrained or biased estimates
-fall outside it. The model uses instantaneous RF pulses (no off-resonance nutation,
-Eq.~8 of~\cite{cheng2019}), a Lorentzian $\Rtwop$ line shape, no diffusion and no
-magnetisation transfer. The time from the pulse to the first echo is assumed. Except where
-stated, both scans are treated at full resolution.
-
-\appendix
-\section{Reproducibility}\label{app:repro}
-
-\begin{tabular}{ll}
-Forward model & \texttt{src/mpme/epg.py}, \texttt{signal.py}, \texttt{sequence.py}\\
-Analytic inverse of~\cite{cheng2019} & \texttt{src/mpme/paper.py}\\
-Model-fit baseline & \texttt{src/mpme/analytic.py}\\
-Joint ML fit, magnitude fit, branch test & \texttt{src/mpme/mle.py}\\
-Rician information & \texttt{src/mpme/crlb.py}\\
-Implicit Jacobians & \texttt{src/mpme/fastjac.py}\\
-Table~\ref{tab:bench} & \texttt{python scripts/benchmark\_fit.py}\\
-Fisher information, CRLB & \texttt{src/mpme/crlb.py}\\
-Tables~\ref{tab:crlb}--\ref{tab:cond}, figures & \texttt{python scripts/crlb\_analysis.py}\\
-Tables~\ref{tab:mc}--\ref{tab:mcdiag} & \texttt{python scripts/estimator\_efficiency.py}\\
-Table~\ref{tab:mag} & \texttt{python scripts/magnitude\_comparison.py}\\
-\end{tabular}
+\paragraph{Reproducibility.} \Cref{fig:lever,fig:crossing}, \cref{tab:budget} and the numbers of
+\cref{sec:two,sec:t1,sec:alias} are generated by \texttt{scripts/limits\_figures.py}
+(\texttt{make limits}); \cref{fig:bump} by \texttt{scripts/single\_scan\_family.py}; \eqref{eq:budget} and the
+supplied-$\Bone$ factor are unit tests in \texttt{tests/test\_design.py}. The
+review-stage version of this note is preserved as the git tag \texttt{limits-review-record}.
 
 \begin{thebibliography}{9}
 \bibitem{cheng2019} C.-C.~Cheng, F.~Preiswerk, W.~S.~Hoge, T.-H.~Kuo, B.~Madore.
   Multipathway multi-echo (MPME) imaging: all main MR parameters mapped based on a single
   3D scan. \emph{Magn.\ Reson.\ Med.} 81(3):1699--1713, 2019.
-\bibitem{cheng2016} C.-C.~Cheng, C.-S.~Mei, J.~Duryea, H.-W.~Chung, T.-C.~Chao,
-  L.~P.~Panych, B.~Madore. Dual-pathway multi-echo sequence for simultaneous frequency and
-  $T_2$ mapping. \emph{J.\ Magn.\ Reson.} 265:177--187, 2016.
-\bibitem{hennig1991} J.~Hennig. Echoes---how to generate, recognize, use or avoid them in
-  MR-imaging sequences. \emph{Concepts Magn.\ Reson.} 3(3):125--143, 1991.
-\bibitem{weigel2015} M.~Weigel. Extended phase graphs: dephasing, RF pulses, and
-  echoes---pure and simple. \emph{J.\ Magn.\ Reson.\ Imaging} 41(2):266--295, 2015.
+\bibitem{technote} S.~Joshi. Multi-pathway multi-echo (MPME) relaxometry: forward model,
+  information limits, and efficient estimation. Technical note, \texttt{docs/technote}.
+\bibitem{flipnote} S.~Joshi. Choosing the two flip angles of an MPME protocol: an optimal-design
+  study. Technical note, \texttt{docs/flipnote}.
+\bibitem{deoni2003} S.~C.~L.~Deoni, B.~K.~Rutt, T.~M.~Peters. Rapid combined $T_1$ and $T_2$
+  mapping using gradient recalled acquisition in the steady state. \emph{Magn.\ Reson.\ Med.}
+  49(3):515--526, 2003.
 \end{thebibliography}
 
 \end{document}

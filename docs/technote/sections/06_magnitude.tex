@@ -63,12 +63,22 @@ projected back into the interval (\cref{alg:branch}).
 
 \paragraph{6. What the test cannot do.} Branches with the same sign pattern (the complex
 aliases, $\alpha_2>540^\circ$) are invisible to the test and to complex ML; the range bound excludes
-them. Near $\alpha_2^{\rm eff}=360^\circ$ the scan-2 FID vanishes and the sign is unreliable, but the two
-branches merge there, so a wrong decision costs little. Both the test and complex ML need the
-relative phase of the two scans to be preserved: the same receiver phase and coil combination
-and no motion or $B_0$ drift between the sequential acquisitions. With an unknown phase per
-scan, complex ML would lose the relative sign and the alias would reappear for complex data
-too.
+them. Near the crossing $\alpha_2=330^\circ\Bone=360^\circ$ the scan-2 FID vanishes and the sign is
+unreliable. A wrong decision is cheap only very close to it: the magnitude alias approaches the
+truth only within about $\pm2\%$ of the crossing $\Bone=360/330$ (there its $\Bone$ is within $4\%$ and its
+$\Tone$ within $8\%$ of the truth for the reference tissue, against $20\%$ and $31\%$ at $\Bone=1$). Moreover,
+with scan 2 almost empty the problem approaches the one-scan degeneracy, and the likelihood,
+complex or magnitude, has distant near-equal maxima at the other scan-2 nulls, $\alpha_2\approx180^\circ$ and
+$540^\circ$, where scan 1 is matched by the family of \cref{prop:singlescan}. In the phantom at SNR
+1000, all but three of the large $\Tone$ errors left by either fit lie within $3^\circ$ of $360^\circ$, nearly
+all at such a maximum; for complex ML each has a cost no higher than at the truth
+(\cref{sec:phantom}, \cref{fig:phA_T1}). The region needs care: multiple starts and the spatial
+restart of \cref{sec:phantom} remove optimiser failures there but not these genuine maxima, so
+the voxels concerned should be flagged, or fitted from scan 1 alone with $\Bone$ from a smooth map
+(Scenario~B; not with both scans, \cref{tab:cond}). Both the test and complex ML need the relative
+phase of the two scans to be preserved: the same receiver phase and coil combination and no motion
+or $B_0$ drift between the sequential acquisitions. With an unknown phase per scan, complex ML would
+lose the relative sign and the alias would reappear for complex data too.
 
 \subsection{Comparison on identical data}
 

@@ -17,7 +17,7 @@ Residual $\Tone$ bound ($40.5\,\sigma/\Mzero$): confounding with $\Ttwo$, $\Ttwo
 Exact magnitude alias $\alpha_2=360^\circ\mp x$ at physiological $\Bone$ & forward model: magnitudes lose $\sgn\sin\alpha$ & FID-sign test, or complex data with a shared phase\\
 Exact complex alias $\alpha_2>540^\circ$ & forward model: $2\pi$ periodicity & range bound $\Bone<1.64$\\
 Error 3--7$\times$ the bound; bias and undefined $\Tone$ at moderate SNR & analytic inverse (sequential, closed form) & joint ML or magnitude least squares with the FID sign\\
-$\Tone$ bound 57.1 instead of 28.0 with $\Bone$ known; $\Tone$ bias $-2\varepsilon$ per $\Bone$ error $\varepsilon$ & design: scan-1-only $\Tone$ step, low-resolution scan 2 & joint estimation; full-resolution scan 2 if affordable\\
+$\Tone$ bound 57.1 instead of 28.0 with $\Bone$ known; $\Tone$ bias $-2\varepsilon$ per $\Bone$ error $\varepsilon$ & design: scan-1-only $\Tone$ step, low-resolution scan 2 & joint estimation, from both scans at full resolution if affordable ($40.5$; not with $\Bone$ fixed, \cref{tab:cond})\\
 Estimates on $\Rtwop=0$ at low SNR & model domain $+$ small true $\Rtwop$ & report; Bayesian or constrained bounds\\
 One start insufficient & nonconvex likelihood & multiple starts (affordable with exact Jacobians)\\
 Partial volume with CSF: biased, confidently wrong estimates; estimators disagree (\cref{sec:pv}) & forward model (single compartment) & two-compartment model with class parameters; PV indicator\\
@@ -34,10 +34,21 @@ magnitudes. The phantom (\cref{sec:phantom}) confirms these conclusions spatiall
 quantifies the cost of the low-resolution second scan.
 
 No unbiased voxel-wise estimator can beat the bounds of \cref{sec:information}. Further gains
-require prior information: $\Bone$ is spatially smooth and can be treated as nearly known (removing
-its factor of about $1.45$), while the confounding with $\Mzero$ and the transverse relaxation times
-can only be reduced by priors on the parameter maps themselves. Such estimators are biased by
-design, and their bias must be measured rather than ignored.
+require prior information. Spatial smoothness of $\Bone$ pools the $\Bone$ information that a second
+scan has created; from a single scan it supplies none (\cref{sec:twoscans}, \cref{prop:singlescan,cor:parametric}).
+Treating the pooled $\Bone$ as known lowers the $\Tone$ bound by a factor of about $1.45$ ($40.5\to28.0$,
+reference tissue, $\Bone=1$) only under two conditions. First, the $\Tone$ step must use the
+full-resolution scan-2 data: with scan 1 only, as in the published low-resolution design, the
+$\Bone$-known bound is $57.1$, worse than the $40.5$ of joint estimation from both full-resolution
+scans ($\alpha_1=17$--$19^\circ$ lowers it by $5$--$7\%$ in the worst case and mean over $\Bone\in[0.7,1.3]$ and
+five tissues, according to the companion flip-angle design note, \texttt{docs/flipnote}). Second, the supplied $\Bone$ must be accurate to well
+below $28.0/10.1\approx2.8\,\sigma/\Mzero$ (about $0.9\%$ at SNR 300, $0.3\%$ at SNR 1000), because with both scans
+and $\Bone$ fixed a $\Bone$ error enters $\log\Tone$ with a factor of $+10.1$ at $\Bone=1$ that exceeds $100$ near
+the $360^\circ$ crossing (\cref{tab:cond} and the text after it). The smoothed maps of \cref{sec:phantom}
+are accurate to $0.2\%$ (ML pipeline) and biased by $1.5\%$ in grey matter (paper pipeline), so the
+factor $1.45$ is an upper limit, not an expected gain. The confounding with $\Mzero$ and the
+transverse relaxation times can only be reduced by priors on the parameter maps themselves.
+Such estimators are biased by design, and their bias must be measured rather than ignored.
 
 \subsection{Limitations}
 

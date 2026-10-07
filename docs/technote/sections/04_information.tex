@@ -47,9 +47,10 @@ used rather than $\log\Rtwop$ because $\Rtwop$ may be close to zero.
 
 \subsection{One scan, and small flip angles}
 
-\Cref{cor:onescan} already shows that one scan cannot separate $\Mzero$, $\Bone$ and $\Tone$;
-numerically, the scan-1-only bound on $\log\Tone$ with $\Bone$ unknown is $2.4\times10^8$ per unit
-$\sigma/\Mzero$. Two scans tied by a common $\Bone$ can, unless both flip angles are small.
+\Cref{cor:onescan} already shows that one scan cannot separate $\Mzero$, $\Bone$ and $\Tone$:
+the scan-1-only information is exactly singular, so the bound on $\log\Tone$ with $\Bone$ unknown is
+infinite (a numerical inverse returns values above $10^8$, set by rounding). Two scans tied by a
+common $\Bone$ can, unless both flip angles are small.
 
 \begin{proposition}[Small-angle scaling invariance]\label{prop:scaling}
 Fix $\TR$, $\Ttwo$ ($E_2<1$), a pathway $k$ and $\kappa>0$. Let $\alpha\to0$ and $\rho=\TR/\Tone\to0$
@@ -134,7 +135,8 @@ derivative of its effective angle $\alpha_2^{\rm eff}=330^\circ\Bone-360^\circ$:
   \qquad\frac{\partial\log\alpha_1}{\partial\log\Bone}=1,
   \label{eq:lever}
 \end{equation}
-which is $-11$ at $\Bone=1$, $-2.75$ at $\Bone=0.8$, and diverges as $\alpha_2^{\rm eff}\to360^\circ$.
+which is $-11$ at $\Bone=1$, $-2.75$ at $\Bone=0.8$, and diverges as $\alpha_2^{\rm eff}\to0$, i.e.\ as the
+actual angle $330^\circ\Bone$ approaches $360^\circ$ ($\Bone\to360/330=1.09$).
 \Cref{eq:sym} needs all angles to scale alike; under a $\Bone$ change the second moves much
 faster and in the opposite direction, and the near-null direction is lifted.
 
@@ -213,7 +215,20 @@ order-free summary. With the published protocol $\Bone$ is no longer the main so
 $\Tone$ uncertainty: at $15^\circ$ and $\TR=25$\,ms, $\Tone$ is weakly encoded and confounded mostly
 with the transverse relaxation times and $\Mzero$. Separating which data are used from whether
 $\Bone$ is known gives $\Tone$ bounds of $40.5$ (both scans, $\Bone$ unknown), $28.0$ (both, known),
-$57.1$ (scan 1, known) and $2.4\times10^8$ (scan 1, unknown).
+$57.1$ (scan 1, known) and infinity (scan 1, unknown: exactly singular; numerically above
+$10^8$, set by rounding).
+
+The error transfer $+10.1$ of \cref{tab:cond} (both scans, $\Bone$ held fixed) is a single-point value
+and depends strongly on the true $\Bone$. For the reference tissue it is
+$+2.0$, $+2.4$, $+4.1$, $+10.1$, $+105$, $+168$, $-127$, $-15$ and $-10$ at
+$\Bone=0.7$, $0.8$, $0.9$, $1.0$, $1.08$, $1.09$, $1.10$, $1.2$ and $1.3$: it rises above 100 within about
+$1\%$ of the crossing $\Bone=360/330$, where the actual scan-2 angle is $360^\circ$, and changes sign
+there. With scan 1 only it is about $-2.0$ at every $\Bone$. Holding $\Bone$ fixed while fitting both
+scans lowers the $\Tone$ bound from $40.5$ to $28.0$ at $\Bone=1$, but the gain survives only if the
+error of the supplied $\Bone$ is well below $28.0/10.1\approx2.8\,\sigma/\Mzero$, about the voxel's own $\Bone$
+bound ($2.91$), and far smaller near the crossing. A supplied $\Bone$ map should therefore not be
+combined with full-resolution scan-2 data in the $\Tone$ step: either fit $\Bone$ jointly with both
+scans, or use the map with scan 1 alone (\cref{alg:twostage}), where the transfer is a modest $-2$.
 
 \begin{figure}[!htbp]
 \centering
@@ -225,8 +240,8 @@ $57.1$ (scan 1, known) and $2.4\times10^8$ (scan 1, unknown).
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=\linewidth]{crlb_b1_t1_sweeps.png}
-\caption{Left: bounds versus the true $\Bone$; $\Bone$ is locally best determined where
-$\alpha_2^{\rm eff}=360^\circ$. Right: $\Tone$ bound versus $\Tone$.}
+\caption{Left: bounds versus the true $\Bone$; $\Bone$ is locally best determined where the actual
+scan-2 angle $330^\circ\Bone$ is $360^\circ$ ($\alpha_2^{\rm eff}=0$). Right: $\Tone$ bound versus $\Tone$.}
 \label{fig:sweeps}
 \end{figure}
 
@@ -309,8 +324,10 @@ $\Bone$ & $\Tone$ (ms) & $\Bone$ & $\Tone$ (ms) & $\Bone$ & $\Tone$ (ms)\\
 The complex aliases need $\Bone\approx1.8$--$2.2$ and are excluded by the assumption
 $\alpha_2^{\rm nom}\Bone\le540^\circ$ of~\cite{cheng2019}, i.e.\ $\Bone<1.64$; our fits impose this bound.
 The magnitude aliases lie at $\Bone\approx1.1$--$1.5$, inside the physiological range, and
-require one bit of phase information (\cref{sec:magnitude}). As $\alpha_2^{\rm eff}\to360^\circ$ the
-true and alias solutions merge (last row). None of this is visible in local bounds.
+require one bit of phase information (\cref{sec:magnitude}). Each lies on the other side of the
+crossing $330^\circ\Bone=360^\circ$, and as the actual scan-2 angle approaches $360^\circ$ ($\alpha_2^{\rm eff}\to0$)
+the truth and its magnitude alias merge (last row); the complex alias does not. None of this is
+visible in local bounds.
 
 \subsection{Information in magnitude data}\label{sec:rician}
 
@@ -324,7 +341,10 @@ $g(A/\sigma)/\sigma^2$ with
 information about the five magnitude parameters is
 $\Fi_{\rm mag}=\sigma^{-2}\sum_jg(A_j/\sigma)\nabla A_j\nabla A_j^{\mathsf T}$ with
 $\nabla A_j=\Re(\overline{S_j}\nabla S_j)/A_j$. For the published protocol and the reference
-tissue the weakest amplitude is $0.0074\,\Mzero$, so even at SNR$(\Mzero)=300$ every measurement has
-$A/\sigma\ge2.2$, and the magnitude bounds equal the complex bounds to within $0.5\%$ for $\Tone$,
-$\Bone$, $\Ttwo$ and $\Mzero$ at SNR 300, 1000 and 3000. Discarding the phase loses essentially no
-local information; it loses the global bit of \cref{prop:equiv}(b).
+tissue at $\Bone=1$ the weakest amplitude is $0.0074\,\Mzero$, so even at SNR$(\Mzero)=300$ every
+measurement has $A/\sigma\ge2.2$, and the magnitude bounds equal the complex bounds to within
+$1.5\%$ for $\Tone$, $\Bone$, $\Ttwo$ and $\Mzero$ at SNR 300, 1000 and 3000 (within $0.5\%$ except $\Bone$ at
+SNR 300, $1.4\%$). Near the $360^\circ$ crossing the scan-2 amplitudes vanish and the loss grows: at
+$\Bone=1.09$ the $\Bone$ bound is $27\%$ larger at SNR 300 and $1.8\%$ at SNR 1000. Away from the crossing,
+discarding the phase loses essentially no local information; it loses the global bit of
+\cref{prop:equiv}(b).

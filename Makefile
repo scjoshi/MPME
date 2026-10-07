@@ -1,7 +1,7 @@
 PY := PYTHONPATH=src python3
 FAST := --jacobian implicit
 
-.PHONY: test technote technote-results technote-pdf technote-reference flipnote flipnote-pdf
+.PHONY: test technote technote-results technote-pdf technote-reference flipnote flipnote-pdf limits
 
 test:
 	$(PY) -m pytest -q
@@ -43,3 +43,9 @@ flipnote:
 flipnote-pdf:
 	cd docs/flipnote && pdflatex -interaction=nonstopmode flip_design.tex >/dev/null && \
 	  pdflatex -interaction=nonstopmode flip_design.tex | grep -E "Output written|^!"
+
+# B1/T1 limits companion note (docs/latex/mpme_b1_t1_limits.tex): figures, table, PDF.
+limits:
+	$(PY) scripts/limits_figures.py
+	cd docs/latex && pdflatex -interaction=nonstopmode mpme_b1_t1_limits.tex >/dev/null && \
+	  pdflatex -interaction=nonstopmode mpme_b1_t1_limits.tex | grep -E "Output written|^!"

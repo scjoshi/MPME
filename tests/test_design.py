@@ -81,3 +81,56 @@ def test_aliases_of_published_protocol():
     assert f_ratio(c, 15, 330) == pytest.approx(f_ratio(1.0, 15, 330), rel=1e-9)
     assert alias_t1(m, 1.0, 15, 850.0, TR) == pytest.approx(588.1, abs=0.2)
     assert alias_t1(c, 1.0, 15, 850.0, TR) == pytest.approx(203.3, abs=0.2)
+
+
+def _offset_information(F, c, h):
+    """Information about the two offsets (w1, w2) with ℓ and the nuisances profiled out."""
+    A = np.eye(7)
+    A[0, :3], A[1, :3], A[2, :3] = (0, c[0], h), (0, c[1], h), (1, 0, -h)
+    Ai = np.linalg.inv(A)
+    G = Ai.T @ F @ Ai
+    return G[:2, :2] - G[:2, 2:] @ np.linalg.solve(G[2:, 2:], G[2:, :2])
+
+
+@pytest.mark.parametrize("b1", [0.8, 1.0, 1.2])
+def test_supplied_b1_error_law(b1, float64_default):
+    """With B1 held at a wrong value and both scans fitted, d ln T1/d ln B1 = −c̄/h, c̄ the
+    Q-weighted mean of the two rates (limits note, Sec. 4)."""
+    from mpme.crlb import PARAMS, fixed_parameter_bias
+    tissue = dict(M0=1.0, T1=1500.0, T2=70.0, T2star=60.0)
+    x = np.array([15 * b1, 330 * b1])
+    _, c = ernst_offset(x, tissue["T1"], TR)
+    tau = TR / tissue["T1"]
+    h = tau / (2 * math.sinh(tau))
+    F = single_scan_fisher(x, tissue, TR, E, PR.pathways).sum(0)
+    Q = _offset_information(F.numpy(), c, h)
+    cbar = np.ones(2) @ Q @ c / (np.ones(2) @ Q @ np.ones(2))
+    direct = fixed_parameter_bias(F, PARAMS, "B1")["T1"]
+    assert direct == pytest.approx(-cbar / h, rel=1e-9)
+
+
+@pytest.mark.parametrize("a2", [30, 60, 120])
+def test_mirror_pulses_same_lever_product(a2, float64_default):
+    """Pulses with equal |tan(x/2)| (a2 and 360° − a2) carry the same per-scan information, so
+    |L| × SD(ln B1) is identical (limits note, Fig. 2b)."""
+    tissue = dict(M0=1.0, T1=1500.0, T2=70.0, T2star=60.0)
+    prods = []
+    for b in (a2, 360 - a2):
+        x = np.array([15.0, float(b)])
+        _, c = ernst_offset(x, tissue["T1"], TR)
+        sd = bounds(single_scan_fisher(x, tissue, TR, E, PR.pathways).sum(0))[1].item()
+        prods.append(abs(c[1] - c[0]) * sd)
+    assert prods[0] == pytest.approx(prods[1], rel=1e-8)
+
+
+@pytest.mark.parametrize("a2", [330, 30])
+def test_t1_budget_identity(a2, float64_default):
+    """Var(ln T1) = Var(ln T1 | B1 known) + β² Var(ln B1), β the supplied-B1 factor (limits note,
+    eq. budget): 40.5² = 28.0² + (10.1 × 2.9)² for 15/330."""
+    from mpme.crlb import PARAMS, fixed_parameter_bias
+    tissue = dict(M0=1.0, T1=1500.0, T2=70.0, T2star=60.0)
+    F = single_scan_fisher(np.array([15.0, float(a2)]), tissue, TR, E, PR.pathways).sum(0)
+    joint, known = bounds(F), bounds(F, known=("B1",))
+    beta = fixed_parameter_bias(F, PARAMS, "B1")["T1"]
+    lhs = joint[2].item() ** 2
+    assert lhs == pytest.approx(known[2].item() ** 2 + beta**2 * joint[1].item() ** 2, rel=1e-9)

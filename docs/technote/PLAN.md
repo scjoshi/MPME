@@ -1,7 +1,9 @@
 # Technical note plan (definitive version)
 
-Audience: internal / technical. Full proofs. Supersedes `docs/latex/mpme_b1_t1_limits`
-(kept as the review-stage record).
+Audience: internal / technical. Full proofs. The older note `docs/latex/mpme_b1_t1_limits` is
+has been rewritten as a short intuitive companion ("Separating B1 and T1 in MPME: an intuitive
+account") that cites this technote for proofs; its previous version is preserved under the git
+tag `limits-review-record`.
 
 ## Structure
 
