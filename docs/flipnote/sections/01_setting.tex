@@ -1,0 +1,86 @@
+\section{Setting and design problem}\label{sec:setting}
+
+\subsection{The model in brief}
+
+The MPME sequence~\cite{cheng2019} is an unbalanced steady-state gradient echo that records
+three configuration pathways ($k=+1,0,-1$), three echoes each, in each of two scans. The two
+scans share the repetition time $\TR=25$\,ms and the readout and differ only in the nominal flip
+angle; the actual angle of scan $i$ is $x_i=\Bone\alpha_i$. The unknowns are
+$\theta=(\ln\Mzero,\ln\Bone,\ln\Tone,\ln\Ttwo,\ln\Ttwos,\dw,\phi_0)$, with logarithms for the positive
+parameters so that standard deviations are relative. We use the following results of the
+companion technical note~\cite{technote}.
+
+\begin{itemize}
+\item \emph{Two invariants per scan.} Each pathway amplitude is $a_k=v\,G_k(u,E_2,\dw)$, where
+  $u$ and $v$ depend on the flip angle and $\Tone$ only, and $G_k$ does not depend on either.
+\item \emph{Ernst-angle form.} With the Ernst angle $\alpha_E=\arccos\E^{-\TR/\Tone}$ and
+  $\zeta=\tan(\alpha_E/2)=\sqrt{\tanh(\TR/2\Tone)}$, define the \emph{offset} of a sample from the Ernst angle
+  \begin{equation}
+    w=\ln|\tan(x/2)|-\ln\zeta .
+    \label{eq:w}
+  \end{equation}
+  Then $u=\tanh w$ and $|v|=\zeta\operatorname{sech}w$, with $\sgn v=\sgn\tan(x/2)$. On the axis
+  $s=\ln|\tan(x/2)|$ the spoiled-gradient-echo amplitude is a $\operatorname{sech}$ bump centred at the
+  Ernst angle; a scan samples it at $s$.
+\item \emph{What the data determine.} After the echo decay and phases have fixed $\Ttwo$, $\Ttwos$,
+  $\dw$ and $\phi_0$, one scan determines its offset $w$ and the amplitude $\ell=\ln(\Mzero\zeta)$; two
+  scans determine $w_1$, $w_2$ and the shared $\ell$, three numbers for $(\Mzero,\Bone,\Tone)$. One scan
+  alone cannot determine $\Bone$.
+\end{itemize}
+
+\subsection{The design problem}\label{sec:problem}
+
+\paragraph{Design variables.} The nominal angles $0<\alpha_1<\alpha_2\le540^\circ$; $\TR$ and the
+readout are fixed, so every design has the same acquisition time.
+
+\paragraph{Criterion.} The Cram\'er--Rao bound (CRLB) on $\ln\Tone$ with all seven parameters free,
+in units of $\sigma/\Mzero$ (complex Gaussian noise, standard deviation $\sigma$ per real and
+imaginary part). Bounds on $\ln\Bone$, $\ln\Ttwo$ and $\ln\Mzero$ are reported alongside.
+
+\paragraph{Robustness range.} The design must work for every $\Bone\in[0.7,1.3]$ (the brain at
+3\,T, central to peripheral) and the five tissues of \cref{tab:tissues}. We report the
+\emph{worst case} of the bound over this range and its \emph{mean} (uniform over $\Bone$, equal
+weight per tissue).
+
+\begin{table}[!htbp]
+\centering
+\caption{Tissues of the robustness range ($\Mzero=1$ for all, so bounds are relative to each
+tissue's own signal). Ernst angles at $\TR=25$\,ms.}
+\label{tab:tissues}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Tissue & $\Tone$ (ms) & $\Ttwo$ (ms) & $\Ttwos$ (ms) & $\alpha_E$ ($^\circ$)\\
+\midrule
+CSF & 4000 & 1500 & 900 & 6.4\\
+grey matter (GM) & 1350 & 90 & 60 & 11.0\\
+white matter (WM) & 850 & 66 & 50 & 13.8\\
+deep GM & 1130 & 58 & 40 & 12.0\\
+lesion & 1500 & 120 & 80 & 10.4\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Pipelines.} Two uses of the data lead to different optima.
+\begin{itemize}
+\item \emph{Joint fit}: both scans at full resolution, all parameters fitted per voxel; the
+  criterion is the joint $\Tone$ bound above.
+\item \emph{Two-stage}: a short, low-resolution scan 2 gives a smooth $\Bone$ map whose noise is
+  negligible after smoothing~\cite[Sec.~5]{technote}, and $\Tone$ comes from scan 1 with $\Bone$
+  known. The criterion for $\alpha_1$ is the scan-1 $\Tone$ bound with $\Bone$ known; $\alpha_2$ only needs to
+  determine $\Bone$ reliably.
+\end{itemize}
+
+\paragraph{Constraints.} The scans are acquired one after the other, so the specific absorption
+rate (SAR) of each scan scales as the square of its own angle for a fixed pulse, and a
+peak-$\Bone$ limit fixes the shortest duration of the largest pulse. Both constrain the largest
+angle $\alpha_{\max}=\alpha_2$; we report the best design as a function of $\alpha_{\max}$.
+
+\paragraph{Identifiability.} A design must not admit a complex alias (\cref{def:alias}) for any true
+$\Bone$ in the robustness range within the fitting range $\Bone\in[0.6,1.4]$; this is checked analytically
+(\cref{sec:aliases}). Magnitude aliases are allowed: complex data, the FID-sign test or, for some
+designs, a narrower fitting range remove them.
+
+\paragraph{Model error.} Finally, the shortlisted designs are compared for their bias under
+errors the fitting model ignores: a pulse-ratio error, finite pulse duration, slice or slab
+profile (\cref{sec:robustness}).

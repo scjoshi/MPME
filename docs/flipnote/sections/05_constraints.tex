@@ -1,0 +1,56 @@
+\section{Constraints and shortlist}\label{sec:constraints}
+
+\paragraph{SAR and peak $\Bone$.} \Cref{fig:pareto}a gives the best joint design (no complex alias)
+as a function of the largest nominal angle. Both curves are flat above about $280^\circ$ (worst case)
+and $310^\circ$ (mean): larger pulses buy nothing. Below, the price rises steadily. A limit of $240^\circ$
+costs $6\%$ in the worst case and $14\%$ in the mean; a limit of $180^\circ$ costs $25\%$ and $52\%$; a
+limit of $120^\circ$ more than doubles both. Relative to $330^\circ$, a second pulse at $276^\circ$ needs $30\%$ less
+energy at equal pulse duration; at equal peak $\Bone$ it is $16\%$ shorter and needs $16\%$ less energy.
+
+\paragraph{Two-stage pipeline.} When scan 2 serves only to map a smooth $\Bone$, $\alpha_1$ should minimise
+the scan-1 $\Tone$ bound with $\Bone$ known (\cref{fig:pareto}b). The minimum lies at $17^\circ$ (worst case,
+$109.7$) to $19^\circ$ (mean, $64.5$), against $117.8$ and $68.0$ at $15^\circ$: a gain of $5$--$7\%$, consistent with
+the information peak just above the Ernst angles (\cref{fig:theory}c). Between $15^\circ$ and $22^\circ$ the worst case
+varies by about $7\%$. Because smoothing makes the noise in the $\Bone$ map negligible~\cite{technote}, $\alpha_2$ is
+chosen for an alias-free, well-conditioned $\Bone$ measurement and for robustness; restricted to
+$\alpha_2\le330^\circ$ (no more SAR than the published design), the smallest worst-case $\Bone$ bound for
+$\alpha_1=17^\circ$ is at $\alpha_2=254^\circ$ (without the restriction it lies near $440^\circ$, a larger lever at $78\%$ more
+energy, \cref{fig:maps}c). This pulse crosses $180^\circ$ at $\Bone=0.71$, which costs nothing in the $\Tone$ bound but
+produces magnitude aliases for $\Bone$ below $0.8$; $\alpha_2=258$--$270^\circ$ avoids the crossing (e.g.\ $17^\circ/270^\circ$:
+worst-case $\Bone$ bound $12.3$ against $11.2$).
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{pareto.png}
+\caption{(a) Best worst-case and mean joint $\Tone$ bound among designs without a complex alias whose
+largest angle does not exceed the abscissa. (b) Two-stage pipeline: scan-1 $\Tone$ bound with $\Bone$ known
+against $\alpha_1$ (worst case and mean over $\Bone\in[0.7,1.3]$ and the tissues).}
+\label{fig:pareto}
+\end{figure}
+
+\paragraph{Shortlist.} \Cref{tab:shortlist} collects the designs carried forward. The rules that
+select them are: the published design; the minimum worst-case and minimum mean joint $\Tone$
+bound; the best design whose pulses cross no multiple of $180^\circ$ for $\Bone\in[0.7,1.3]$ (it coincides
+with the worst-case optimum, $\alpha_2=258$--$276^\circ$); the best such design with $2.5\%$ headroom at both ends
+of the range (\emph{margin}, $\alpha_2=264$--$270^\circ$); the two-stage design above; and the best design with
+both angles at most $180^\circ$. All are free of complex aliases in the fitting range; the last column
+gives the true $\Bone$ for which a magnitude alias exists.
+
+\begin{table}[!htbp]
+\centering
+\caption{Shortlisted designs. Bounds per unit $\sigma/\Mzero$, all parameters free, worst case (w.) or
+mean over $\Bone\in[0.7,1.3]$ and the five tissues; ``par.'': parenchyma only (no CSF). Scan-1 $\Tone$:
+two-stage criterion ($\Bone$ known). Ratio bias: largest $|\mathrm d\ln\Tone/\mathrm d\varepsilon|$ over the range. Last column:
+true $\Bone$ with a magnitude alias in the fitting range $[0.6,1.4]$ (no design has a complex alias).}
+\label{tab:shortlist}
+\footnotesize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lccccccccc}
+\toprule
+& & \multicolumn{3}{c}{$\Tone$ bound} & $\Bone$ & $\Ttwo$ & scan-1 $\Tone$ & ratio & \\
+\cmidrule(lr){3-5}
+Design & $\alpha_1/\alpha_2$ & w. & mean & w.\ par. & w. & w. & w., $\Bone$ known & bias & magn.\ alias\\
+\midrule
+\input{tables/shortlist.tex}
+\bottomrule
+\end{tabular}
+\end{table}

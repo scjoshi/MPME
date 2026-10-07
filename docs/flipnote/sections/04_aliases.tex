@@ -1,0 +1,89 @@
+\section{Global identifiability: aliases}\label{sec:aliases}
+
+The bounds of \cref{sec:maps} are local. A design can have small bounds and still be unusable
+if a different set of parameters reproduces the data exactly.
+
+\begin{definition}[Alias]\label{def:alias}
+For true parameters $\theta=(\Mzero,\Bone,\Tone,\Ttwo,\Ttwos,\dw,\phi_0)$, an \emph{alias} is a parameter vector
+$\theta'=(\Mzero',B_1^{+\prime},\Tone',\Ttwo,\Ttwos,\dw,\phi_0')$ with $B_1^{+\prime}\ne\Bone$ and a physical $\Tone'$ (an Ernst angle in
+$(0^\circ,90^\circ)$, i.e.\ $0<\tan(\alpha_E'/2)<1$) whose noise-free signals equal those of $\theta$ in every
+pathway, echo and scan. It is a \emph{complex alias} if the complex signals agree (with $\phi_0'=\phi_0+\pi$
+allowed, which absorbs a sign change of both scans), and a \emph{magnitude alias} if only their
+magnitudes do.
+\end{definition}
+
+$\Ttwo$, $\Ttwos$ and $\dw$ are held at their true values because the echo decay and the echo phases
+determine them (up to phase wraps of $\dw$); the characterisation below also uses that the pattern
+of pathway amplitudes determines $u$, which holds numerically for the tissues considered.
+
+An alias is not a nearby value and not a poorly determined one: the least-squares cost has an
+equally deep minimum at $\theta'$, and for noisy data every minimum near the truth has a twin near
+$\theta'$ with identical cost. No signal-to-noise ratio separates them; only prior knowledge (a
+fitting range for $\Bone$) or additional data can. This distinguishes an alias from a local minimum
+(higher cost, avoidable with better starting values) and from poor conditioning (a unique but
+noisy solution).
+
+\paragraph{Where aliases come from.} Two scans determine $w_1$, $w_2$ and $\ell$; complex data with a
+phase shared by the two scans also determine the relative sign of $v_1$ and $v_2$. Dividing the two
+half-angle ratios $\xi_i=\tan(x_i/2)/\zeta$ eliminates $\Tone$ and $\Mzero$ and leaves one equation in $\Bone$ alone,
+\begin{equation}
+  f(\Bone)=\frac{\tan(\Bone\alpha_2/2)}{\tan(\Bone\alpha_1/2)}=\frac{\xi_2}{\xi_1},
+  \label{eq:f}
+\end{equation}
+whose right side the data fix (\cref{fig:alias}). Every other root $B_1^{+\prime}$ of \eqref{eq:f} with
+\[
+  \tan(\alpha_E'/2)=\zeta\,\Bigl|\frac{\tan(B_1^{+\prime}\alpha_1/2)}{\tan(\Bone\alpha_1/2)}\Bigr|<1
+\]
+is a complex alias, with $\Mzero'=\Mzero\zeta/\tan(\alpha_E'/2)$; every admissible root of $f(B_1^{+\prime})=-f(\Bone)$ is a
+magnitude alias, in which the scan-2 signal is negated relative to scan 1. The alias values
+of $\Bone$ depend on the true $\Bone$ alone, not on the tissue; the tissue enters only through $\Tone'$ and
+through admissibility. For the published design and true $\Bone=1$ ($f=-2.04$) the magnitude alias
+is $B_1^{+\prime}=1.199$ (the scan-2 pulse becomes $395.7^\circ\equiv+35.7^\circ$ instead of $330^\circ\equiv-30^\circ$; $\Tone'=588$\,ms
+for WM) and the complex alias is $B_1^{+\prime}=2.008$ ($\Tone'=203$\,ms), excluded by any fitting range below
+$\Bone=540/330$; more generally, a fitting range inside $(180^\circ/\alpha_2,540^\circ/\alpha_2)=(0.545,1.636)$
+excludes every complex alias for true $\Bone$ in it, because $f$ is monotonic on that branch.
+
+\paragraph{Local and global identifiability are linked.} Differentiating \eqref{eq:f},
+\begin{equation}
+  \frac{\mathrm d\ln|f|}{\mathrm d\ln\Bone}=c(\Bone\alpha_2)-c(\Bone\alpha_1)=L ,
+  \label{eq:dlnf}
+\end{equation}
+the lever of \cref{prop:closed}. Since $f'=f\,L/\Bone$, $f$ is monotonic on an interval between consecutive
+poles ($x_2=180^\circ+360^\circ m$ or $x_1=360^\circ m$) exactly where $f\,L$ keeps its sign; $L$ itself changes sign only
+at the zeros of $f$, where $f'$ stays finite. A complex alias on the same branch therefore requires a
+point with $L=0$, where the information is singular. Magnitude aliases arise around each zero of $f$ ($x_2=360^\circ m$ or $x_1=180^\circ+360^\circ m$) and each
+pole ($x_2=180^\circ+360^\circ m$) inside the fitting range, where $f$ changes sign.
+
+\begin{proposition}[No aliases without crossings]\label{prop:noalias}
+If over the whole fitting range $x_1=\Bone\alpha_1\in(0^\circ,180^\circ)$ and $x_2=\Bone\alpha_2\in(180^\circ,360^\circ)$, the design has no
+alias of either kind in that range.
+\end{proposition}
+\begin{proof}
+There $\tan(x_1/2)>0>\tan(x_2/2)$, so $f<0$, and $c_1>0>c_2$, so $L<0$; by \eqref{eq:dlnf} $|f|$ is strictly
+decreasing, hence one-to-one, and $f(B_1^{+\prime})=\pm f(\Bone)$ has no root other than $\Bone$.
+\end{proof}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.75\linewidth]{alias.png}
+\caption{The $\Bone$-only quantity \eqref{eq:f} for the shortlist over the fitting range $[0.6,1.4]$
+(shaded: robustness range). A complex alias exists if a horizontal line meets a curve twice
+within the fitting range; a magnitude alias if it meets the curve and its mirror image $-f$.}
+\label{fig:alias}
+\end{figure}
+
+\paragraph{Aliases over the design space.} With the fitting range $[0.6,1.4]$, of the 145\,530 pairs
+\AliasComplex{} have a complex alias for some true $\Bone$ in $[0.7,1.3]$ (mostly pairs with a large $\alpha_1$ or
+an $\alpha_2$ above about $450^\circ$, greyed in \cref{fig:maps}), \AliasMagnitude{} have only magnitude aliases and
+\AliasNone{} have none. This fitting range spans a factor $2.3$ in $\Bone$, more than any pulse can stay
+within $(180^\circ,360^\circ)$, so every near-optimal design has a magnitude alias somewhere in it: the best
+design without any alias has a worst-case $\Tone$ bound of $197$, twice the optimum. With $[0.6,1.4]$ a
+good protocol therefore needs complex data, or for magnitudes the one bit of phase supplied by
+the FID-sign test~\cite{technote}. A narrower fitting range changes this for the no-crossing designs:
+fitted within their own crossing-free range (e.g.\ $\Bone\in[0.667,1.333]$ for $\alpha_2=270^\circ$, which still
+contains the robustness range), they have no alias at all (\cref{prop:noalias}), and magnitude-only
+fitting becomes possible. All shortlisted designs are free of complex aliases on $[0.6,1.4]$;
+\cref{tab:shortlist} lists where their magnitude aliases occur. For the published design they
+cover most of the range (true $\Bone\ge0.87$); for the no-crossing designs only its ends, near the
+crossings that lie just outside it, with the alias $1$--$16\%$ from the truth and near the edge of the
+fitting range.

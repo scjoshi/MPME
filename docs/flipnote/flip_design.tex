@@ -1,0 +1,72 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[section]{placeins}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage[capitalise,nameinlink]{cleveref}
+
+\graphicspath{{figures/}}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+
+\newcommand{\Bone}{B_1^{+}}
+\newcommand{\Tone}{T_1}
+\newcommand{\Ttwo}{T_2}
+\newcommand{\Ttwos}{T_2^{*}}
+\newcommand{\Mzero}{M_0}
+\newcommand{\TR}{T_R}
+\newcommand{\dw}{\Delta\omega}
+\newcommand{\E}{\mathrm{e}}
+\newcommand{\Fi}{\mathcal{I}}
+\renewcommand{\Re}{\operatorname{Re}}
+\newcommand{\sgn}{\operatorname{sign}}
+
+\input{tables/macros.tex}
+
+\title{Choosing the two flip angles of an MPME protocol:\\
+an optimal-design study\\[4pt]
+\large Technical note}
+\author{Sarang Joshi}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\input{sections/00_summary}
+\input{sections/01_setting}
+\input{sections/02_theory}
+\input{sections/03_maps}
+\input{sections/04_aliases}
+\input{sections/05_constraints}
+\input{sections/06_robustness}
+\input{sections/07_recommendations}
+
+\appendix
+\input{sections/A_reproducibility}
+
+\begin{thebibliography}{9}
+\bibitem{cheng2019} C.-C.~Cheng, F.~Preiswerk, W.~S.~Hoge, T.-H.~Kuo, B.~Madore.
+  Multipathway multi-echo (MPME) imaging: all main MR parameters mapped based on a single
+  3D scan. \emph{Magn.\ Reson.\ Med.} 81(3):1699--1713, 2019.
+\bibitem{technote} S.~Joshi. Multi-pathway multi-echo (MPME) relaxometry: forward model,
+  information limits, and efficient estimation. Technical note, \texttt{docs/technote} of this
+  repository.
+\bibitem{deoni2003} S.~C.~L.~Deoni, B.~K.~Rutt, T.~M.~Peters. Rapid combined $T_1$ and $T_2$
+  mapping using gradient recalled acquisition in the steady state. \emph{Magn.\ Reson.\ Med.}
+  49(3):515--526, 2003.
+\bibitem{yarnykh2007} V.~L.~Yarnykh. Actual flip-angle imaging in the pulsed steady state: a
+  method for rapid three-dimensional mapping of the transmitted radiofrequency field.
+  \emph{Magn.\ Reson.\ Med.} 57(1):192--200, 2007.
+\bibitem{bieri2009} O.~Bieri, K.~Scheffler. SSFP signal with finite RF pulses.
+  \emph{Magn.\ Reson.\ Med.} 62(5):1232--1241, 2009.
+\end{thebibliography}
+
+\end{document}

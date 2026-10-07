@@ -1,0 +1,71 @@
+\section{The local design maps}\label{sec:maps}
+
+\Cref{fig:maps} shows the worst-case and mean $\Tone$ bounds and the worst-case $\Bone$ bound over all
+pairs with $\alpha_1\le90^\circ$. Pairs with $\alpha_1>90^\circ$ are never competitive: their best worst-case $\Tone$
+bound is $1499$, fifteen times the optimum. Designs with a complex alias in the fitting range
+(\cref{sec:aliases}) are greyed out; contours mark $1.05$ and $1.1$ times the best value among the
+remaining designs.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{maps.png}
+\caption{Design maps over the nominal angles ($1^\circ$ grid; bounds per unit $\sigma/\Mzero$, all parameters free).
+(a) Worst case of the $\Tone$ bound over $\Bone\in[0.7,1.3]$ and the five tissues; (b) its mean; (c) worst
+case of the $\Bone$ bound. Grey: a complex alias in the fitting range $[0.6,1.4]$. Solid and dashed
+contours: $1.05$ and $1.1$ times the best value among designs without a complex alias. Markers: the
+shortlist of \cref{tab:shortlist}.}
+\label{fig:maps}
+\end{figure}
+
+\paragraph{The optimum is flat, and the published design is in it.} The best mean $\Tone$ bound,
+$49.2$, is reached at $14^\circ/309^\circ$ (flat to $0.2\%$ for $\alpha_2=305$--$312^\circ$; the mean is an average over the
+$0.01$ grid of $\Bone$); the published $15^\circ/330^\circ$ gives $50.2$, $2\%$ more. The designs within $5\%$ of the
+optimum form a curved band (solid contour in \cref{fig:maps}b) that extends over $\alpha_1=11$--$20^\circ$
+and $\alpha_2=267$--$348^\circ$: at $\alpha_1=15^\circ$ every $\alpha_2$ from $267^\circ$ to $348^\circ$ qualifies, at $11^\circ$ only $299$--$329^\circ$ and
+at $20^\circ$ only $291$--$309^\circ$. The best worst-case bound, $100.3$, is reached at $20^\circ/276^\circ$; the published
+design gives $103.6$, $3.3\%$ more. In terms of $\Tone$ precision alone, the flip angles of the
+published protocol cannot be improved materially. The best $\alpha_1$ follows from \cref{fig:theory}c:
+the information about the offset peaks at actual angles of $13$--$16^\circ$ for the parenchymal tissues,
+just above their Ernst angles, and the lever of a near-$360^\circ$ pulse does the rest.
+
+\paragraph{The worst case is decided by a narrow band.} The worst case of every near-$360^\circ$ design
+is set by CSF where $\Bone\alpha_2=360^\circ$ (below). Outside a band of $\pm0.5\%$ in $\Bone$ around that crossing, the
+published design's worst case is $91.9$ and the best design ($12^\circ/332^\circ$) reaches $89$; $20^\circ/276^\circ$ wins only
+because its crossing lies just outside the range, at $\Bone=1.304$. Its $\alpha_2$ is therefore set by the
+assumed upper limit of $\Bone$ ($\alpha_2=\lfloor360^\circ/1.3\rfloor$): the worst case jumps from $100.3$ at $\alpha_2=276^\circ$ to
+$113.4$ at $277^\circ$. For parenchyma alone (no CSF) the best worst case is $61.0$ at $15^\circ/308^\circ$, against
+$68.0$ for the published design ($-10\%$).
+
+\paragraph{What the angles do decide.} Within the flat region the designs differ in the
+secondary quantities. \Cref{fig:profiles} shows the bounds against $\Bone$ for the shortlist.
+\begin{itemize}
+\item \emph{The $360^\circ$ crossing.} For $\alpha_2$ between $277^\circ$ and $514^\circ$ the scan-2 pulse passes through
+  $360^\circ$ somewhere in $\Bone\in[0.7,1.3]$ (at $\Bone=1.09$ for $330^\circ$). There the scan-2 signal vanishes and
+  scan 2 measures only $\Bone$ (\cref{prop:closed}): the $\Bone$ bound has a deep minimum, and the $\Tone$ bound
+  rises to that of scan 1 alone with $\Bone$ known. The rise comes from the loss of scan 2's
+  information about $\Ttwo$ and $\Ttwos$; with these known there is no peak, and at $180^\circ$ crossings there
+  is none either. The peak is about $0.5\%$ wide in $\Bone$ for CSF and $1$--$1.3\%$ for the parenchymal tissues,
+  and it sets the worst case of the published design (CSF, $103.6$ against a mean of $82.8$).
+\item \emph{Equal offsets.} In tissues with a short $\Ttwo$ the $\Tone$ bound also rises where the two
+  scans sample the same offset, $w_1=w_2$, i.e.\ $x_2=360^\circ\pm x_1$ ($\Bone=1.04$ and $1.14$ for $15^\circ/330^\circ$): there the
+  pathway ratios of the two scans coincide and separate $\Ttwo$ from $\Tone$ less well (\cref{fig:profiles}a).
+\item \emph{No crossing.} $20^\circ/276^\circ$ keeps both pulses away from multiples of $180^\circ$ over the whole range,
+  with no headroom at the top ($359^\circ$ at $\Bone=1.3$, where its bound rises). Its worst-case $\Bone$ bound is
+  $10.2$ against $19.2$, and its scan-2 pulse needs $30\%$ less energy at equal pulse duration ($16\%$ less,
+  with a $16\%$ shorter pulse, at equal peak $\Bone$). It pays $5\%$ in the mean $\Tone$ bound, mostly in CSF
+  ($91.3$ against $82.8$); only WM is slightly better ($36.8$ against $37.4$), while GM, deep GM and lesion
+  lose $2$--$4\%$. The design with $2.5\%$ headroom at both ends, $21^\circ/270^\circ$ ($\Bone$ crossings at $0.667$ and
+  $1.333$), has nearly the same worst case ($101.4$) and $\Bone$ bound ($10.2$); $18^\circ/270^\circ$ trades $1\%$ of worst
+  case for a better mean ($51.8$ against $53.7$) and a scan-1 $\Tone$ bound within $0.2\%$ of the two-stage
+  optimum ($109.9$ against $109.7$ at $\alpha_1=17^\circ$).
+\end{itemize}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{profiles.png}
+\caption{Bounds against $\Bone$ for the shortlisted designs (all parameters free; the $\Bone$ grid
+includes each design's crossing points). (a), (b) $\Tone$ bound for WM and CSF: the near-$360^\circ$ designs
+show a narrow peak where $\Bone\alpha_2=360^\circ$, and in WM broader bumps where $w_1=w_2$. (c) $\Bone$ bound for
+WM, logarithmic: the same crossing gives a null measurement of $\Bone$.}
+\label{fig:profiles}
+\end{figure}

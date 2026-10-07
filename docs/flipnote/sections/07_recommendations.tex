@@ -1,0 +1,48 @@
+\section{Recommendations and limitations}\label{sec:recommendations}
+
+\paragraph{Recommendations.}
+\begin{enumerate}
+\item \emph{Do not expect precision gains from the flip angles alone.} For the joint fit the
+  published $15^\circ/330^\circ$ is within $2\%$ (mean) and $3.3\%$ (worst case) of the best $\Tone$ bound, inside a
+  broad band of near-optimal designs (\cref{sec:maps}).
+\item \emph{Keep the scan-2 pulse away from $360^\circ$ over the whole $\Bone$ range.} Near $360^\circ$ the $\Tone$ bound
+  peaks (CSF), magnitude aliases come close to the truth, and unmodelled finite pulses
+  ($10$--$20\%$) and flip-angle spreads ($13$--$75\%$) bias $\Tone$, often without a detectable misfit on
+  resonance. Crossings of $180^\circ$ are
+  harmless. For $\Bone\in[0.7,1.3]$ this means $\alpha_2$ below $360^\circ/1.3=277^\circ$, and preferably with headroom:
+  \begin{itemize}
+  \item $\alpha_2\approx270^\circ$ (e.g.\ $21^\circ/270^\circ$ or $18^\circ/270^\circ$): worst-case $\Tone$ bound within $1$--$2.5\%$ of the optimum,
+    worst-case $\Bone$ bound $10$--$11$ against $19$, $33\%$ less energy at equal pulse duration than $330^\circ$, and
+    no aliases of any kind when fitted with $\Bone\in[0.667,1.333]$ (\cref{prop:noalias}), so magnitude
+    data suffice. It pays $3\%$ ($18^\circ/270^\circ$, all in CSF; it matches the published design in every
+    parenchymal tissue) to $7\%$ ($21^\circ/270^\circ$, about $60\%$ in CSF, with $4$--$7\%$ in GM and deep GM) in the
+    mean $\Tone$ bound;
+  \item $\alpha_2\approx255^\circ$ (e.g.\ $17^\circ/254^\circ$): the scan-2 angle stays below $330^\circ$ over the range, so the
+    slab-edge spread costs $<1\%$; it crosses $180^\circ$ near $\Bone=0.71$ (harmless for $\Tone$, magnitude aliases
+    below $\Bone=0.8$) and pays about $7\%$ in both $\Tone$ criteria relative to the published design.
+  \end{itemize}
+\item \emph{Model the finite pulse duration} whatever the design: unmodelled, pulses at the peak $\Bone$ of a
+  $1$\,ms $330^\circ$ pulse bias $\Tone$ by $2$--$20\%$, most where the scan-2 angle passes $330$--$350^\circ$, which every
+  design with $\alpha_2\ge254^\circ$ does somewhere in $[0.7,1.3]$.
+\item \emph{Two-stage pipeline}: $\alpha_1=17$--$19^\circ$ ($5$--$7\%$ better than $15^\circ$ for the $\Tone$ step), with
+  $\alpha_2\approx255$--$270^\circ$ for the $\Bone$ map.
+\item \emph{Under a SAR limit}, $\alpha_{\max}=240^\circ$ costs $6$--$14\%$ and $180^\circ$ costs $25$--$52\%$ in the $\Tone$ bound;
+  below about $150^\circ$ the precision falls off quickly (\cref{fig:pareto}a).
+\item \emph{Calibrate the pulse ratio.} Every design transfers a ratio error to $\Tone$ with a factor of at
+  least $1.64$ ($1.66$--$3.26$ over the $\Bone$ range in the shortlist), undetectably.
+\item \emph{Fitting range and data type.} With a wide fitting range such as $[0.6,1.4]$ every good design
+  has magnitude aliases, and complex data or the FID-sign test are needed; a no-crossing design
+  fitted within its own crossing-free range has none.
+\item \emph{Use a 3D acquisition} or model the slice profile.
+\end{enumerate}
+
+\paragraph{Limitations.} The criteria are local Cram\'er--Rao bounds under complex Gaussian
+noise; they predict the precision of an efficient estimator (which joint maximum likelihood
+attains for this model~\cite{technote}) but not its failure rate. The design space fixes $\TR$, the
+readout and the time per scan; the robustness range weights $\Bone$ uniformly and the five tissues
+equally, the worst case is dominated by CSF, and the worst-case optimum moves with the assumed
+upper limit of $\Bone$. The model-error study is noise-free, uses one representative of each effect
+and fits the two-stage design with the joint model rather than as a two-stage pipeline. Steps that
+remain: Monte Carlo with the actual estimator for the shortlist (bias, efficiency, failure and alias
+rates over the $\Bone$ range), phantom and BrainWeb simulations with a realistic $\Bone$ field, and a design
+with the finite pulses in the forward model.

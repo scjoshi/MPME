@@ -1,0 +1,43 @@
+\section{Computation and reproducibility}\label{app:repro}
+
+\paragraph{Information.} Single-scan Jacobians come from the exact implicit-differentiation
+Jacobian of the complex model (\texttt{mpme.fastjac}, 256 isochromats, float64), evaluated with a
+$1^\circ$ nominal pulse and $\Bone=x$ so that the $\ln\Bone$ column is $\partial/\partial\ln x$
+(\cref{prop:decomp}). Designs: all pairs $\alpha_1<\alpha_2$ on a $1^\circ$ grid in $[1^\circ,540^\circ]$ (145\,530
+pairs); $\Bone$ on $[0.7,1.3]$ in steps of $0.01$, plus each pair's own crossing points
+$\Bone=180^\circ k/\alpha_i$, where the bounds peak; five tissues. Bounds are $\sqrt{\operatorname{diag}\Fi^{-1}}$ of the
+diagonally normalised matrix, rescaled. Runtime about $15$ minutes on a laptop CPU.
+
+\paragraph{Aliases.} For every pair and every true $\Bone\in[0.7,1.3]$ (steps of $0.01$), the roots of
+$f(b')-f(\Bone)$ (complex) and $|f(b')|-|f(\Bone)|$ (magnitude) on $b'\in[0.6,1.4]$ are bracketed on each
+continuous branch of $f$ (4001-point grid) and kept if admissible for at least one tissue
+($\zeta\,|\tan(b'\alpha_1/2)/\tan(\Bone\alpha_1/2)|<1$). The vectorised map agrees with the exact root finder
+\texttt{mpme.design.alias\_roots} on spot checks, and the root finder reproduces the known aliases
+of the published protocol at true $\Bone=1$: the magnitude alias $1.1991$ in $[0.6,1.4]$ and the complex alias
+$2.0078$ in $[0.3,3]$.
+
+\paragraph{Checks.} \Cref{prop:decomp} against direct evaluation of the two-scan information
+(\texttt{mpme.crlb}): agreement to $3\times10^{-15}$ relative. \Cref{prop:perscan} ($J_{\Tone}=h(J_{\Bone}/c-J_{\Mzero})$):
+$10^{-14}$ at angles from $15^\circ$ to $330^\circ$ and $\Tone$ from 600 to 4000\,ms. \Cref{prop:closed,prop:ratio}:
+\cref{tab:reduced}. These are unit tests in \texttt{tests/test\_design.py} (tolerances $10^{-10}$, $10^{-12}$, $10^{-9}$ and $10^{-8}$
+for the four checks).
+
+\paragraph{Model-error fits.} Each fit of \cref{sec:robustness} starts from the truth and from nine
+points ($\Bone\in\{0.75,1,1.25\}$, $\Tone\in\{0.5,1,2\}\times$ truth); the lowest cost with $\Bone$ in the fitting range is
+kept, and fits ending on a safeguard bound of the optimiser are flagged.
+
+\paragraph{Scripts.}
+\begin{center}
+\small
+\begin{tabular}{ll}
+\toprule
+Result & Script\\
+\midrule
+Bounds, biases and alias status of all designs & \texttt{scripts/flip\_design.py}\\
+Shortlist, \cref{fig:theory,fig:maps,fig:profiles,fig:pareto,fig:alias}, \cref{tab:reduced,tab:shortlist} &
+  \texttt{scripts/flip\_design\_report.py}\\
+Model-error biases, \cref{tab:robustness} & \texttt{scripts/flip\_design\_robustness.py}\\
+\bottomrule
+\end{tabular}
+\end{center}
+All are run by \texttt{make flipnote}. The design functions are in \texttt{src/mpme/design.py}.

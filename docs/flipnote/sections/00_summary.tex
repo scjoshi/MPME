@@ -1,0 +1,48 @@
+\begin{abstract}
+The multi-pathway multi-echo (MPME) protocol of Cheng et al.~\cite{cheng2019} acquires two
+steady-state scans that differ only in the flip angle ($15^\circ$ and $330^\circ$). We ask which pair of flip
+angles best determines $\Tone$ and the other parameters. Using the Ernst-angle form of the
+signal invariants, we show that each scan reports only the offset of its flip angle from the
+tissue's Ernst angle, that the information of a design is the sum of two single-scan
+informations, and that two scans determine $\Bone$ through a lever $c(x_2)-c(x_1)$, $c(x)=x/\sin x$. This
+gives exact closed-form Cram\'er--Rao bounds and a closed-form bias for pulse-ratio errors. An
+exhaustive search over 145\,530 pairs, the transmit range $\Bone\in[0.7,1.3]$ and five tissues, with an
+analytic check for exact aliases, finds a flat optimum that contains the published design: no
+choice of angles improves the mean $\Tone$ bound by more than $2\%$ or the worst case by more than $3.2\%$.
+The angles matter instead for robustness. Unmodelled finite pulses and flip-angle spreads bias
+$\Tone$ most where the scan-2 pulse approaches $360^\circ$. A second pulse near $270^\circ$, which keeps that crossing
+out of the $\Bone$ range, nearly halves the worst-case $\Bone$ bound, needs $30$--$33\%$ less energy at equal
+pulse duration, has no aliases when fitted within its crossing-free range, and at $\Bone=1$ is nine times
+less biased in WM and GM by unmodelled finite pulses of the same peak $\Bone$ (but not at the top of the $\Bone$
+range), at a $3$--$7\%$ cost in mean $\Tone$ precision. Every design transfers a pulse-ratio error to $\Tone$ with
+a factor of at least $1.6$, and every design should model its finite pulses.
+\end{abstract}
+
+\section*{Summary of findings}
+
+\begin{enumerate}
+\item \textbf{Structure (\cref{sec:theory}).} A design's information is $\Fi_1(\Bone\alpha_1)+\Fi_1(\Bone\alpha_2)$. Per
+  scan, the $\Tone$ column of the Jacobian is $h(J_{\Bone}/c-J_{\Mzero})$, so a scan sees $\Bone$ and $\Tone$ only through
+  its offset from the Ernst angle. Pulses with equal $|\tan(x/2)|$ (e.g.\ $30^\circ$ and $330^\circ$) carry the same
+  per-scan information and differ only in the rate $c(x)=x/\sin x$ at which they move with $\Bone$ ($1.05$
+  and $-11.5$).
+\item \textbf{Closed forms (\cref{prop:closed,prop:ratio}).} $\mathrm{SD}(\ln\Bone)$ is the SD of the difference of
+  the two offsets divided by the lever $L=c_2-c_1$, and $\mathrm{SD}(\ln\Tone)$ that of a lever-weighted
+  combination; the $\Bone$ uncertainty reaches $\Tone$ with the factor $c_1/h\approx2$. A pulse-ratio error $\varepsilon$ gives
+  $\delta\ln\Tone=-c_1c_2\varepsilon/(hL)$, $|\delta\ln\Tone|\ge1.64\,\varepsilon$, with zero residual.
+\item \textbf{Flat optimum (\cref{sec:maps}).} Best mean $\Tone$ bound $49.2$ at $14^\circ/309^\circ$ (published: $50.2$);
+  best worst case $100.3$ at $20^\circ/276^\circ$ (published: $103.6$). The $5\%$ band extends over $\alpha_1=11$--$20^\circ$,
+  $\alpha_2=267$--$348^\circ$.
+\item \textbf{The $360^\circ$ crossing.} Where $\Bone\alpha_2=360^\circ$ scan 2 measures only $\Bone$; the $\Tone$ bound peaks there
+  ($0.5\%$ wide in $\Bone$ for CSF, $1$--$1.3\%$ for parenchyma), and this peak decides the worst case.
+\item \textbf{Aliases (\cref{sec:aliases}).} Exact aliases are the other roots of
+  $\tan(\Bone\alpha_2/2)/\tan(\Bone\alpha_1/2)=\xi_2/\xi_1$ and depend on $\Bone$ alone; $\mathrm d\ln|f|/\mathrm d\ln\Bone$ equals the lever. A
+  design whose pulses stay within $(0^\circ,180^\circ)$ and $(180^\circ,360^\circ)$ over the fitting range has none.
+\item \textbf{Constraints (\cref{sec:constraints}).} Pulses above $\approx300^\circ$ buy nothing; limiting the largest
+  angle to $240^\circ$ costs $6$--$14\%$, to $180^\circ$ $25$--$52\%$. For the two-stage pipeline $\alpha_1=17$--$19^\circ$ is best.
+\item \textbf{Model error (\cref{sec:robustness}).} Unmodelled finite pulses (equal peak $\Bone$, $1$\,ms for $330^\circ$)
+  bias $\Tone$ by $10$--$20\%$ wherever the scan-2 angle passes $330$--$350^\circ$ ($20\%$ at $\Bone=1$ with $330^\circ$, $2\%$ with
+  $270^\circ$); slab-edge flip-angle spreads near or across $360^\circ$ bias $\Tone$ by $13$--$74\%$. On resonance both are
+  often hard to detect. Recommendation (\cref{sec:recommendations}): $\alpha_1\approx17$--$21^\circ$,
+  $\alpha_2\approx255$--$270^\circ$ for $\Bone\le1.3$, finite pulses in the model, a calibrated pulse ratio.
+\end{enumerate}

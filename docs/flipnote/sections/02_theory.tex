@@ -1,0 +1,177 @@
+\section{Theory: what a pair of flip angles buys}\label{sec:theory}
+
+Write $c(x)=x/\sin x$ ($x$ in radians) and $h=\tau/(2\sinh\tau)$ with $\tau=\TR/\Tone$; $h\approx1/2$ for
+$\Tone\gg\TR$.
+
+\begin{proposition}[Decomposition]\label{prop:decomp}
+The Fisher information of a two-scan design at transmit scale $\Bone$ is
+\begin{equation}
+  \Fi(\alpha_1,\alpha_2;\Bone)=\Fi_1(\Bone\alpha_1)+\Fi_1(\Bone\alpha_2),
+  \label{eq:decomp}
+\end{equation}
+where $\Fi_1(x)$ is the information of a single scan at actual flip angle $x$, and the $\ln\Bone$
+column of a single-scan Jacobian is $\partial/\partial\ln x$.
+\end{proposition}
+\begin{proof}
+The scans have independent noise, so their informations add. Within one scan $\Bone$ enters only
+through $x=\Bone\alpha$, so $\partial/\partial\ln\Bone=x\,\partial/\partial x=\partial/\partial\ln x$.
+\end{proof}
+
+\Cref{prop:decomp} makes an exhaustive search cheap: $\Fi_1$ is tabulated once per tissue on the
+actual angles that occur, and every design at every $\Bone$ is a sum of two $7\times7$ matrices. It
+agrees with direct evaluation of the two-scan information to $3\times10^{-15}$.
+
+\begin{proposition}[One scan in Ernst-angle coordinates]\label{prop:perscan}
+Fix $\Ttwo$, $\Ttwos$, $\dw$, $\phi_0$. The signal of one scan depends on $(\Mzero,\Bone,\Tone)$ only through
+the offset $w$ of \eqref{eq:w} and $\ell=\ln(\Mzero\zeta)$, with
+\begin{equation}
+  \frac{\partial w}{\partial\ln\Bone}=c(x),\qquad\frac{\partial w}{\partial\ln\Tone}=h,\qquad
+  \frac{\partial\ell}{\partial\ln\Tone}=-h,\qquad\frac{\partial\ell}{\partial\ln\Mzero}=1 .
+  \label{eq:chain}
+\end{equation}
+Consequently its Jacobian columns satisfy $J_{\Tone}=h\,(J_{\Bone}/c-J_{\Mzero})$, and its information about
+$(w,\ell)$ depends on the flip angle only through $w$ (for given $\ell$, $\Ttwo$, $\Ttwos$, $\dw$). Angles with equal
+$|\tan(x/2)|$, i.e.\ $x$ and $\pm x+360^\circ m$, therefore carry the same information and differ only in the
+rate $c$: $\Fi_1(x')=D\,\Fi_1(x)\,D$, where $D$ multiplies the $\ln\Bone$ row and column by $c(x')/c(x)$.
+\end{proposition}
+\begin{proof}
+By the two-invariant form and the Ernst-angle form,
+\[
+  \Mzero a_k=\sgn\bigl(\tan\tfrac x2\bigr)\,\E^\ell\operatorname{sech}(w)\,G_k(\tanh w,E_2,\dw),
+\]
+which depends on $(\Mzero,\Bone,\Tone)$ through $(w,\ell)$ only; the sign is constant between multiples
+of $180^\circ$ (it changes sign there, which is what produces aliases, \cref{sec:aliases}) and does not
+enter the information.
+The derivatives follow from $\zeta^2=\tanh(\tau/2)$ and
+\[
+  \frac{\mathrm d\ln|\tan(x/2)|}{\mathrm d\ln x}=\frac{x}{\sin x}=c,\qquad
+  \frac{\mathrm d\ln\zeta}{\mathrm d\ln\tau}=\frac{\tau}{2\sinh\tau}=h,\qquad
+  \frac{\mathrm d\ln\tau}{\mathrm d\ln\Tone}=-1 .
+\] The information about $(w,\ell)$ is $\Re$ of the Gram matrix of
+$(\partial S/\partial w,\partial S/\partial\ell)$, a function of $w$ alone.
+\end{proof}
+
+The identity $J_{\Tone}=h(J_{\Bone}/c-J_{\Mzero})$ holds numerically to $10^{-14}$ at the angles tested. It is the
+precise sense in which a single scan cannot separate $\Bone$ from $\Tone$: the $\Tone$ column is a fixed
+combination of the other two. It also says that a $330^\circ$ pulse is a $30^\circ$ pulse ($|\tan165^\circ|=
+\tan15^\circ$) whose sample moves eleven times faster with $\Bone$, and in the opposite direction (we call
+$c(x)$ the \emph{rate} of a scan):
+$c(30^\circ)=1.05$, $c(330^\circ)=-11.5$ (\cref{fig:theory}a,b). The per-scan information on $w$
+(\cref{fig:theory}c) peaks a little above the Ernst angle for the parenchymal tissues
+($w=0.1$--$0.4$, actual angles $13$--$16^\circ$) and well above it for CSF ($w=1.85$, $39^\circ$), whose long $\Ttwo$
+makes the pathway ratios informative at larger angles.
+
+\begin{proposition}[Two scans: closed-form bounds]\label{prop:closed}
+Let $L=c(x_2)-c(x_1)\ne0$ be the \emph{lever} of the design (the difference of the per-scan rates
+$c$), and let $Q$ be the information about $(w_1,w_2)$ after the
+shared amplitude $\ell$ and the parameters $\ln\Ttwo$, $\ln\Ttwos$, $\dw$, $\phi_0$ have been profiled out. Then the
+Cram\'er--Rao bounds of the full model are
+\begin{align}
+  \mathrm{SD}(\ln\Bone)&=\frac{\sqrt{e^{\mathsf T}Q^{-1}e}}{|L|},\quad e=(-1,1),&
+  \mathrm{SD}(\ln\Tone)&=\frac{\sqrt{g^{\mathsf T}Q^{-1}g}}{h\,|L|},\quad g=(c_2,-c_1),
+  \label{eq:closed}
+\end{align}
+and with $\Bone$ known $\mathrm{SD}(\ln\Tone)=1/(h\sqrt{\mathbf 1^{\mathsf T}Q\mathbf 1})$. With $\Ttwo$, $\Ttwos$, $\dw$, $\phi_0$ known, the
+same formulas hold with $Q$ profiled over $\ell$ only.
+\end{proposition}
+\begin{proof}
+By \eqref{eq:chain}, the map $\theta\mapsto(w_1,w_2,\ell,\ln\Ttwo,\ln\Ttwos,\dw,\phi_0)$ is a local diffeomorphism whose
+Jacobian has the block $\begin{psmallmatrix}0&c_1&h\\0&c_2&h\\1&0&-h\end{psmallmatrix}$ in $(\ln\Mzero,\ln\Bone,\ln\Tone)$, of
+determinant $-hL$, and the identity in the remaining parameters. Inverting it, to first order
+$\mathrm d\ln\Bone=(\mathrm dw_2-\mathrm dw_1)/L$ and $h\,\mathrm d\ln\Tone=(c_2\,\mathrm dw_1-c_1\,\mathrm dw_2)/L$. The bounds transform with the
+Jacobian, so the covariance of $(\ln\Bone,\ln\Tone)$ is that of $(w_1,w_2)$, i.e.\ $Q^{-1}$ (the inverse of
+the information profiled over all other coordinates), mapped by these two linear forms. With
+$\Bone$ known, $\mathrm dw_1=\mathrm dw_2=h\,\mathrm d\ln\Tone$, so the information about $h\ln\Tone$ is $\mathbf1^{\mathsf T}Q\mathbf1$.
+\end{proof}
+
+\Cref{prop:closed} separates the design into two ingredients: \emph{where} each scan samples the
+bump (through $Q$, which depends on the offsets $w_1$, $w_2$) and \emph{how differently} the two samples
+move with $\Bone$ (through $L$). $\Bone$ is measured by the difference of the offsets divided by the lever,
+$\Tone$ by a lever-weighted combination. Writing $g=L\,e_1-c_1e$ with $e_1=(1,0)$ gives the exact decomposition
+\begin{equation}
+  \mathrm{Var}(\ln\Tone)=\frac{(Q^{-1})_{11}+2(c_1/L)\bigl[(Q^{-1})_{11}-(Q^{-1})_{12}\bigr]}{h^2}
+  +\Bigl(\frac{c_1}{h}\Bigr)^2\mathrm{Var}(\ln\Bone):
+  \label{eq:t1decomp}
+\end{equation}
+the $\Tone$ uncertainty is a scan-1 term plus the $\Bone$ uncertainty carried over with the factor
+$c_1/h\approx2c_1$, the same factor that carries a pulse-ratio error (\cref{prop:ratio}). Three
+consequences follow.
+
+\begin{itemize}
+\item \emph{Large levers.} As $|L|$ grows, $\mathrm{Var}(\ln\Tone)\to(Q^{-1})_{11}/h^2+(c_1/h)^2\mathrm{Var}(\ln\Bone)$, with a correction of
+  order $c_1/L$. For the published design ($L=-12.5$) the correction lowers the variance by about a
+  fifth (WM: from $937$ to $746$); for $|L|\approx6$, as in the no-crossing designs, it is comparable to the
+  total, and the limit is not a useful approximation. The lever is
+  largest where $\sin x_2\to0$, i.e.\ at $x_2=180^\circ m$, but there the scan-2 signal vanishes too. At such a
+  crossing \cref{prop:closed} holds only as a limit; directly, the scan-2 Jacobian then has a
+  single non-zero column, $\ln\Bone$ (the signal is zero but its derivative is not), so scan 2 measures
+  $\Bone$ alone, a null measurement. Because the single-scan null direction
+  $(\delta\ln\Mzero,\delta\ln\Bone,\delta\ln\Tone)\propto(h,-h/c_1,1)$ has a non-zero $\Bone$ component, the information matrix stays
+  non-singular (the bounds finite) unless $x_1$ is also at a crossing.
+\item \emph{Small angles.} For two small angles $c_1\approx c_2\approx1$, $L\to0$, and both bounds diverge:
+  the leading-order degeneracy of small-angle protocols~\cite{technote}.
+\item \emph{Equivalent pulses.} $30^\circ$, $330^\circ$, $390^\circ$ and $690^\circ$ have the same per-scan information
+  but rates $c=1.05$, $-11.5$, $13.6$ and $-24.1$. A larger rate helps only if the pulse does not
+  cross a multiple of $180^\circ$ over the range of $\Bone$ and is affordable in SAR.
+\end{itemize}
+
+\begin{proposition}[Pulse-ratio error]\label{prop:ratio}
+Suppose the actual scan-2 angle is $(1+\varepsilon)$ times its nominal value relative to scan 1 and the
+fit assumes the nominal ratio. Then, to first order and whichever of $\Ttwo$, $\Ttwos$, $\dw$, $\phi_0$ are
+fitted,
+\begin{equation}
+  \delta\ln\Tone=-\frac{c_1c_2}{h\,L}\,\varepsilon,\qquad \delta\ln\Bone=\frac{c_2}{L}\,\varepsilon,\qquad
+  \delta\ln\Mzero=h\,\delta\ln\Tone ,
+  \label{eq:ratiobias}
+\end{equation}
+$\Ttwo$, $\Ttwos$, $\dw$, $\phi_0$ are unbiased, and the fit has zero residual: the error cannot be detected
+from the data.
+\end{proposition}
+\begin{proof}
+The error shifts the scan-2 offset by $c_2\varepsilon$ and nothing else, so the perturbation of the data is
+$\delta S=\varepsilon c_2\,\partial S/\partial w_2$. By the proof of \cref{prop:closed} this equals $J\,\delta\theta^*$ with $\delta\theta^*$ given by
+\eqref{eq:ratiobias} (and $\delta\ell=0$, hence $\delta\ln\Mzero=h\,\delta\ln\Tone$) and zero in the other parameters. Since
+$\delta S$ lies in the range of $J$, the first-order least-squares bias $\Fi^{-1}J^{\mathsf T}\delta S=\Fi^{-1}J^{\mathsf T}J\,\delta\theta^*=\delta\theta^*$,
+for any set of free parameters with $J$ of full column rank. For finite $\varepsilon$, the local invertibility
+of the map of \cref{prop:closed} (for $L\ne0$, and as long as $(1+\varepsilon)x_2$ crosses no multiple of
+$180^\circ$) gives parameters that reproduce the perturbed data exactly.
+\end{proof}
+
+The transfer factor can be written $-c_1c_2/(hL)=-1/\bigl(h\,[\operatorname{sinc}x_1-\operatorname{sinc}x_2]\bigr)$ with $\operatorname{sinc}x=\sin x/x$.
+Since $|\operatorname{sinc}x|\le1$ and $\operatorname{sinc}x\ge-0.2172$ (the minimum, at $x=257.45^\circ$ where $\tan x=x$), every design
+has $|\mathrm d\ln\Tone/\mathrm d\varepsilon|\ge1/(1.2172\,h)\approx1.64$, approached for $x_1\to0$ and $x_2\to257^\circ$. No choice of angles makes
+the factor small: a $1\%$ ratio error becomes at least a $1.6\%$ $\Tone$ error (\cref{sec:robustness}).
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{theory.png}
+\caption{(a) The rate $c(x)=x/\sin x$ at which a sample moves along the log half-angle axis per unit
+change of $\ln\Bone$. Dotted: multiples of $180^\circ$. (b) The offset \eqref{eq:w} of a sample
+from each tissue's Ernst angle; $x$ and $360^\circ-x$ have the same offset. (c) Information about
+$w$ in one scan with the amplitude unknown ($\Ttwo$, $\Ttwos$, $\dw$, $\phi_0$ known), against $w$; markers: maxima.}
+\label{fig:theory}
+\end{figure}
+
+\Cref{tab:reduced} evaluates \cref{prop:closed,prop:ratio} for the shortlisted designs of
+\cref{sec:constraints}; the closed forms agree with direct inversion of the $3\times3$ and $7\times7$
+information to rounding. Freeing $\Ttwo$, $\Ttwos$, $\dw$ and $\phi_0$ costs $7$--$30\%$ in the $\Tone$ bound; in
+\eqref{eq:closed} this is the information about the offsets that scan 2 must spend on $\Ttwo$ and $\Ttwos$.
+
+\begin{table}[!htbp]
+\centering
+\caption{\Cref{prop:closed,prop:ratio} for the shortlist, WM at $\Bone=1$ (bounds per unit $\sigma/\Mzero$).
+``known'': $\Ttwo$, $\Ttwos$, $\dw$, $\phi_0$ known; ``free'': all seven parameters free. Ratio bias: $\mathrm d\ln\Tone/\mathrm d\varepsilon$
+and $\mathrm d\ln\Mzero/\mathrm d\varepsilon$. Last column: largest relative difference between the closed forms and direct
+inversion of the $3\times3$ and $7\times7$ information. For $28^\circ/180^\circ$, $x_2=180^\circ$ at $\Bone=1$ and the closed form is a limit.}
+\label{tab:reduced}
+\small\setlength{\tabcolsep}{4pt}
+\begin{tabular}{ccccccccc}
+\toprule
+& & \multicolumn{2}{c}{SD$(\ln\Bone)$} & \multicolumn{2}{c}{SD$(\ln\Tone)$} & \multicolumn{2}{c}{ratio bias} & closed vs\\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}
+$\alpha_1/\alpha_2$ & $L$ & known & free & known & free & $\Tone$ & $\Mzero$ & matrix\\
+\midrule
+\input{tables/reduced.tex}
+\bottomrule
+\end{tabular}
+\end{table}

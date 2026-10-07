@@ -1,7 +1,7 @@
 PY := PYTHONPATH=src python3
 FAST := --jacobian implicit
 
-.PHONY: test technote technote-results technote-pdf technote-reference
+.PHONY: test technote technote-results technote-pdf technote-reference flipnote flipnote-pdf
 
 test:
 	$(PY) -m pytest -q
@@ -32,3 +32,14 @@ technote-reference:
 	$(PY) scripts/magnitude_comparison.py
 	$(PY) scripts/make_mc_table.py
 	$(PY) scripts/make_mag_table.py
+
+# Flip-angle design note (docs/flipnote): design maps, shortlist, robustness, PDF.
+flipnote:
+	$(PY) scripts/flip_design.py
+	$(PY) scripts/flip_design_report.py
+	PYTHONPATH=src:scripts python3 scripts/flip_design_robustness.py
+	$(MAKE) flipnote-pdf
+
+flipnote-pdf:
+	cd docs/flipnote && pdflatex -interaction=nonstopmode flip_design.tex >/dev/null && \
+	  pdflatex -interaction=nonstopmode flip_design.tex | grep -E "Output written|^!"
