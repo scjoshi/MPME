@@ -272,7 +272,7 @@ def tables():
     # run times
     lines = [r"\begin{table}[!htbp]", r"\centering",
              r"\caption{Reconstruction times for the phantom (voxels in the mask; laptop CPU, "
-             r"8 threads, implicit Jacobian, float64, 128 isochromats, 40 iterations).}",
+             r"8 threads, implicit Jacobian, float32, 128 isochromats, 25 iterations).}",
              r"\label{tab:phantomtime}", r"\small", r"\begin{tabular}{lrr}", r"\toprule",
              r"Step & " + " & ".join(f"SNR {k.split()[1]}" for k in S) + r"\\", r"\midrule"]
     keys = list(next(iter(S.values()))["times_s"].keys())
@@ -324,9 +324,6 @@ def main():
     fig_brainweb()
     print("figures and tables written to", FIG.parent)
 
-
-if __name__ == "__main__":
-    main()
 
 
 # ------------------------------------------------------------------------------------------
@@ -434,7 +431,7 @@ def fig_brainweb():
                      f"{100 * det['SNR 1000'][c]:.1f}\\,\\% / {100 * det['SNR 3000'][c]:.1f}\\,\\%\\\\")
     lines += [r"\bottomrule", r"\end{tabular}", r"\end{table}", ""]
     lines += [r"\begin{table}[!htbp]", r"\centering",
-              r"\caption{BrainWeb at SNR$(\Mzero)=1000$, complex ML: SD of $\log(\hat\Tone/\Tone_{\rm eff})$ with "
+              r"\caption{BrainWeb at SNR$(\Mzero)=1000$, complex ML: SD of $\log(\hat\Tone/T_{1,\rm eff})$ with "
               r"partial volume and in the control without it, coverage of $95\%$ uncertainty intervals, "
               r"and the fraction of voxels flagged by the $\chi^2$ test.}",
               r"\label{tab:bwnoisy}", r"\footnotesize",
@@ -449,3 +446,7 @@ def fig_brainweb():
                      f"{100 * pv['flagged_chi2_99.9'][c]:.1f}\\,\\%\\\\")
     lines += [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
     (TAB / "brainweb.tex").write_text("\n".join(lines) + "\n")
+
+
+if __name__ == "__main__":
+    main()
