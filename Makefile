@@ -15,6 +15,7 @@ technote-results:
 	$(PY) scripts/shared_b1_check.py
 	$(PY) scripts/beyond_ideal_model.py
 	$(PY) scripts/start_count.py
+	$(PY) scripts/two_scan_design.py
 	$(PY) scripts/phantom_experiment.py --snr 1000
 	$(PY) scripts/phantom_experiment.py --snr 300
 	PYTHONPATH=src:scripts python3 scripts/brainweb_experiment.py --case pv_clean

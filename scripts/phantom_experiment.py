@@ -145,6 +145,7 @@ def main():
                       for s in st])
         times["A: complex ML (4 starts)"] = time.time() - t; done("A: complex ML (4 starts)")
         t = time.time()
+        ml_pre = ml                                   # before the spatial restart (diagnostics)
         B1map = torch.full_like(ph.B1, float("nan")); B1map[m] = ml["B1"]
         B1s_A = polyfit_2d(B1map, m)[m].clamp(0.5, B1_MAX)
         rs_ml = spatial_restart(ml, B1s_A)
@@ -232,12 +233,18 @@ def main():
                               - torch.view_as_real(Sv[a:a + CHUNK]).flatten(1)) ** 2).sum(1)
                             for a in range(0, V, CHUNK)])
         big = (ml["T1"] / truth["T1"]).log().abs() > 0.3
+        big_pre = (ml_pre["T1"] / truth["T1"]).log().abs() > 0.3
+        above_pre = ml_pre["cost"] > c_true * (1 + 1e-5)
         near360 = (truth["B1"] * 330 - 360).abs() < 3
         diag = {"restart_improved_ml": n_restart_ml, "restart_improved_mag": n_restart_mag,
                 "ml_cost_above_truth": int((ml["cost"] > c_true * (1 + 1e-5)).sum()),
                 "ml_large_T1_error": int(big.sum()),
                 "ml_large_T1_error_near360": int((big & near360).sum()),
                 "ml_large_T1_error_cost_above_truth": int((big & (ml["cost"] > c_true * (1 + 1e-5))).sum()),
+                "pre_restart_large_T1_error": int(big_pre.sum()),
+                "pre_restart_large_T1_error_near360": int((big_pre & near360).sum()),
+                "pre_restart_large_T1_error_cost_above_truth": int((big_pre & above_pre).sum()),
+                "pre_restart_cost_above_truth": int(above_pre.sum()),
                 "near360_voxels": int(near360.sum())}
         print("  diagnostics:", diag)
         summary[f"SNR {snr:g}"] = {"times_s": times, "roi": stats, "calibration": calib,

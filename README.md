@@ -40,7 +40,7 @@ not regenerated; compare and update them after a rerun. Times are for an 8-threa
 
 ### Technical note — `make technote` (= `technote-results` + `technote-pdf`)
 
-The five analysis scripts are independent and deterministic; each takes seconds to ~2 min.
+The six analysis scripts are independent and deterministic; each takes seconds to ~2 min.
 
 | Script | Purpose | Writes |
 |---|---|---|
@@ -49,6 +49,7 @@ The five analysis scripts are independent and deterministic; each takes seconds 
 | `shared_b1_check.py` | Whether voxels sharing one B1 rescue a single scan | `docs/technote/tables/shared_b1.tex`, `results/shared_b1_check.json` |
 | `beyond_ideal_model.py` | Whether physics outside the ideal model gives scan 1 any B1 information | `docs/technote/tables/beyond_model.tex`, `results/beyond_ideal_model.json` |
 | `start_count.py` | Whether one maximum-likelihood start is enough (2000 voxels, SNR 300/1000) | `results/start_count.json` (→ `\Start*` macros) |
+| `two_scan_design.py` | Why one scan cannot separate B1 and T1; evaluation of second-scan designs (~1–3 min) | `results/two_scan_design.json` |
 
 The simulation experiments run next, in this order:
 
@@ -60,7 +61,8 @@ PYTHONPATH=src python3 scripts/technote_figures.py
 
 - `phantom_experiment.py`: digital brain phantom, analytic inverse vs complex ML vs magnitude
   LS (Scenarios A and B). Writes `results/phantom_snr{1000,300}.pt` (~77 MB each) and
-  `results/phantom_summary.json`. Only SNRs 1000 and 300 are supported downstream.
+  `results/phantom_summary.json` (including the optimiser diagnostics before and after the
+  spatial restart, used in the phantom section of the technote). Only SNRs 1000 and 300 are supported downstream.
 - `brainweb_experiment.py --case {pv_clean,pv,crisp}`: partial-volume test on one BrainWeb
   slice; needs the data in `data/brainweb/`. Run all three cases (not in parallel; they share
   `results/brainweb_summary.json`).
@@ -92,8 +94,3 @@ PYTHONPATH=src python3 scripts/technote_figures.py
 `limits_figures.py` writes `docs/figures/limits_{lever,crossing}.png`,
 `docs/latex/limits_budget.tex` and `results/limits_numbers.json` (< 1 min), then the Makefile
 builds `docs/latex/mpme_b1_t1_limits.pdf`.
-
-### Other
-
-`two_scan_design.py` (~1–3 min) shows why one scan cannot separate B1 and T1 and evaluates second-scan
-designs: `results/two_scan_design.json`. It is not part of any Makefile target.

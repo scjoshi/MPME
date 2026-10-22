@@ -79,13 +79,13 @@ the $\Bone\le540/330$ bound and four starts (\cref{alg:ml}), processed in chunks
   full-resolution scan 1 with $\Bone$ fixed.
 \end{itemize}
 
-\paragraph{Why the spatial restart.} Without it, 324 voxels (SNR 1000) had $|\log(\hat\Tone/\Tone)|>0.3$;
-321 of them lie within $3^\circ$ of $\alpha_2=360^\circ$, where scan 2 carries almost no signal and the problem
-approaches the one-scan degeneracy of \cref{cor:onescan}. In 222 of the 324 the final cost
+\paragraph{Why the spatial restart.} Without it, \DiagPreBigThousand{} voxels (SNR 1000) had $|\log(\hat\Tone/\Tone)|>0.3$;
+\DiagPreBigNearThousand{} of them lie within $3^\circ$ of $\alpha_2=360^\circ$, where scan 2 carries almost no signal and the problem
+approaches the one-scan degeneracy of \cref{cor:onescan}. In \DiagPreBigAboveThousand{} of the \DiagPreBigThousand{} the final cost
 exceeded the cost at the true parameters (optimiser failures: all four starts derive from
 estimators that are unreliable at $360^\circ$). The smoothed $\Bone$ map is accurate to $0.03\%$ there,
 and the restart removes all optimiser failures (no voxel ends above the true-parameter cost).
-The remaining large errors (53 at SNR 1000, 50 of them within $3^\circ$ of $360^\circ$) all have a cost at
+The remaining large errors (\DiagPostBigThousand{} at SNR 1000, \DiagPostBigNearThousand{} of them within $3^\circ$ of $360^\circ$) all have a cost at
 or below the true one: they are genuine maxima of the likelihood, a property of the protocol
 at $\alpha_2\approx360^\circ$ rather than of the estimator.
 

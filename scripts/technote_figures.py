@@ -295,6 +295,12 @@ def tables():
                    rf"\newcommand{{\WrongML{tagw}}}{{{row['wrong_branch']['A: complex ML']}}}",
                    rf"\newcommand{{\WrongMag{tagw}}}{{{row['wrong_branch']['A: magnitude LS + FID sign']}}}",
                    rf"\newcommand{{\Voxels}}{{{row['voxels']}}}" if tag == "1000" else ""]
+        d = row.get("diagnostics", {})
+        names = {"PreBig": "pre_restart_large_T1_error", "PreBigNear": "pre_restart_large_T1_error_near360",
+                 "PreBigAbove": "pre_restart_large_T1_error_cost_above_truth",
+                 "PostBig": "ml_large_T1_error", "PostBigNear": "ml_large_T1_error_near360",
+                 "PostAbove": "ml_cost_above_truth"}
+        macros += [rf"\newcommand{{\Diag{n}{tagw}}}{{{d[k]}}}" for n, k in names.items() if k in d]
     sc = json.loads((RES / "start_count.json").read_text())
     for s, row in sc.items():
         tag = {"1000": "Thousand", "300": "ThreeHundred"}[s.split()[1]]

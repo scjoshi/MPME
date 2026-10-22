@@ -5,8 +5,11 @@ All results are produced by the code in the accompanying repository
 \begin{center}
 \texttt{make technote}
 \end{center}
-regenerates every number, table and figure with the fast (implicit-Jacobian) settings and
-compiles this note; \texttt{make technote-reference} reruns the Monte Carlo experiments with
+reruns every script in the code map except the reference Monte Carlo and the benchmark,
+regenerates every table, figure and macro with the fast (implicit-Jacobian) settings, and
+compiles this note. Numbers quoted in the running text are taken from the outputs of these
+scripts (\texttt{results/*.json} and standard output) and must be updated by hand after a rerun.
+\texttt{make technote-reference} reruns the Monte Carlo experiments with
 the forward-difference reference settings used for \cref{tab:mc,tab:mcb1,tab:mcdiag,tab:mag}.
 
 \begin{table}[!htbp]
