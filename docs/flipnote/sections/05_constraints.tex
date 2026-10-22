@@ -7,6 +7,37 @@ costs $6\%$ in the worst case and $14\%$ in the mean; a limit of $180^\circ$ cos
 limit of $120^\circ$ more than doubles both. Relative to $330^\circ$, a second pulse at $276^\circ$ needs $30\%$ less
 energy at equal pulse duration; at equal peak $\Bone$ it is $16\%$ shorter and needs $16\%$ less energy.
 
+\paragraph{A second pulse below $90^\circ$.} A small second pulse is attractive for SAR, but it removes
+the lever. Both pulses then lie in the regime where $c(x)=x/\sin x$ barely changes, so $L$ is small
+($+0.48$ for $15^\circ/85^\circ$, against $-12.5$ for $15^\circ/330^\circ$) and the two scans see $\Bone$ and $\Tone$ almost as one
+scan does. \Cref{tab:secondangle} gives the price. At $85^\circ$ the worst-case joint $\Tone$ bound is $6.8$ times the
+published one with $\alpha_1=15^\circ$ and still $4.5$ times with the best first angle ($34^\circ$); the worst-case $\Bone$ bound is
+$10$--$17$ times larger. The loss comes from having to estimate $\Bone$: with $\Bone$ known and $\alpha_1=15^\circ$, the scan-pair $\Tone$
+bound is $93$--$107$ for every $\alpha_2$ in the table. In exchange, scan 2 needs $7\%$ of the energy of
+$330^\circ$, there is no alias and no $360^\circ$ crossing, and finite-pulse errors are small. The cost falls steadily as $\alpha_2$ rises
+and is moderate only beyond $180^\circ$, where $c$ changes sign and $|L|$ becomes large: $210^\circ$ costs $10$--$60\%$ at
+$40\%$ of the energy, and $270^\circ$ costs $0$--$10\%$ at $67\%$.
+
+\begin{table}[!htbp]
+\centering
+\caption{Cost of a smaller second pulse. For each $\alpha_2$: $\alpha_1=15^\circ$ and the $\alpha_1$ with the smallest worst-case
+joint $\Tone$ bound (no complex alias). Lever $L=c(\alpha_2)-c(\alpha_1)$ at $\Bone=1$; bounds per unit $\sigma/\Mzero$, worst case
+(w.) or mean over $\Bone\in[0.7,1.3]$ and the five tissues; ``$\Bone$ known'': joint two-scan $\Tone$ bound with $\Bone$ fixed;
+``rel.'': worst-case $\Tone$ bound relative to $15^\circ/330^\circ$; energy: scan-2 RF energy per pulse relative to $330^\circ$ at equal
+pulse duration.}
+\label{tab:secondangle}
+\small
+\begin{tabular}{lccccccc}
+\toprule
+& & \multicolumn{2}{c}{$\Tone$ bound} & $\Bone$ & $\Tone$, $\Bone$ known & & \\
+\cmidrule(lr){3-4}
+$\alpha_1/\alpha_2$ & $L$ & w. & mean & w. & w. & rel. & energy\\
+\midrule
+\input{tables/second_angle.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
 \paragraph{Two-stage pipeline.} When scan 2 serves only to map a smooth $\Bone$, $\alpha_1$ should minimise
 the scan-1 $\Tone$ bound with $\Bone$ known (\cref{fig:pareto}b). The minimum lies at $17^\circ$ (worst case,
 $109.7$) to $19^\circ$ (mean, $64.5$), against $117.8$ and $68.0$ at $15^\circ$: a gain of $5$--$7\%$, consistent with

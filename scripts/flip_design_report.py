@@ -16,6 +16,7 @@ B1 ∈ [0.6, 1.4]. Shortlist:
 
     PYTHONPATH=src python3 scripts/flip_design_report.py
     → results/flip_design.json, docs/flipnote/figures/*.png, docs/flipnote/tables/*.tex
+    (including second_angle.tex: the cost of a smaller second pulse, e.g. 85°)
 """
 
 from __future__ import annotations
@@ -365,6 +366,29 @@ def tab_reduced(sl, d):
     return rows, out
 
 
+def tab_second_angle(d, c, a2_list=(85, 120, 150, 210, 270, 330)):
+    """Cost of a smaller second pulse: alpha1 = 15 deg and the best alpha1 (worst-case T1, no
+    complex alias) for each alpha2. Energy of scan 2 relative to 330 deg at equal pulse duration."""
+    ang, I, J, ok = d["ang"], d["I"], d["J"], d["alias"] < 2
+    rate = lambda x: math.radians(x) / math.sin(math.radians(x))
+    pub = int(np.nonzero((ang[I] == 15) & (ang[J] == 330))[0][0])
+    rows, out = [], []
+    for a2 in a2_list:
+        m = ok & (ang[J] == a2)
+        best = int(np.argmin(np.where(m, c["worst"], np.inf)))
+        fixed = int(np.nonzero((ang[I] == 15) & (ang[J] == a2))[0][0])
+        for idx in dict.fromkeys((fixed, best)):
+            a1 = float(ang[I[idx]])
+            r = {"angles": [a1, float(a2)], "lever": rate(a2) - rate(a1),
+                 **{k: float(c[k][idx]) for k in ("worst", "mean", "B1_worst", "T1known_worst")},
+                 "energy": (a2 / 330) ** 2, "alias": int(d["alias"][idx])}
+            out.append(r)
+            rows.append(f"{a1:g}/{a2:g} & ${r['lever']:+.2f}$ & {r['worst']:.0f} & {r['mean']:.0f} & "
+                        f"{r['B1_worst']:.0f} & {r['T1known_worst']:.0f} & "
+                        f"{r['worst'] / c['worst'][pub]:.1f} & {r['energy']:.2f}\\\\")
+    return rows, out
+
+
 def main():
     d, names = load()
     c = criteria(d, names)
@@ -384,6 +408,8 @@ def main():
     (TAB / "shortlist.tex").write_text("\n".join(tab_shortlist(d, c, sl, aliases)) + "\n")
     rows, red = tab_reduced(sl, d)
     (TAB / "reduced.tex").write_text("\n".join(rows) + "\n")
+    rows2, second = tab_second_angle(d, c)
+    (TAB / "second_angle.tex").write_text("\n".join(rows2) + "\n")
     fig_theory()
     fig_maps(d, c, sl)
     fig_profiles(d, sl)
@@ -399,7 +425,7 @@ def main():
         "best_worst_with_alpha1_gt_90": float(np.where(d["alias"] < 2, c["worst"], np.inf)[big].min()),
         "alias_counts": np.bincount(d["alias"], minlength=3).tolist(),
         "best_worst_alias_free_all": float(np.where(d["alias"] == 0, c["worst"], np.inf).min()),
-        "pareto": par, "reduced": red,
+        "pareto": par, "reduced": red, "second_angle": second,
         "alias_intervals": {k: {q: intervals_text(v[q]) for q in v} for k, v in aliases.items()},
         "alias_matched_range": matched,
         "scan1_known_best_alpha1": float(ang[int(np.argmin(c["scan1_known_worst_by_angle"]))]),

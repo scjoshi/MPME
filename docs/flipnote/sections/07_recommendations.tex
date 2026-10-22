@@ -27,7 +27,9 @@
 \item \emph{Two-stage pipeline}: $\alpha_1=17$--$19^\circ$ ($5$--$7\%$ better than $15^\circ$ for the $\Tone$ step), with
   $\alpha_2\approx255$--$270^\circ$ for the $\Bone$ map.
 \item \emph{Under a SAR limit}, $\alpha_{\max}=240^\circ$ costs $6$--$14\%$ and $180^\circ$ costs $25$--$52\%$ in the $\Tone$ bound;
-  below about $150^\circ$ the precision falls off quickly (\cref{fig:pareto}a).
+  below about $150^\circ$ the precision falls off quickly (\cref{fig:pareto}a), and a second pulse below $90^\circ$
+  costs a factor $4.5$--$6.8$ in the worst case (\cref{tab:secondangle}). Lower the energy by moving $\alpha_2$ to
+  $255$--$270^\circ$ rather than below $180^\circ$.
 \item \emph{Calibrate the pulse ratio.} Every design transfers a ratio error to $\Tone$ with a factor of at
   least $1.64$ ($1.66$--$3.26$ over the $\Bone$ range in the shortlist), undetectably.
 \item \emph{Fitting range and data type.} With a wide fitting range such as $[0.6,1.4]$ every good design
