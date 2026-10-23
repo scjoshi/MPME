@@ -21,6 +21,7 @@ technote-results:
 	PYTHONPATH=src:scripts python3 scripts/brainweb_experiment.py --case pv_clean
 	PYTHONPATH=src:scripts python3 scripts/brainweb_experiment.py --case pv
 	PYTHONPATH=src:scripts python3 scripts/brainweb_experiment.py --case crisp
+	PYTHONPATH=src:scripts python3 scripts/poly_b1_experiment.py
 	$(PY) scripts/technote_figures.py
 
 technote-pdf:

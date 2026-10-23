@@ -25,7 +25,7 @@ Steady state (isochromat, EPG) & \texttt{src/mpme/epg.py}\\
 Voxel signal \eqref{eq:signal} & \texttt{src/mpme/signal.py}\\
 Published inverse & \texttt{src/mpme/paper.py}\\
 Model-fit baseline & \texttt{src/mpme/analytic.py}\\
-Complex ML, magnitude LS, branch test & \texttt{src/mpme/mle.py}\\
+Complex ML, magnitude LS, branch test, polynomial-$\Bone$ fit & \texttt{src/mpme/mle.py}\\
 Exact Jacobians & \texttt{src/mpme/fastjac.py}\\
 Fisher information, CRLB, Rician, uncertainty maps & \texttt{src/mpme/crlb.py}\\
 Digital phantom, low-resolution scan 2, polynomial fit & \texttt{src/mpme/phantom.py}\\
@@ -42,6 +42,7 @@ Single-scan degeneracy, scan-2 design (\cref{sec:twoscans}) & \texttt{scripts/tw
 Jacobian benchmark (\cref{tab:bench}) & \texttt{scripts/benchmark\_fit.py}\\
 Phantom experiment (\cref{sec:phantom}) & \texttt{scripts/phantom\_experiment.py}\\
 Partial volume (\cref{sec:pv}) & \texttt{scripts/brainweb\_experiment.py}\\
+Joint polynomial-$\Bone$ ML (\cref{tab:polyb1}) & \texttt{scripts/poly\_b1\_experiment.py}\\
 Figures and tables of this note & \texttt{scripts/technote\_figures.py}\\
 Unit tests & \texttt{tests/} (\texttt{pytest})\\
 \bottomrule

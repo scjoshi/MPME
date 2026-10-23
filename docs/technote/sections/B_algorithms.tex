@@ -53,3 +53,19 @@
 \State stage 2: estimate $\Tone,\Ttwo,\Ttwos,\Mzero,\dw,\phi_0$ from full-resolution scan 1 with $\Bone$ fixed (Eqs.~1, 16, 17; or \cref{alg:lm} with $\mathcal F=\{\Bone\}$)
 \end{algorithmic}
 \end{algorithm}
+
+\begin{algorithm}[!htbp]
+\caption{Joint ML with a polynomial $\Bone$ map (Gauss--Newton with variable projection)}
+\label{alg:polyb1}
+\begin{algorithmic}[1]
+\State $\ln\Bone(x_v,y_v)=\varphi_v^{\mathsf T}c$ (degree-4 monomials, $15$ coefficients); start $c$ and the voxel parameters $\vartheta_v=(\ln\Mzero,\ln\Tone,\ln\Ttwo,\ln\Ttwos,\dw,\phi_0)$ from \cref{alg:twostage} (both scans, full resolution)
+\State refine every $\vartheta_v$ with $\Bone$ fixed at the polynomial (\cref{alg:lm}, $5$ iterations); Huber weights $\omega_v$ on $\sqrt{C_v/\mathrm{median}\,C}$ (threshold $3$)
+\For{$10$ outer iterations}
+  \State per voxel, from one exact model+Jacobian evaluation: $U_v=J_\vartheta^{\mathsf T}J_\vartheta$, $w_v=J_\vartheta^{\mathsf T}j_b$ ($j_b=\partial r_v/\partial\ln\Bone$)
+  \State $s_v=j_b^{\mathsf T}j_b-w_v^{\mathsf T}U_v^{-1}w_v$, \quad $q_v=j_b^{\mathsf T}r_v-w_v^{\mathsf T}U_v^{-1}J_\vartheta^{\mathsf T}r_v$ \Comment{Schur complement}
+  \State cap $s_v$ (and $q_v$ with it) at $10\times\mathrm{median}\,s$; solve $\big(\sum_v\omega_v s_v\varphi_v\varphi_v^{\mathsf T}\big)\delta=\sum_v\omega_v q_v\varphi_v$ (float64)
+  \State trial $c-\delta$: move each voxel along the small-angle family ($\Tone\propto(\Bone)^{-2}$, $\Mzero\propto(\Bone)^{-1}$), refine all $\vartheta_v$ (line 2)
+  \State accept if $\sum_v\omega_vC_v$ decreases, else halve $\delta$ (at most $4$ times); update $\omega_v$
+\EndFor
+\end{algorithmic}
+\end{algorithm}

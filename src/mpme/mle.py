@@ -333,3 +333,139 @@ def magnitude_fit(
     if fid_sign is not None:
         out["at_branch_bound"] = (th[:, 1] <= log_lo + 1e-9) | (th[:, 1] >= log_hi - 1e-9)
     return out
+
+
+def polynomial_basis(coords: Tensor, degree: int = 4) -> Tensor:
+    """Monomials xⁱyʲ (i + j ≤ degree) at normalised voxel coordinates ``coords`` [V, 2] = (x, y)."""
+    x, y = coords[:, 0], coords[:, 1]
+    return torch.stack([x**i * y**j for i in range(degree + 1) for j in range(degree + 1 - i)], 1)
+
+
+def poly_b1_gn_step(y: Tensor, protocol: Protocol, Phi: Tensor, th: Tensor, *,
+                    coef_weights: Tensor | None = None, info_cap: float | None = None,
+                    n_iso: int = 128, chunk: int = 4096):
+    """Gauss–Newton step for the coefficients of log B1 = Φ·c, voxel parameters eliminated.
+
+    ``y``: data [V, M] (real/imaginary interleaved); ``th``: current θ [V, 7] with
+    θ[:, 1] = Φ·c. The full normal equations in (θ_own of every voxel, c) have arrowhead
+    form; eliminating each voxel's 6×6 block (Schur complement) leaves
+    (Σ_v s_v φ_v φ_vᵀ) δ = Σ_v q_v φ_v with s_v = j_bᵀj_b − w_vᵀU_v⁻¹w_v and
+    q_v = j_bᵀr − w_vᵀU_v⁻¹J_θᵀr (U_v = J_θᵀJ_θ, w_v = J_θᵀj_b, j_b = ∂r/∂log B1, r = model − y).
+    The update is c ← c − δ. ``coef_weights`` (per voxel) and ``info_cap`` (cap on s_v as a
+    multiple of its median) weight the voxels. Returns (δ, reduced matrix, s).
+    """
+    from .fastjac import complex_model_and_jacobian
+
+    own = torch.tensor([0, 2, 3, 4, 5, 6])
+    s_all, q_all = [], []
+    for a in range(0, th.shape[0], chunk):
+        m, J = complex_model_and_jacobian(th[a:a + chunk], protocol, n_iso)
+        r = (m - y[a:a + chunk]).double()
+        J = J.double()
+        Jt, jb = J[:, :, own], J[:, :, 1]
+        U = Jt.transpose(1, 2) @ Jt + 1e-12 * torch.eye(6, dtype=torch.float64)
+        wv = (Jt.transpose(1, 2) @ jb[..., None])[..., 0]
+        gt = (Jt.transpose(1, 2) @ r[..., None])[..., 0]
+        Uw = torch.linalg.solve(U, wv)
+        s_all.append((jb * jb).sum(1) - (wv * Uw).sum(1))
+        q_all.append((jb * r).sum(1) - (Uw * gt).sum(1))
+    s, q = torch.cat(s_all).clamp_min(0), torch.cat(q_all)
+    scale = torch.ones_like(s) if coef_weights is None else coef_weights.double()
+    if info_cap is not None:
+        scale = scale * (info_cap * s.median() / s.clamp_min(1e-300)).clamp(max=1.0)
+    red = (Phi * (scale * s)[:, None]).T @ Phi
+    rhs = Phi.T @ (scale * q)
+    step = torch.linalg.solve(red + 1e-10 * torch.diag(red.diagonal()), rhs)
+    return step, red, s
+
+
+def polynomial_b1_fit(
+    S: Tensor,
+    protocol: Protocol,
+    basis: Tensor,
+    init: dict[str, Tensor],
+    coef: Tensor,
+    *,
+    n_outer: int = 10,
+    n_inner: int = 5,
+    n_iso: int = 128,
+    dtype: torch.dtype = torch.float32,
+    info_cap: float = 10.0,
+    huber: float = 3.0,
+    chunk: int = 4096,
+) -> dict[str, Tensor]:
+    """Joint ML with B1 shared through a polynomial: log B1(x, y) = basis · coef.
+
+    Every voxel keeps its own (log M0, log T1, log T2, log T2*, Δω, φ0); the polynomial
+    coefficients are common to all voxels. Gauss–Newton with variable projection, using the
+    exact (implicit) Jacobian:
+
+    1. With B1 fixed at the polynomial, the voxel parameters are refined by projected LM
+       (``n_inner`` iterations, ``joint_fit(fixed_B1=...)``).
+    2. The Gauss–Newton step for the coefficients comes from the arrowhead normal equations
+       by a Schur complement: per voxel s_v = j_bᵀj_b − w_vᵀU_v⁻¹w_v (U_v = J_θᵀJ_θ,
+       w_v = J_θᵀj_b, j_b = ∂r/∂log B1) is the profiled information about log B1, and
+       (Σ_v s_v φ_v φ_vᵀ) δ = Σ_v (j_bᵀr − w_vᵀU_v⁻¹J_θᵀr) φ_v gives the step δ.
+    3. The step is accepted if the (robustly weighted) total cost falls after step 1 is
+       repeated at the new coefficients; otherwise it is halved (up to 4 times).
+
+    Robustness: each voxel's information s_v is capped at ``info_cap`` × its median (no voxel
+    can dominate, e.g. near the 360° crossing), and voxels whose cost exceeds ``huber``² ×
+    the median cost are down-weighted (Huber weights on √cost).
+
+    ``S``: complex voxel signals [V, n_scans, P, J]; ``basis``: [V, K] (``polynomial_basis``);
+    ``init``: per-voxel starting values (M0, B1, T1, T2, T2star, dw[, phi0]); ``coef``: [K]
+    starting coefficients for log B1. Returns per-voxel estimates (B1 = the polynomial),
+    ``coef``, its covariance ``coef_cov`` (unscaled: multiply by σ²), ``weight`` and the
+    total cost per outer iteration (``history``).
+    """
+    V = S.shape[0]
+    Phi = basis.to(torch.float64)
+    coef = coef.to(torch.float64).clone()
+    S = S.to(torch.complex64 if dtype == torch.float32 else torch.complex128)
+    y = torch.view_as_real(S).flatten(1)
+
+    def fit_voxels(c: Tensor, start: dict[str, Tensor]) -> dict[str, Tensor]:
+        B1 = (Phi @ c).exp().to(dtype)
+        outs = [joint_fit(S[a:a + chunk], protocol, {k: v[a:a + chunk] for k, v in start.items()},
+                          n_iter=n_inner, n_iso=n_iso, jacobian="implicit", dtype=dtype,
+                          fixed_B1=B1[a:a + chunk]) for a in range(0, V, chunk)]
+        return {k: torch.cat([o[k] for o in outs]) for k in outs[0]}
+
+    def theta(est: dict[str, Tensor]) -> Tensor:
+        return torch.stack([est["M0"].log(), est["B1"].log(), est["T1"].log(), est["T2"].log(),
+                            est["T2star"].log(), est["dw"], est["phi0"]], 1).to(dtype)
+
+    def weights(cost: Tensor) -> Tensor:
+        z = (cost / cost.median()).sqrt()
+        return torch.where(z <= huber, torch.ones_like(z), huber / z).double()
+
+    est = fit_voxels(coef, init)
+    w = weights(est["cost"])
+    total = (w * est["cost"].double()).sum()
+    history = [total.item()]
+    reduced = None
+    for _ in range(n_outer):
+        step, red, _ = poly_b1_gn_step(y, protocol, Phi, theta(est), coef_weights=w,
+                                       info_cap=info_cap, n_iso=n_iso, chunk=chunk)
+        reduced = red
+        accepted = False
+        for _half in range(5):
+            trial_coef = coef - step
+            # move each voxel along the small-angle family before refitting (T1 ∝ B1⁻², M0 ∝ B1⁻¹)
+            k = (Phi @ coef - Phi @ trial_coef).exp().to(dtype)
+            start = {**est, "T1": est["T1"] * k**2, "M0": est["M0"] * k}
+            trial = fit_voxels(trial_coef, start)
+            t_total = (w * trial["cost"].double()).sum()
+            if torch.isfinite(t_total) and t_total < total:
+                coef, est, total, accepted = trial_coef, trial, t_total, True
+                break
+            step = step / 2
+        history.append(total.item())
+        if not accepted:
+            break
+        w = weights(est["cost"])
+        total = (w * est["cost"].double()).sum()
+    out = dict(est)
+    out.update(coef=coef, coef_cov=torch.linalg.inv(reduced), weight=w, history=history)
+    return out

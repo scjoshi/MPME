@@ -1,0 +1,92 @@
+\section{Joint estimation with a polynomial \texorpdfstring{$\Bone$}{B1} map}\label{sec:polyb1}
+
+The two-stage pipeline (\cref{alg:twostage}) smooths a map of per-voxel $\Bone$ estimates. When
+scan 2 carries little information about $\Bone$, those estimates are wide, skewed and biased,
+and smoothing removes their noise but not their bias. A low-SAR second pulse is the extreme
+case: with $\alpha_2=85^\circ$ the lever between the scans almost vanishes ($L=+0.48$ against
+$-12.5$ for $15^\circ/330^\circ$, flip-angle note~\cite{flipnote}). This section replaces the
+smoothing step by a single likelihood in which $\Bone$ is a polynomial shared by all voxels, and
+tests it on the phantom of \cref{sec:phantom} with $\alpha_1/\alpha_2=15^\circ/85^\circ$.
+
+\subsection{Model and algorithm}
+
+Each voxel $v$ keeps its own parameters
+$\vartheta_v=(\ln\Mzero,\ln\Tone,\ln\Ttwo,\ln\Ttwos,\dw,\phi_0)$, and the transmit field is $\ln\Bone(x_v,y_v)=\varphi_v^{\mathsf T}c$, with $\varphi_v$ the $15$ monomials
+$x^iy^j$, $i+j\le4$, in the normalised coordinates of the smoothing step. The ML estimate
+minimises $\sum_v\|r_v(\vartheta_v,\varphi_v^{\mathsf T}c)\|^2$ over $c$ and all $\vartheta_v$.
+Fitting $\ln\Bone$ keeps $\Bone$ positive and matches the parameterisation of the exact Jacobian
+(\cref{sec:jacobian}), whose $\ln\Bone$ column $j_b$ gives the coefficient columns as $j_b\varphi_v^{\mathsf T}$.
+
+The Gauss--Newton normal matrix has arrowhead form: a $6\times6$ block $U_v=J_\vartheta^{\mathsf T}J_\vartheta$
+per voxel, a dense $15\times15$ block, and couplings $w_v\varphi_v^{\mathsf T}$, $w_v=J_\vartheta^{\mathsf T}j_b$.
+Eliminating the voxel blocks (a Schur complement, as in bundle adjustment) leaves
+\begin{equation}
+\Big(\sum_v s_v\varphi_v\varphi_v^{\mathsf T}\Big)\delta=\sum_v q_v\varphi_v,\qquad
+s_v=j_b^{\mathsf T}j_b-w_v^{\mathsf T}U_v^{-1}w_v,\quad q_v=j_b^{\mathsf T}r_v-w_v^{\mathsf T}U_v^{-1}J_\vartheta^{\mathsf T}r_v,
+\label{eq:polyschur}
+\end{equation}
+where $s_v$ is the information about $\ln\Bone$ in voxel $v$ with its other parameters profiled
+out. One iteration costs one model-and-Jacobian evaluation of all voxels, $6\times6$ solves and
+one $15\times15$ solve. Instead of applying the voxel part of the step, the voxel parameters are
+re-optimised at each trial $c$ (variable projection), after moving each voxel along the
+small-angle family so that its fit starts near the new optimum; the step is accepted if the
+total cost falls (\cref{alg:polyb1}). Two safeguards keep single voxels from steering the field:
+$s_v$ is capped at ten times its median, so voxels near a $360^\circ$ crossing, which claim large
+information precisely where the likelihood has competing maxima, cannot dominate; and voxels
+with a large misfit are down-weighted (Huber weights). The reduced matrix in \eqref{eq:polyschur}
+is the profiled information about $c$, so its inverse gives the covariance of the field.
+
+Three unit tests check the implementation (\texttt{tests/test\_poly\_b1.py}): the basis is the
+one of the smoothing step; the reduced step \eqref{eq:polyschur} equals the coefficient part of
+the full Gauss--Newton step computed with a central-difference Jacobian over all $6V+15$
+parameters (relative agreement $10^{-5}$); and noise-free coefficients are recovered from a
+perturbed start to $10^{-4}$.
+
+\subsection{Phantom test}
+
+The phantom, seeds and noise are those of \cref{sec:phantom}; both scans are at full resolution,
+with scan 2 at $85^\circ$. \Cref{tab:polyb1} compares per-voxel complex ML (four starts), the
+two-stage reconstruction (robust polynomial smoothing of the per-voxel $\Bone$, then complex ML
+with $\Bone$ fixed, on scan 1 alone as in \cref{alg:twostage} or on both scans), and the joint fit
+started from the two-stage solution.
+
+\begin{table}[!htbp]
+\centering
+\caption{Phantom, $15^\circ/85^\circ$, both scans at full resolution: error of the $\Bone$ map
+(RMS and maximum of $|\log(\hat\Bone/\Bone)|$, \%) and median / SD of $\log(\hat\Tone/\Tone)$ (\%) per tissue.}
+\label{tab:polyb1}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{2}{c}{$\Bone$ error} & \multicolumn{4}{c}{$\Tone$: median / SD}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-7}
+Method & RMS & max & WM & GM & CSF & lesion\\
+\midrule
+\input{tables/poly_b1.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+\item \textbf{Per-voxel ML} is unusable at $85^\circ$: the $\Bone$ error is $14\%$ RMS at SNR $1000$ and
+  $45\%$ at SNR $300$, with $\Tone$ spreads of $18$--$109\%$.
+\item \textbf{Two-stage smoothing} removes the noise but keeps the bias of the per-voxel estimates:
+  at SNR $300$ the smoothed map is $4.4\%$ off (RMS; $6.8\%$ at worst), and $\Tone$ is biased by
+  $9$--$12\%$ in parenchyma. Fitting both scans with $\Bone$ fixed halves the $\Tone$ spread relative to
+  scan 1 alone ($3.2$ against $6.6$--$7.3\%$ at SNR $1000$), but not the bias.
+\item \textbf{The joint fit} never averages per-voxel $\Bone$ estimates. The field error falls to
+  $0.22\%$ (SNR $1000$) and $0.73\%$ (SNR $300$), and the $\Tone$ bias to at most $0.8\%$ in parenchyma
+  ($-1.4\%$ in CSF) with the spread of the two-stage fit on both scans.
+\item \textbf{Cost.} About $2$ minutes per slice (10 outer iterations), against $1.7$ minutes for the
+  four-start per-voxel fit. At SNR $300$ most of the decrease in cost comes in the first three
+  iterations; only four voxels were down-weighted, and none at SNR $1000$: without a $360^\circ$
+  crossing no voxel claims outsized information.
+\end{itemize}
+
+With the joint fit, a second pulse at $85^\circ$, which needs about $7\%$ of the RF energy of
+$330^\circ$ and has neither aliases nor a $360^\circ$ crossing, gives $\Tone$ with a bias below $1\%$ in
+parenchyma. Two caveats limit the test. The phantom's $\Bone$ is quadratic, so the polynomial can
+represent it exactly; a real field adds a misfit that the fit cannot remove. And both scans are at
+full resolution: for the low-resolution scan 2 of the published design, the joint likelihood
+must include the $k$-space truncation in the forward model, which couples the voxels of each
+phase-encoding column.

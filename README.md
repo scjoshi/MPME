@@ -66,6 +66,9 @@ PYTHONPATH=src python3 scripts/technote_figures.py
 - `brainweb_experiment.py --case {pv_clean,pv,crisp}`: partial-volume test on one BrainWeb
   slice; needs the data in `data/brainweb/`. Run all three cases (not in parallel; they share
   `results/brainweb_summary.json`).
+- `poly_b1_experiment.py` (`PYTHONPATH=src:scripts`, ~15 min): joint ML with a polynomial
+  B1 map (`mle.polynomial_b1_fit`) against two-stage smoothing, phantom at 15°/85° with both
+  scans at full resolution. Writes `results/poly_b1.json` and `docs/technote/tables/poly_b1.tex`.
 - `technote_figures.py`: all phantom and BrainWeb figures, tables and `macros.tex` for the
   technote. Needs the outputs of the two experiments and `start_count.py`.
 
