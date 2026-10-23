@@ -55,9 +55,9 @@ class Protocol:
     def n_echoes(self) -> int:
         return len(self.scans[0].echo_times[0])
 
-    def echo_times(self, i: int, dtype=torch.float64) -> Tensor:
+    def echo_times(self, i: int, dtype=torch.float64, device=None) -> Tensor:
         """Echo times of scan ``i`` as a [P, J] tensor (ms)."""
-        return torch.tensor(self.scans[i].echo_times, dtype=dtype)
+        return torch.tensor(self.scans[i].echo_times, dtype=dtype, device=device)
 
     def index(self, p: int) -> int:
         return self.pathways.index(p)

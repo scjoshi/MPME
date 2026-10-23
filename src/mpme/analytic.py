@@ -55,9 +55,9 @@ def estimate_b0(S: Tensor, protocol: Protocol, scan: int = 0) -> Tensor:
     weighted least-squares fit Δφ ≈ Δω·Δt uses all pairs.
     """
     s = S[..., scan, :, :]                                                  # [..., P, J]
-    t = protocol.echo_times(scan, s.real.dtype)                             # [P, J]
+    t = protocol.echo_times(scan, s.real.dtype, s.device)                           # [P, J]
     J = t.shape[-1]
-    a, b = torch.triu_indices(J, J, offset=1)
+    a, b = torch.triu_indices(J, J, offset=1, device=s.device)
     z = s[..., b] * torch.conj(s[..., a])                                   # [..., P, pairs]
     dt = t[:, b] - t[:, a]                                                  # [P, pairs]
     w = z.abs()
@@ -70,9 +70,9 @@ def estimate_b0(S: Tensor, protocol: Protocol, scan: int = 0) -> Tensor:
     return (w * dt * phi).sum((-2, -1)) / (w * dt**2).sum((-2, -1)).clamp_min(_TINY)
 
 
-def _decay_design(protocol: Protocol, scan: int, dtype) -> tuple[Tensor, Tensor]:
-    t = protocol.echo_times(scan, dtype)                                    # [P, J]
-    p = torch.tensor(protocol.pathways, dtype=dtype)[:, None]
+def _decay_design(protocol: Protocol, scan: int, dtype, device=None) -> tuple[Tensor, Tensor]:
+    t = protocol.echo_times(scan, dtype, device)                            # [P, J]
+    p = torch.tensor(protocol.pathways, dtype=dtype, device=device)[:, None]
     return t, (t + p * protocol.scans[scan].TR).abs()
 
 
@@ -86,10 +86,10 @@ def estimate_decay(S: Tensor, protocol: Protocol, scans=(0,)) -> tuple[Tensor, T
         raise ValueError("decay fit needs pathways 0 and −1 with at least 2 echoes each")
     mag = S[..., list(scans), :, :].abs().clamp_min(_TINY)                 # [..., I, P, J]
     I, P, J = mag.shape[-3:]
-    t, tau = zip(*(_decay_design(protocol, i, mag.dtype) for i in scans))
+    t, tau = zip(*(_decay_design(protocol, i, mag.dtype, mag.device) for i in scans))
     t, tau = torch.stack(t), torch.stack(tau)                               # [I, P, J]
     X = torch.cat([
-        torch.eye(I * P, dtype=mag.dtype).repeat_interleave(J, 0),         # c_ip
+        torch.eye(I * P, dtype=mag.dtype, device=mag.device).repeat_interleave(J, 0),         # c_ip
         -t.reshape(-1, 1),                                                  # R2
         -tau.reshape(-1, 1),                                                # R2′
     ], dim=1)                                                               # [I·P·J, I·P+2]
@@ -105,7 +105,7 @@ def decay_free_amplitudes(S: Tensor, protocol: Protocol, R2: Tensor, R2p: Tensor
     out = []
     for i in range(len(protocol.scans)):
         mag = S[..., i, :, :].abs().clamp_min(_TINY)
-        t, tau = _decay_design(protocol, i, mag.dtype)
+        t, tau = _decay_design(protocol, i, mag.dtype, mag.device)
         logA = mag.log() + R2[..., None, None] * t + R2p[..., None, None] * tau
         w = mag**2
         out.append((w * logA).sum(-1) / w.sum(-1))
@@ -116,7 +116,8 @@ def _log_amp_model(B1, T1, T2, protocol: Protocol) -> Tensor:
     """log|a_p| for p = 0, −1 in every scan: [..., n_scans·2]."""
     cols = []
     for scan in protocol.scans:
-        fid, echo = fid_echo_amplitudes(B1 * scan.alpha, T1, T2, torch.as_tensor(scan.TR))
+        fid, echo = fid_echo_amplitudes(B1 * scan.alpha, T1, T2,
+                                         torch.as_tensor(scan.TR, dtype=T1.dtype, device=T1.device))
         cols += [fid.clamp_min(_TINY).log(), echo.clamp_min(_TINY).log()]
     return torch.stack(cols, -1)
 
@@ -165,10 +166,11 @@ def estimate_b1_t1(
     dtype = logA.dtype
 
     # Coarse grid search, chunked over voxels.
-    gb = torch.linspace(math.log(b1_range[0]), math.log(b1_range[1]), grid[0], dtype=dtype)
-    gt = torch.linspace(math.log(t1_range[0]), math.log(t1_range[1]), grid[1], dtype=dtype)
+    dev = logA.device
+    gb = torch.linspace(math.log(b1_range[0]), math.log(b1_range[1]), grid[0], dtype=dtype, device=dev)
+    gt = torch.linspace(math.log(t1_range[0]), math.log(t1_range[1]), grid[1], dtype=dtype, device=dev)
     G = torch.stack(torch.meshgrid(gb, gt, indexing="ij"), -1).reshape(-1, 2)  # [G, 2]
-    u = torch.empty(len(T2), 2, dtype=dtype)
+    u = torch.empty(len(T2), 2, dtype=dtype, device=dev)
     for s in range(0, len(T2), chunk):
         sl = slice(s, s + chunk)
         r = _profiled_residual(G[None], T2[sl, None], logA[sl, None], protocol)
@@ -180,9 +182,9 @@ def estimate_b1_t1(
 
     # Levenberg–Marquardt refinement (voxels are independent, so the batched gradient of
     # each residual component gives that component's Jacobian row for every voxel).
-    lam = torch.full((len(T2),), 1e-3, dtype=dtype)
-    lo = torch.tensor([gb[0], gt[0]], dtype=dtype) - 0.5
-    hi = torch.tensor([gb[-1], gt[-1]], dtype=dtype) + 0.5
+    lam = torch.full((len(T2),), 1e-3, dtype=dtype, device=dev)
+    lo = torch.stack([gb[0], gt[0]]) - 0.5
+    hi = torch.stack([gb[-1], gt[-1]]) + 0.5
     for _ in range(n_iter):
         u_ = u.detach().requires_grad_(True)
         r = _profiled_residual(u_, T2, logA, protocol)

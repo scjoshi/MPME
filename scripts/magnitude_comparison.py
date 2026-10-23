@@ -30,7 +30,7 @@ from mpme.paper import paper_reconstruction
 from mpme.sequence import paper_protocol
 from mpme.signal import add_noise, mpme_signal
 
-from fit_options import add_fit_arguments, fit_kwargs, suffix
+from fit_options import add_fit_arguments, fit_kwargs, suffix, device, to_cpu, to_device
 
 RES = Path(__file__).resolve().parents[1] / "results"
 TIS = dict(M0=1.0, B1=1.0, T1=1500.0, T2=70.0, T2star=60.0, dw=0.05, phi0=0.3)
@@ -52,6 +52,7 @@ def main():
     add_fit_arguments(parser)
     args = parser.parse_args()
     kw, tag = fit_kwargs(args), suffix(args)
+    dev = device(args)
     eff = RES / f"estimator_efficiency{tag}.json"
     if not eff.exists():
         eff = RES / "estimator_efficiency.json"
@@ -67,15 +68,18 @@ def main():
         M = Sn.abs()
         # Rician floor: mean magnitude minus true amplitude, relative, per measurement
         floor = ((M.mean(0) - A) / A)
-        fit = analytic_reconstruction(Sn, pr)
-        pap = paper_reconstruction(Sn, pr)
+        Sd = Sn.to(dev)
+        fit = to_cpu(analytic_reconstruction(Sd, pr))
+        pap = to_cpu(paper_reconstruction(Sd, pr))
         starts = [fit, {k: torch.where(torch.isfinite(pap[k]) & (pap[k] > 0), pap[k], fit[k])
                         for k in fit}]
         for t1 in (700.0, 2000.0):
             starts.append({**fit, "T1": torch.full_like(fit["T1"], t1),
                            "T2star": torch.minimum(fit["T2star"], 0.85 * fit["T2"])})
         def best(fid_sign=None):
-            fits = [magnitude_fit(M, pr, s, fid_sign=fid_sign, **kw) for s in starts]
+            sign = None if fid_sign is None else fid_sign.to(dev)
+            fits = [to_cpu(magnitude_fit(M.to(dev), pr, to_device(s, dev), fid_sign=sign, **kw))
+                    for s in starts]
             cost = torch.stack([f["cost"] for f in fits])
             pick = cost.argmin(0)
             best = {k: torch.stack([f[k] for f in fits]).gather(0, pick[None])[0] for k in fits[0]}

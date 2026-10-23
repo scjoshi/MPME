@@ -19,11 +19,12 @@ sigma = 1e-3 (seed 1), fitted from scan 1 alone and from both scans of the paper
    B1 in [e^-1, 540/330]; two scans also without the cap (box [e^-1, e]), which admits the
    complex alias, the other root of tan(B1 a2/2)/tan(B1 a1/2) = f(B1hat) (eq:secondscan).
 
-    python scripts/shared_b1_check.py   → results/shared_b1_check.json,
+    python scripts/shared_b1_check.py [--device cuda]   → results/shared_b1_check.json,
                                           docs/technote/tables/shared_b1.tex (fit 3, WM + GM,
                                           starts TABLE_STARTS)
 """
 
+import argparse
 import json
 import math
 import time
@@ -123,20 +124,21 @@ def fisher_summary(protocol, tissues):
 def profile(S, protocol, tissues, grid):
     """Σ_voxels min ‖r‖² at each fixed shared B1' (best of two starts), and bound flags."""
     G, N = len(grid), len(tissues)
-    B1 = torch.tensor(np.repeat(grid, N))
-    best = torch.full((G * N,), math.inf)
-    bound = torch.zeros(G * N, dtype=torch.bool)
+    dev = S.device
+    B1 = torch.tensor(np.repeat(grid, N), device=dev)
+    best = torch.full((G * N,), math.inf, device=dev)
+    bound = torch.zeros(G * N, dtype=torch.bool, device=dev)
     for start in ("family", "truth"):
         mt = torch.tensor([family(t, b) if start == "family" else (t["M0"], t["T1"])
-                           for b in grid for t in tissues])
+                           for b in grid for t in tissues], device=dev)
         init = dict(M0=mt[:, 0], T1=mt[:, 1], B1=B1,
-                    **{k: col(tissues, k).repeat(G) for k in ("T2", "T2star", "dw")})
+                    **{k: col(tissues, k).repeat(G).to(dev) for k in ("T2", "T2star", "dw")})
         out = joint_fit(S.repeat(G, 1, 1, 1), protocol, init, n_iter=100, n_iso=N_ISO,
                         jacobian="implicit", fixed_B1=B1)
         better = out["cost"] < best
         best = torch.where(better, out["cost"], best)
         bound = torch.where(better, out["at_box"] | out["at_r2p_bound"], bound)
-    return best.reshape(G, N).sum(1).numpy(), bound.reshape(G, N).any(1).numpy()
+    return best.reshape(G, N).sum(1).cpu().numpy(), bound.reshape(G, N).any(1).cpu().numpy()
 
 
 def profile_minimum(S, tissues, centre, sd):
@@ -220,7 +222,7 @@ def generic_start(S, protocol, dw, B1):
     N = len(dw)
     S0 = mpme_signal(protocol, 0.8, 1000.0, 80.0, 1 / 56 - 1 / 80, dw, B1, n_iso=N_ISO)
     phi0 = torch.angle((S * S0.conj()).flatten(1).sum(1))
-    fixed = torch.tensor([0.8, B1, 1000.0, 80.0, 56.0]).log()
+    fixed = torch.tensor([0.8, B1, 1000.0, 80.0, 56.0], device=S.device).log()
     return torch.cat([fixed.expand(N, 5), dw[:, None], phi0[:, None]], 1)
 
 
@@ -232,7 +234,7 @@ def complex_alias(B1):
 
 def free_fits(S, tissues):
     rng = np.random.default_rng(3)
-    dw = col(tissues, "dw") + 0.01 * torch.tensor(rng.standard_normal(len(tissues)))
+    dw = (col(tissues, "dw") + 0.01 * torch.tensor(rng.standard_normal(len(tissues)))).to(S.device)
     out = {}
     for name, protocol, Sd, b1_max in (("scan1", PROT1, S[:, :1], B1_MAX),
                                        ("scan1+2", PROT2, S, B1_MAX),
@@ -289,10 +291,13 @@ def report(name, r):
 
 
 def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--device", default="cpu", help="torch device for the fits, e.g. cuda")
+    dev = torch.device(ap.parse_args().device)
     t0 = time.time()
     out = {}
     for name, tissues in (("WM+GM", [WM, GM]), ("20 random", random_tissues())):
-        S = noisy_data(tissues)
+        S = noisy_data(tissues).to(dev)
         fisher = {k: fisher_summary(p, tissues) for k, p in (("scan1", PROT1), ("scan1+2", PROT2))}
         sd = SIGMA / math.sqrt(fisher["scan1+2"]["profiled_info"])
         prof = {"scan1": profile_summary(S[:, :1], PROT1, tissues),

@@ -31,8 +31,8 @@ from mpme.paper import paper_reconstruction
 from mpme.phantom import polyfit_2d
 from mpme.sequence import paper_protocol
 
-from phantom_experiment import (B1_MAX, CHUNK, FIT, best_of, chunked, sanitize, spatial_restart,
-                                starts_from, sub)
+from phantom_experiment import (B1_MAX, FIT, D, best_of, chunked, cpu, sanitize, set_device,
+                                spatial_restart, starts_from, sub)
 
 RES = Path(__file__).resolve().parents[1] / "results"
 SNR = 1000.0
@@ -55,25 +55,25 @@ def categories(F):
 def fit_all(Sv, pr, V, mask, shape):
     """Analytic inverse, complex ML and magnitude LS (+FID), each with spatial restart."""
     times = {}
-    t = time.time(); pap = paper_reconstruction(Sv, pr); times["analytic inverse"] = time.time() - t
-    init = sanitize(analytic_reconstruction(Sv, pr))
+    t = time.time(); pap = cpu(paper_reconstruction(D(Sv), pr)); times["analytic inverse"] = time.time() - t
+    init = sanitize(cpu(analytic_reconstruction(D(Sv), pr)))
     st = starts_from(init, pap)
     t = time.time()
-    ml = best_of([chunked(lambda sl, s=s: joint_fit(Sv[sl], pr, sub(s, sl), b1_max=B1_MAX, **FIT), V)
+    ml = best_of([chunked(lambda sl, s=s: joint_fit(D(Sv[sl]), pr, sub(s, sl), b1_max=B1_MAX, **FIT), V)
                   for s in st])
     B1map = torch.full(shape, float("nan"), dtype=torch.float64); B1map[mask] = ml["B1"]
     B1s = polyfit_2d(B1map, mask)[mask].clamp(0.5, B1_MAX)
     rs = spatial_restart(ml, B1s)
-    ml2 = best_of([chunked(lambda sl: joint_fit(Sv[sl], pr, sub(rs, sl), b1_max=B1_MAX, **FIT), V)])
+    ml2 = best_of([chunked(lambda sl: joint_fit(D(Sv[sl]), pr, sub(rs, sl), b1_max=B1_MAX, **FIT), V)])
     imp = ml2["cost"] < ml["cost"] * (1 - 1e-6)
     ml = {k: torch.where(imp, ml2[k], v) if v.shape == imp.shape else v for k, v in ml.items()}
     times["complex ML"] = time.time() - t
     t = time.time()
     Mv, sign = Sv.abs(), fid_phase_sign(Sv, pr)
-    mag = best_of([chunked(lambda sl, s=s: magnitude_fit(Mv[sl], pr, sub(s, sl), fid_sign=sign[sl],
+    mag = best_of([chunked(lambda sl, s=s: magnitude_fit(D(Mv[sl]), pr, sub(s, sl), fid_sign=D(sign[sl]),
                                                           b1_max=B1_MAX, **FIT), V) for s in st])
     rsm = spatial_restart(mag, B1s)
-    mag2 = best_of([chunked(lambda sl: magnitude_fit(Mv[sl], pr, sub(rsm, sl), fid_sign=sign[sl],
+    mag2 = best_of([chunked(lambda sl: magnitude_fit(D(Mv[sl]), pr, sub(rsm, sl), fid_sign=D(sign[sl]),
                                                       b1_max=B1_MAX, **FIT), V)])
     imp = mag2["cost"] < mag["cost"] * (1 - 1e-6)
     mag = {k: torch.where(imp, mag2[k], v) if v.shape == imp.shape else v for k, v in mag.items()}
@@ -99,7 +99,9 @@ def stats(est, truth, cats):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--case", choices=("pv_clean", "pv", "crisp"), required=True)
+    ap.add_argument("--device", default="cpu", help="torch device for the fits, e.g. cuda")
     args = ap.parse_args()
+    set_device(args.device)
     pr = paper_protocol()
     ph = make_brainweb_phantom()
     m = ph.mask

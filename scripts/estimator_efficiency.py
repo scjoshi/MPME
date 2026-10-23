@@ -35,7 +35,7 @@ from mpme.paper import paper_reconstruction
 from mpme.sequence import Protocol, Scan, paper_protocol
 from mpme.signal import add_noise, mpme_signal
 
-from fit_options import add_fit_arguments, cost_tolerance, fit_kwargs, suffix
+from fit_options import add_fit_arguments, cost_tolerance, device, fit_kwargs, suffix, to_cpu, to_device
 
 RES = Path(__file__).resolve().parents[1] / "results"
 TIS = dict(M0=1.0, B1=1.0, T1=1500.0, T2=70.0, T2star=60.0, dw=0.05, phi0=0.3)
@@ -67,8 +67,8 @@ def stats(est, key, boundary=None):
             "boundary_frac": None if boundary is None else boundary.float().mean().item()}
 
 
-def ml_multistart(S, p, starts, **kw):
-    fits = [joint_fit(S, p, s, **kw) for s in starts]
+def ml_multistart(S, p, starts, dev, **kw):
+    fits = [to_cpu(joint_fit(S.to(dev), p, to_device(s, dev), **kw)) for s in starts]
     cost = torch.stack([f["cost"] for f in fits])
     pick = cost.argmin(0)
     return {k: torch.stack([f[k] for f in fits]).gather(0, pick[None])[0] for k in fits[0]}
@@ -79,6 +79,7 @@ def main():
     add_fit_arguments(parser)
     args = parser.parse_args()
     kw, tag, tol = fit_kwargs(args), suffix(args), cost_tolerance(args)
+    dev = device(args)
     print(f"joint ML settings: {kw}")
     pr = paper_protocol()
     s1, s2 = pr.scans
@@ -101,14 +102,16 @@ def main():
             row = {"CRLB": {name: {k: b[k] / snr for k in KEYS if k in b}
                             for name, b in bounds.items()}}
 
-            fit = analytic_reconstruction(Sn, p)
+            Sd = Sn.to(dev)
+            fit = to_cpu(analytic_reconstruction(Sd, p))
             row["model-fit"] = {k: stats(fit, k, at_limits(fit, FIT_LIMITS)) for k in KEYS}
             starts = [fit]
             if pname == "15/330":
-                pap = paper_reconstruction(Sn, p)
+                pap = to_cpu(paper_reconstruction(Sd, p))
                 row["paper"] = {k: stats(pap, k, at_limits(pap, {"T2": (1.0, 5000.0)}))
                                 for k in KEYS}
-                pk = paper_reconstruction(Sn, p, B1=torch.tensor(1.0, dtype=torch.float64))
+                pk = to_cpu(paper_reconstruction(Sd, p, B1=torch.tensor(1.0, dtype=torch.float64,
+                                                                       device=dev)))
                 row["paper, B1 known"] = {k: stats(pk, k) for k in ("T1", "M0")}
                 starts.append({k: torch.where(torch.isfinite(pap[k]) & (pap[k] > 0), pap[k], fit[k])
                                for k in fit})
@@ -120,7 +123,7 @@ def main():
             for t1 in (700.0, 2000.0):
                 starts.append({**fit, "T1": torch.full_like(fit["T1"], t1),
                                "T2star": torch.minimum(fit["T2star"], 0.85 * fit["T2"])})
-            ml = ml_multistart(Sn, p, starts, **kw)
+            ml = ml_multistart(Sn, p, starts, dev, **kw)
             ml = {k: (v.double() if v.is_floating_point() else v) for k, v in ml.items()}
             bnd = ml["at_box"] | ml["at_r2p_bound"]
             row["joint ML"] = {k: stats(ml, k, bnd) for k in KEYS}

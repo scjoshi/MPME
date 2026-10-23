@@ -44,7 +44,7 @@ def _project(th: Tensor) -> Tensor:
 
 
 def _at_box(th: Tensor) -> Tensor:
-    hit = torch.zeros(th.shape[0], dtype=torch.bool)
+    hit = torch.zeros(th.shape[0], dtype=torch.bool, device=th.device)
     for i, (lo, hi) in _BOX.items():
         hit |= (th[:, i] <= lo + 1e-9) | (th[:, i] >= hi - 1e-9)
     return hit
@@ -86,10 +86,10 @@ def _levenberg_marquardt(th: Tensor, model: Callable[[Tensor], Tensor], y: Tenso
     """
     N, n = th.shape
     th = project(th)
-    lam = torch.full((N,), 1e-2, dtype=y.dtype)
+    lam = torch.full((N,), 1e-2, dtype=y.dtype, device=y.device)
     r = model(th) - y
     cost = (r**2).sum(1)
-    eye = torch.eye(n, dtype=y.dtype)
+    eye = torch.eye(n, dtype=y.dtype, device=y.device)
     for _ in range(n_iter):
         J = torch.stack([(model(th + h * eye[k]) - y - r) / h if fixed is None or not fixed[k]
                          else torch.zeros_like(r) for k in range(n)], 2)
@@ -116,7 +116,7 @@ def _levenberg_marquardt_exact(th: Tensor, model_jac: Callable[[Tensor], tuple[T
     """
     N, n = th.shape
     th = project(th)
-    lam = torch.full((N,), 1e-2, dtype=y.dtype)
+    lam = torch.full((N,), 1e-2, dtype=y.dtype, device=y.device)
     m, J = model_jac(th)
     J = _fix_columns(J, fixed)
     r = m - y
@@ -201,12 +201,12 @@ def joint_fit(
     project = _b1_projector(_project, b1_max, fixed_B1)
     fixed = None
     if fixed_B1 is not None:
-        fixed = torch.zeros(7, dtype=torch.bool)
+        fixed = torch.zeros(7, dtype=torch.bool, device=S.device)
         fixed[1] = True
     N = S.shape[0]
     y = torch.view_as_real(S).flatten(1)
     th = torch.cat([_init_magnitudes(init), init["dw"][:, None],
-                    torch.zeros(N, 1, dtype=y.dtype)], 1)
+                    torch.zeros(N, 1, dtype=y.dtype, device=y.device)], 1)
     th = project(th)
     # Global phase: least-squares optimal for the initial magnitudes and Δω.
     S0 = torch.view_as_complex(_model(th, protocol, n_iso).reshape(*S.shape, 2).contiguous())
@@ -237,17 +237,17 @@ def fid_phase_sign(S: Tensor, protocol: Protocol) -> Tensor:
     return torch.where(s == 0, torch.ones_like(s), s)
 
 
-def _branch_zeros(protocol: Protocol, B1_max: float) -> Tensor:
+def _branch_zeros(protocol: Protocol, B1_max: float, device=None) -> Tensor:
     """B1 values (ascending) where sin(B1·α_i) = 0 for some scan, up to B1_max."""
     z = [n * math.pi / sc.alpha for sc in protocol.scans[:2]
          for n in range(1, int(B1_max * sc.alpha / math.pi) + 2)]
-    return torch.tensor(sorted(set(z)), dtype=torch.float64)
+    return torch.tensor(sorted(set(z)), dtype=torch.float64, device=device)
 
 
 def _branch_interval(B1: Tensor, zeros: Tensor) -> tuple[Tensor, Tensor]:
     """The interval (lo, hi) between consecutive zeros that contains each B1."""
-    edges = torch.cat([torch.zeros(1, dtype=zeros.dtype), zeros,
-                       torch.full((1,), math.inf, dtype=zeros.dtype)])
+    edges = torch.cat([torch.zeros(1, dtype=zeros.dtype, device=zeros.device), zeros,
+                       torch.full((1,), math.inf, dtype=zeros.dtype, device=zeros.device)])
     i = torch.searchsorted(edges, B1.contiguous(), right=True)
     return edges[i - 1], edges[i]
 
@@ -309,7 +309,7 @@ def magnitude_fit(
     th = base(_init_magnitudes(init))
     project = base
     if fid_sign is not None:
-        zeros = _branch_zeros(protocol, math.exp(_BOX[1][1])).to(th.dtype)
+        zeros = _branch_zeros(protocol, math.exp(_BOX[1][1]), th.device).to(th.dtype)
         th[:, 1] = _branch_feasible_start(th[:, 1].exp(), fid_sign, protocol, zeros).log()
         lo, hi = _branch_interval(th[:, 1].exp(), zeros)
         log_lo = (lo * (1 + 1e-6)).clamp_min(1e-12).log()
@@ -356,14 +356,14 @@ def poly_b1_gn_step(y: Tensor, protocol: Protocol, Phi: Tensor, th: Tensor, *,
     """
     from .fastjac import complex_model_and_jacobian
 
-    own = torch.tensor([0, 2, 3, 4, 5, 6])
+    own = torch.tensor([0, 2, 3, 4, 5, 6], device=th.device)
     s_all, q_all = [], []
     for a in range(0, th.shape[0], chunk):
         m, J = complex_model_and_jacobian(th[a:a + chunk], protocol, n_iso)
         r = (m - y[a:a + chunk]).double()
         J = J.double()
         Jt, jb = J[:, :, own], J[:, :, 1]
-        U = Jt.transpose(1, 2) @ Jt + 1e-12 * torch.eye(6, dtype=torch.float64)
+        U = Jt.transpose(1, 2) @ Jt + 1e-12 * torch.eye(6, dtype=torch.float64, device=J.device)
         wv = (Jt.transpose(1, 2) @ jb[..., None])[..., 0]
         gt = (Jt.transpose(1, 2) @ r[..., None])[..., 0]
         Uw = torch.linalg.solve(U, wv)
@@ -420,8 +420,8 @@ def polynomial_b1_fit(
     total cost per outer iteration (``history``).
     """
     V = S.shape[0]
-    Phi = basis.to(torch.float64)
-    coef = coef.to(torch.float64).clone()
+    Phi = basis.to(dtype=torch.float64, device=S.device)
+    coef = coef.to(dtype=torch.float64, device=S.device).clone()
     S = S.to(torch.complex64 if dtype == torch.float32 else torch.complex128)
     y = torch.view_as_real(S).flatten(1)
 

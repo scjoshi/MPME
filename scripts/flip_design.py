@@ -20,6 +20,7 @@ alias status of every pair (mpme.design.alias_roots, vectorised over B1).
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import time
@@ -44,6 +45,7 @@ ANG = np.arange(1.0, 540.1, 1.0)                      # nominal angles, 1° grid
 I, J = np.triu_indices(len(ANG), k=1)                 # pairs α1 = ANG[I] < α2 = ANG[J]
 BOX = (0.6, 1.4)                                      # fitting range used for aliases
 METRICS = ("T1", "B1", "T2", "T2star", "M0", "T1_knownB1", "bias_T1", "bias_B1")
+DEVICE = torch.device("cpu")                          # where the information matrices are computed
 
 
 def crossings():
@@ -65,12 +67,13 @@ def tables():
            for m in METRICS}
     t1_scan1 = np.empty((len(NAMES), len(B1S), len(ANG)))
     norm = np.empty_like(t1_scan1)
-    It, Jt = torch.as_tensor(I), torch.as_tensor(J)
+    It, Jt = torch.as_tensor(I, device=DEVICE), torch.as_tensor(J, device=DEVICE)
     b_one = int(np.argmin(np.abs(B1S - 1.0)))
     for t, name in enumerate(NAMES):
-        Fs = single_scan_fisher(B1S[:, None] * ANG[None, :], TISSUE[name], TR, ECHOES, PATHS)
-        norm[t] = Fs[..., 0, 0].sqrt().numpy()
-        t1_scan1[t] = bounds(Fs, known=("B1",))[..., 2].numpy()
+        Fs = single_scan_fisher(B1S[:, None] * ANG[None, :], TISSUE[name], TR, ECHOES, PATHS,
+                                device=DEVICE)
+        norm[t] = Fs[..., 0, 0].sqrt().cpu().numpy()
+        t1_scan1[t] = bounds(Fs, known=("B1",))[..., 2].cpu().numpy()
         run = {m: (np.full(len(I), -np.inf), np.zeros(len(I))) for m in METRICS}
         for b in range(len(B1S)):
             F = Fs[b, It] + Fs[b, Jt]
@@ -80,7 +83,7 @@ def tables():
                     "T2star": free[:, 4], "T1_knownB1": known[:, 2],
                     "bias_T1": bias[:, 2], "bias_B1": bias[:, 1]}
             for m, v in vals.items():
-                v = v.numpy()
+                v = v.cpu().numpy()
                 mx, sm = run[m]
                 np.maximum(mx, np.abs(v), out=mx)
                 sm += v
@@ -89,8 +92,8 @@ def tables():
         cp, cb = crossings()
         for s0 in range(0, len(cp), 100_000):
             p, b = cp[s0:s0 + 100_000], cb[s0:s0 + 100_000]
-            F1 = single_scan_fisher(b * ANG[I[p]], TISSUE[name], TR, ECHOES, PATHS)
-            F2 = single_scan_fisher(b * ANG[J[p]], TISSUE[name], TR, ECHOES, PATHS)
+            F1 = single_scan_fisher(b * ANG[I[p]], TISSUE[name], TR, ECHOES, PATHS, device=DEVICE)
+            F2 = single_scan_fisher(b * ANG[J[p]], TISSUE[name], TR, ECHOES, PATHS, device=DEVICE)
             F = F1 + F2
             free, known = bounds(F), bounds(F, known=("B1",))
             bias = ratio_bias(F, F2)
@@ -98,7 +101,7 @@ def tables():
                     "T2star": free[:, 4], "T1_knownB1": known[:, 2],
                     "bias_T1": bias[:, 2], "bias_B1": bias[:, 1]}
             for m, v in vals.items():
-                np.maximum.at(run[m][0], p, np.abs(v.numpy()))
+                np.maximum.at(run[m][0], p, np.abs(v.cpu().numpy()))
         for m, (mx, sm) in run.items():
             agg[m]["max"][t], agg[m]["mean"][t] = mx, sm / len(B1S)
         print(f"  {name}: done", flush=True)
@@ -133,6 +136,11 @@ def aliases(b_true=np.round(np.arange(0.70, 1.3001, 0.01), 4), box=BOX, n_grid=4
 
 
 def main():
+    global DEVICE
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--device", default="cpu",
+                    help="torch device for the information matrices, e.g. cuda (needs float64)")
+    DEVICE = torch.device(ap.parse_args().device)
     t0 = time.time()
     agg, t1_scan1, norm = tables()
     print(f"tables {time.time() - t0:.0f} s", flush=True)

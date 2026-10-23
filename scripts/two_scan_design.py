@@ -6,9 +6,12 @@
 3. Second-scan design: B1 bound over B1 in [0.8, 1.2] vs alpha1, alpha2 and readout; stage-2
    T1 bound vs alpha1 (scan 1 alone, B1 known).
 
-    python scripts/two_scan_design.py   → results/two_scan_design.json
+    python scripts/two_scan_design.py [--device cuda]   → results/two_scan_design.json
+
+Only the fits of part 1 use --device; the information calculations are single-voxel.
 """
 
+import argparse
 import json
 from pathlib import Path
 
@@ -23,7 +26,7 @@ from mpme.sequence import Protocol, Scan, mpme_echo_times, paper_protocol
 RES = Path(__file__).resolve().parents[1] / "results"
 
 
-def degeneracy_demo():
+def degeneracy_demo(dev=torch.device("cpu")):
     pr = paper_protocol()
     scan1 = Protocol(pr.pathways, (pr.scans[0],))
     ph = make_phantom()
@@ -43,7 +46,9 @@ def degeneracy_demo():
     out = {"voxels": int(len(idx))}
     for name, B1 in fields.items():
         init = {**truth, "B1": B1, "T1": tT1 * (tB1 / B1) ** 2, "M0": truth["M0"] * tB1 / B1}
-        f = joint_fit(S, scan1, init, fixed_B1=B1, jacobian="implicit", n_iso=256, n_iter=60)
+        f = joint_fit(S.to(dev), scan1, {k: v.to(dev) for k, v in init.items()}, fixed_B1=B1.to(dev),
+                      jacobian="implicit", n_iso=256, n_iter=60)
+        f = {k: v.cpu() for k, v in f.items()}
         eT1, eB = (f["T1"] / tT1).log(), (B1 / tB1).log()
         out[name] = {"max_rel_residual": float((f["cost"].sqrt() / sig).max()),
                      "logT1_median": float(eT1.median()), "logT1_min": float(eT1.min()),
@@ -110,7 +115,10 @@ def design():
 
 
 def main():
-    out = {"degeneracy": degeneracy_demo(), "profiled": profiled_information(), "design": design()}
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--device", default="cpu", help="torch device for the fits, e.g. cuda")
+    dev = torch.device(ap.parse_args().device)
+    out = {"degeneracy": degeneracy_demo(dev), "profiled": profiled_information(), "design": design()}
     RES.mkdir(exist_ok=True)
     (RES / "two_scan_design.json").write_text(json.dumps(out, indent=1))
     print(json.dumps(out, indent=1))

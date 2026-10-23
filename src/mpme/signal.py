@@ -45,14 +45,14 @@ def mpme_signal(
     """
     M0, T1, T2, R2p, dw, B1, phi0 = _as_tensors(M0, T1, T2, R2p, dw, B1, phi0)
     M0, T1, T2, R2p, dw, B1, phi0 = torch.broadcast_tensors(M0, T1, T2, R2p, dw, B1, phi0)
-    p = torch.tensor(protocol.pathways, dtype=T1.dtype)[:, None]          # [P, 1]
+    p = torch.tensor(protocol.pathways, dtype=T1.dtype, device=T1.device)[:, None]  # [P, 1]
     x = lambda v: v[..., None, None]                                       # → [..., 1, 1]
 
     out = []
     for i, scan in enumerate(protocol.scans):
         a = steady_state_isochromat(B1 * scan.alpha, T1, T2, scan.TR, protocol.pathways,
                                     n_iso=n_iso)                           # [..., P]
-        t = protocol.echo_times(i, T1.dtype)                               # [P, J]
+        t = protocol.echo_times(i, T1.dtype, T1.device)                             # [P, J]
         tau = t + p * scan.TR                                              # time since dephasing origin
         mag = torch.exp(-t / x(T2) - x(R2p) * tau.abs())
         phase = torch.exp(1j * (x(phi0) + x(dw) * tau))

@@ -48,13 +48,13 @@ def steady_state_with_derivatives(alpha: Tensor, E1: Tensor, E2: Tensor,
 
     ``alpha``, ``E1``, ``E2``: [N]. Matches ``epg.steady_state_isochromat`` with φ = Δω = 0.
     """
-    dt = alpha.dtype
+    dt, dev = alpha.dtype, alpha.device
     N = alpha.shape[0]
-    psi = 2 * math.pi * torch.arange(n_iso, dtype=dt) / n_iso
+    psi = 2 * math.pi * torch.arange(n_iso, dtype=dt, device=dev) / n_iso
     cp, sp = torch.cos(psi), torch.sin(psi)                                 # [n]
     ca, sa = torch.cos(alpha)[:, None], torch.sin(alpha)[:, None]           # [N, 1]
     e1, e2 = E1[:, None], E2[:, None]
-    z = torch.zeros(N, n_iso, dtype=dt)
+    z = torch.zeros(N, n_iso, dtype=dt, device=dev)
     one = torch.ones_like(z)
 
     # Q = R_z(ψ) diag(E2, E2, E1); A = I − R_x(α) Q
@@ -74,7 +74,7 @@ def steady_state_with_derivatives(alpha: Tensor, E1: Tensor, E2: Tensor,
         torch.stack([z, ca + z, -sa + z], -1),
     ], -2)
     RQ = R @ Q
-    eye = torch.eye(3, dtype=dt)
+    eye = torch.eye(3, dtype=dt, device=dev)
     Ainv = _inv3(eye - RQ)
     Rz = R[..., :, 2]                                                       # R ẑ
     b = (1 - e1)[..., None] * Rz
@@ -94,7 +94,7 @@ def steady_state_with_derivatives(alpha: Tensor, E1: Tensor, E2: Tensor,
     dMxy = torch.complex(dM[..., 0, :], dM[..., 1, :])                      # [N, n, 3]
     spec = torch.fft.fft(Mxy, dim=1) / n_iso
     dspec = torch.fft.fft(dMxy, dim=1) / n_iso
-    idx = torch.tensor([p % n_iso for p in pathways])
+    idx = torch.tensor([p % n_iso for p in pathways], device=dev)
     return spec[:, idx], dspec[:, idx, :]
 
 
@@ -105,7 +105,7 @@ def magnitude_model_and_jacobian(theta: Tensor, protocol: Protocol, n_iso: int =
     """
     dt = theta.dtype
     M0, B1, T1, T2, T2s = (theta[:, i].exp() for i in range(5))
-    p = torch.tensor(protocol.pathways, dtype=dt)[:, None]                  # [P, 1]
+    p = torch.tensor(protocol.pathways, dtype=dt, device=theta.device)[:, None]  # [P, 1]
     ms, Js = [], []
     for i, scan in enumerate(protocol.scans):
         TR = scan.TR
@@ -114,7 +114,7 @@ def magnitude_model_and_jacobian(theta: Tensor, protocol: Protocol, n_iso: int =
         F, dF = steady_state_with_derivatives(alpha, E1, E2, protocol.pathways, n_iso)
         absF = F.abs()
         dabs = (F.conj()[..., None] * dF).real / absF[..., None]            # [N, P, 3]
-        t = protocol.echo_times(i, dt)                                       # [P, J]
+        t = protocol.echo_times(i, dt, theta.device)                         # [P, J]
         tau = (t + p * TR).abs()
         R2p = (1 / T2s - 1 / T2)
         D = torch.exp(-t / T2[:, None, None] - R2p[:, None, None] * tau)    # [N, P, J]
@@ -143,14 +143,14 @@ def complex_model_and_jacobian(theta: Tensor, protocol: Protocol, n_iso: int = 1
     dt = theta.dtype
     M0, B1, T1, T2, T2s = (theta[:, i].exp() for i in range(5))
     dw, phi0 = theta[:, 5], theta[:, 6]
-    p = torch.tensor(protocol.pathways, dtype=dt)[:, None]                  # [P, 1]
+    p = torch.tensor(protocol.pathways, dtype=dt, device=theta.device)[:, None]  # [P, 1]
     vals, jacs = [], []
     for i, scan in enumerate(protocol.scans):
         TR = scan.TR
         alpha = B1 * scan.alpha
         E1, E2 = torch.exp(-TR / T1), torch.exp(-TR / T2)
         F, dF = steady_state_with_derivatives(alpha, E1, E2, protocol.pathways, n_iso)
-        t = protocol.echo_times(i, dt)                                       # [P, J]
+        t = protocol.echo_times(i, dt, theta.device)                         # [P, J]
         tau_s = t + p * TR                                                   # signed
         tau = tau_s.abs()
         R2p = 1 / T2s - 1 / T2

@@ -5,9 +5,10 @@ For each voxel, compares the final cost from the single start with the best of f
 cost as a detector of poorly converged voxels: flag when ‖r‖²/σ² exceeds the 99.9 %
 quantile of χ² with (36 − 7) degrees of freedom.
 
-    python scripts/start_count.py   → results/start_count.json
+    python scripts/start_count.py [--device cuda]   → results/start_count.json
 """
 
+import argparse
 import json
 from pathlib import Path
 
@@ -20,11 +21,16 @@ from mpme.paper import paper_reconstruction
 from mpme.sequence import paper_protocol
 from mpme.signal import add_noise, mpme_signal
 
+from fit_options import add_device_argument, device, to_cpu, to_device
+
 RES = Path(__file__).resolve().parents[1] / "results"
 FIT = dict(jacobian="implicit", n_iso=128, n_iter=40, b1_max=540 / 330)
 
 
 def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    add_device_argument(ap)
+    dev = device(ap.parse_args())
     pr = paper_protocol()
     N = 2000
     g = torch.Generator().manual_seed(11)
@@ -39,13 +45,14 @@ def main():
     for snr in (300.0, 1000.0):
         sigma = 1 / snr
         Sn = add_noise(S, sigma, torch.Generator().manual_seed(int(snr)))
-        fit = analytic_reconstruction(Sn, pr)
-        pap = paper_reconstruction(Sn, pr)
+        Sd = Sn.to(dev)
+        fit = to_cpu(analytic_reconstruction(Sd, pr))
+        pap = to_cpu(paper_reconstruction(Sd, pr))
         starts = [fit, {k: torch.where(torch.isfinite(pap[k]) & (pap[k] > 0), pap[k], fit[k]) for k in fit}]
         for t1 in (700.0, 2000.0):
             starts.append({**fit, "T1": torch.full_like(fit["T1"], t1),
                            "T2star": torch.minimum(fit["T2star"], 0.85 * fit["T2"])})
-        fits = [joint_fit(Sn, pr, s, **FIT) for s in starts]
+        fits = [to_cpu(joint_fit(Sd, pr, to_device(s, dev), **FIT)) for s in starts]
         cost = torch.stack([f["cost"] for f in fits])
         best = cost.min(0).values
         one = cost[0]

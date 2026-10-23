@@ -35,17 +35,43 @@ FIT = dict(jacobian="implicit", n_iso=128, n_iter=25, dtype=torch.float32)
 PARAMS = ("T1", "T2", "T2star", "B1", "M0")
 
 
-CHUNK = 4096
+CHUNK = 4096                  # voxels per batch on the CPU; a GPU takes all voxels at once
+DEVICE = torch.device("cpu")  # where the fits run (set from --device); data and results stay on the CPU
 
 
-def chunked(fn, n, chunk=CHUNK):
-    """Apply fn(slice) over voxel chunks and concatenate the returned dicts (bounds memory)."""
-    outs = [fn(slice(a, a + chunk)) for a in range(0, n, chunk)]
+def set_device(name: str) -> torch.device:
+    """Select the fit device (also used by brainweb_experiment and poly_b1_experiment)."""
+    global DEVICE, CHUNK
+    DEVICE = torch.device(name)
+    if DEVICE.type == "cuda" and not torch.cuda.is_available():
+        raise SystemExit("--device cuda requested but CUDA is not available")
+    if DEVICE.type != "cpu":
+        CHUNK = 1 << 30
+    return DEVICE
+
+
+def D(x):
+    """Move a tensor to the fit device."""
+    return x.to(DEVICE)
+
+
+def cpu(d):
+    """Estimates back to the CPU (dict of tensors)."""
+    return {k: (v.cpu() if torch.is_tensor(v) else v) for k, v in d.items()}
+
+
+def chunked(fn, n, chunk=None):
+    """Apply fn(slice) over voxel chunks and concatenate the returned dicts (bounds memory).
+
+    The results are returned on the CPU whatever device the fits ran on."""
+    chunk = chunk or CHUNK
+    outs = [cpu(fn(slice(a, a + chunk))) for a in range(0, n, chunk)]
     return {k: torch.cat([o[k] for o in outs]) for k in outs[0]}
 
 
 def sub(d, sl):
-    return {k: v[sl] for k, v in d.items()}
+    """Voxel slice of a dict of per-voxel tensors, on the fit device."""
+    return {k: v[sl].to(DEVICE) for k, v in d.items()}
 
 
 def best_of(fits):
@@ -113,7 +139,9 @@ def roi_stats(est, truth, labels_vox):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--snr", type=float, nargs="+", default=[1000.0, 300.0])
+    ap.add_argument("--device", default="cpu", help="torch device for the fits, e.g. cuda")
     args = ap.parse_args()
+    set_device(args.device)
     pr = paper_protocol()
     scan1 = Protocol(pr.pathways, (pr.scans[0],))
     ph = make_phantom()
@@ -136,12 +164,12 @@ def main():
             print(f"  [{time.time() - t_all:6.0f} s] {label}", flush=True)
 
         # ---------------- Scenario A: full resolution
-        t = time.time(); pap = paper_reconstruction(Sv, pr); times["A: analytic inverse"] = time.time() - t; done("A: analytic inverse")
-        t = time.time(); init = sanitize(analytic_reconstruction(Sv, pr)); times["init (model fit)"] = time.time() - t; done("init (model fit)")
+        t = time.time(); pap = cpu(paper_reconstruction(D(Sv), pr)); times["A: analytic inverse"] = time.time() - t; done("A: analytic inverse")
+        t = time.time(); init = sanitize(cpu(analytic_reconstruction(D(Sv), pr))); times["init (model fit)"] = time.time() - t; done("init (model fit)")
         st = starts_from(init, pap)
         t = time.time()
         V = Sv.shape[0]
-        ml = best_of([chunked(lambda sl, s=s: joint_fit(Sv[sl], pr, sub(s, sl), b1_max=B1_MAX, **FIT), V)
+        ml = best_of([chunked(lambda sl, s=s: joint_fit(D(Sv[sl]), pr, sub(s, sl), b1_max=B1_MAX, **FIT), V)
                       for s in st])
         times["A: complex ML (4 starts)"] = time.time() - t; done("A: complex ML (4 starts)")
         t = time.time()
@@ -149,7 +177,7 @@ def main():
         B1map = torch.full_like(ph.B1, float("nan")); B1map[m] = ml["B1"]
         B1s_A = polyfit_2d(B1map, m)[m].clamp(0.5, B1_MAX)
         rs_ml = spatial_restart(ml, B1s_A)
-        ml2 = best_of([chunked(lambda sl: joint_fit(Sv[sl], pr, sub(rs_ml, sl), b1_max=B1_MAX, **FIT), V)])
+        ml2 = best_of([chunked(lambda sl: joint_fit(D(Sv[sl]), pr, sub(rs_ml, sl), b1_max=B1_MAX, **FIT), V)])
         improved = ml2["cost"] < ml["cost"] * (1 - 1e-6)
         n_restart_ml = int(improved.sum())
         ml = {k: torch.where(improved, ml2[k], ml[k]) if ml[k].shape == improved.shape else ml[k]
@@ -158,14 +186,14 @@ def main():
         sign = fid_phase_sign(Sv, pr)
         t = time.time()
         Mv = Sv.abs()
-        mag = best_of([chunked(lambda sl, s=s: magnitude_fit(Mv[sl], pr, sub(s, sl), fid_sign=sign[sl],
+        mag = best_of([chunked(lambda sl, s=s: magnitude_fit(D(Mv[sl]), pr, sub(s, sl), fid_sign=D(sign[sl]),
                                                               b1_max=B1_MAX, **FIT), V)
                        for s in st])
         times["A: magnitude LS + FID sign (4 starts)"] = time.time() - t; done("A: magnitude LS + FID sign (4 starts)")
         t = time.time()
         rs_mag = spatial_restart(mag, B1s_A)
-        mag2 = best_of([chunked(lambda sl: magnitude_fit(Mv[sl], pr, sub(rs_mag, sl),
-                                                          fid_sign=sign[sl], b1_max=B1_MAX, **FIT), V)])
+        mag2 = best_of([chunked(lambda sl: magnitude_fit(D(Mv[sl]), pr, sub(rs_mag, sl),
+                                                          fid_sign=D(sign[sl]), b1_max=B1_MAX, **FIT), V)])
         improved_m = mag2["cost"] < mag["cost"] * (1 - 1e-6)
         n_restart_mag = int(improved_m.sum())
         mag = {k: torch.where(improved_m, mag2[k], mag[k]) if mag[k].shape == improved_m.shape else mag[k]
@@ -185,23 +213,23 @@ def main():
         Lv, Bv = S_low[m], S_B[m]
         # paper pipeline
         t = time.time()
-        pap_low = paper_reconstruction(Lv, pr)
+        pap_low = cpu(paper_reconstruction(D(Lv), pr))
         B1_low = torch.full_like(ph.B1, float("nan")); B1_low[m] = pap_low["B1"]
         B1_s = polyfit_2d(B1_low, m)[m]
-        papB = paper_reconstruction(Bv, pr, B1=B1_s)
+        papB = cpu(paper_reconstruction(D(Bv), pr, B1=D(B1_s)))
         times["B: paper pipeline"] = time.time() - t; done("B: paper pipeline")
         papB["B1_low"] = pap_low["B1"]
         # ML pipeline
         t = time.time()
-        init_low = sanitize(analytic_reconstruction(Lv, pr))
-        ml_low = best_of([chunked(lambda sl, s=s: joint_fit(Lv[sl], pr, sub(s, sl), b1_max=B1_MAX, **FIT), V)
+        init_low = sanitize(cpu(analytic_reconstruction(D(Lv), pr)))
+        ml_low = best_of([chunked(lambda sl, s=s: joint_fit(D(Lv[sl]), pr, sub(s, sl), b1_max=B1_MAX, **FIT), V)
                           for s in starts_from(init_low, pap_low)])
         B1_lowML = torch.full_like(ph.B1, float("nan")); B1_lowML[m] = ml_low["B1"]
         B1_sML = polyfit_2d(B1_lowML, m)[m]
         S1 = Bv[:, :1].contiguous()
         st1 = [{**ml_low}] + [{**ml_low, "T1": torch.full_like(ml_low["T1"], t1)} for t1 in (700.0, 2000.0)]
-        mlB = best_of([chunked(lambda sl, s=s: joint_fit(S1[sl], scan1, sub(s, sl),
-                                                         fixed_B1=B1_sML[sl], **FIT), V)
+        mlB = best_of([chunked(lambda sl, s=s: joint_fit(D(S1[sl]), scan1, sub(s, sl),
+                                                         fixed_B1=D(B1_sML[sl]), **FIT), V)
                        for s in st1])
         times["B: ML pipeline"] = time.time() - t; done("B: ML pipeline")
         mlB["B1_low"] = ml_low["B1"]
@@ -229,9 +257,9 @@ def main():
         from mpme.mle import _model
         th_true = torch.stack([truth["M0"].log(), truth["B1"].log(), truth["T1"].log(),
                                ph.T2[m].log(), ph.T2star[m].log(), ph.dw[m], ph.phi0[m]], 1)
-        c_true = torch.cat([((_model(th_true[a:a + CHUNK], pr, 128)
-                              - torch.view_as_real(Sv[a:a + CHUNK]).flatten(1)) ** 2).sum(1)
-                            for a in range(0, V, CHUNK)])
+        c_true = torch.cat([((_model(th_true[a:a + 4096], pr, 128)
+                              - torch.view_as_real(Sv[a:a + 4096]).flatten(1)) ** 2).sum(1)
+                            for a in range(0, V, 4096)])
         big = (ml["T1"] / truth["T1"]).log().abs() > 0.3
         big_pre = (ml_pre["T1"] / truth["T1"]).log().abs() > 0.3
         above_pre = ml_pre["cost"] > c_true * (1 + 1e-5)

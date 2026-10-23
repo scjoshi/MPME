@@ -21,6 +21,32 @@ def add_fit_arguments(parser: argparse.ArgumentParser) -> None:
                    help="single precision (requires --jacobian implicit)")
     g.add_argument("--n-iso", type=int, default=256, help="isochromats per voxel (default 256)")
     g.add_argument("--n-iter", type=int, default=40, help="LM iterations (default 40)")
+    add_device_argument(parser)
+
+
+def add_device_argument(parser: argparse.ArgumentParser) -> None:
+    """--device: where the fits run (results are moved back to the CPU for statistics/plots)."""
+    parser.add_argument("--device", default="cpu",
+                        help="torch device for the fits, e.g. cuda (default cpu); the results do "
+                             "not depend on it beyond floating-point rounding")
+
+
+def device(args: argparse.Namespace) -> torch.device:
+    dev = torch.device(args.device)
+    if dev.type == "cuda" and not torch.cuda.is_available():
+        raise SystemExit("--device cuda requested but CUDA is not available")
+    return dev
+
+
+def to_device(d, dev):
+    """Move a tensor, or the tensors in a dict of estimates, to ``dev``."""
+    if isinstance(d, dict):
+        return {k: (v.to(dev) if torch.is_tensor(v) else v) for k, v in d.items()}
+    return d.to(dev)
+
+
+def to_cpu(d):
+    return to_device(d, torch.device("cpu"))
 
 
 def fit_kwargs(args: argparse.Namespace) -> dict:

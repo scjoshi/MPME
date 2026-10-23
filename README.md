@@ -66,7 +66,7 @@ PYTHONPATH=src python3 scripts/technote_figures.py
 - `brainweb_experiment.py --case {pv_clean,pv,crisp}`: partial-volume test on one BrainWeb
   slice; needs the data in `data/brainweb/`. Run all three cases (not in parallel; they share
   `results/brainweb_summary.json`).
-- `poly_b1_experiment.py` (`PYTHONPATH=src:scripts`, ~15 min): joint ML with a polynomial
+- `poly_b1_experiment.py [--chunk N]` (`PYTHONPATH=src:scripts`, ~15 min on CPU): joint ML with a polynomial
   B1 map (`mle.polynomial_b1_fit`) against two-stage smoothing, phantom at 15°/85° with both
   scans at full resolution. Writes `results/poly_b1.json` and `docs/technote/tables/poly_b1.tex`.
 - `technote_figures.py`: all phantom and BrainWeb figures, tables and `macros.tex` for the
@@ -97,3 +97,27 @@ PYTHONPATH=src python3 scripts/technote_figures.py
 `limits_figures.py` writes `docs/figures/limits_{lever,crossing}.png`,
 `docs/latex/limits_budget.tex` and `results/limits_numbers.json` (< 1 min), then the Makefile
 builds `docs/latex/mpme_b1_t1_limits.pdf`.
+
+### Running on a GPU
+
+The fitting code (`mle`, `fastjac`, `signal`, `epg`, `analytic`, `paper`, `design`) runs on
+whatever device its input tensors are on, and every script that fits or computes information
+matrices takes `--device` (default `cpu`):
+
+```bash
+PYTHONPATH=src:scripts python3 scripts/phantom_experiment.py --snr 1000 --device cuda
+```
+
+Data are still simulated on the CPU (so results do not depend on the device beyond rounding);
+the fits run on the chosen device and the estimates come back to the CPU for statistics and
+figures. The phantom, BrainWeb and polynomial-B1 experiments process all voxels in one batch on
+a GPU (`poly_b1_experiment.py --chunk N` limits it). Timings in `benchmark_fit.py` synchronise
+the GPU. Scripts with many small fits (`flip_design_robustness.py`, `shared_b1_check.py`,
+`two_scan_design.py`) accept `--device` but gain little; the single-voxel information scripts
+(`crlb_analysis.py`, `single_scan_family.py`, `beyond_ideal_model.py`, `limits_figures.py`,
+`flip_design_report.py`) and the table/figure scripts stay on the CPU.
+
+Use CUDA: the information matrices (`flip_design.py`) and the joint polynomial fit's
+coefficient solve need float64, which Apple's MPS backend lacks. Install the CUDA build of
+PyTorch. `tests/test_device.py` checks that no helper tensor is created on the default device
+(runs without a GPU) and, when CUDA is present, that GPU and CPU results agree.

@@ -38,6 +38,8 @@ def _as_tensors(*xs, dtype=None, device=None) -> list[Tensor]:
     if dtype is None:
         dtype = next((x.dtype for x in xs if isinstance(x, Tensor) and x.is_floating_point()),
                      torch.float64)
+    if device is None:                     # follow the tensor inputs (e.g. CUDA), not the default
+        device = next((x.device for x in xs if isinstance(x, Tensor)), None)
     return [torch.as_tensor(x, dtype=dtype, device=device) for x in xs]
 
 

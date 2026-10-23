@@ -8,12 +8,13 @@ and 300. Compared:
   - joint ML with log B1 a degree-4 polynomial shared by all voxels (mle.polynomial_b1_fit),
     started from the two-stage solution.
 
-    PYTHONPATH=src:scripts python3 scripts/poly_b1_experiment.py
+    PYTHONPATH=src:scripts python3 scripts/poly_b1_experiment.py [--device cuda] [--chunk N]
     → results/poly_b1.json, docs/technote/tables/poly_b1.tex
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import time
 from pathlib import Path
@@ -24,7 +25,7 @@ from mpme.analytic import analytic_reconstruction
 from mpme.mle import joint_fit, polynomial_b1_fit, polynomial_basis
 from mpme.phantom import make_phantom, polyfit_2d, simulate
 from mpme.sequence import Protocol, Scan, paper_protocol
-from phantom_experiment import FIT, best_of, chunked, roi_stats, sanitize, starts_from, sub
+from phantom_experiment import FIT, D, best_of, chunked, cpu, roi_stats, sanitize, set_device, starts_from, sub
 
 ROOT = Path(__file__).resolve().parents[1]
 RES, TAB = ROOT / "results", ROOT / "docs" / "technote" / "tables"
@@ -33,6 +34,8 @@ TISSUES_SHOWN = ("WM", "GM", "CSF", "lesion")
 
 
 def summarise(est, B1, truth, labels):
+    est = {k: v.cpu() for k, v in est.items() if torch.is_tensor(v)}
+    B1 = B1.cpu()
     e = (B1 / truth["B1"]).log()
     r = roi_stats({**est, "B1": B1}, truth, labels)
     return {"B1_rms": e.pow(2).mean().sqrt().item(), "B1_max": e.abs().max().item(),
@@ -40,6 +43,12 @@ def summarise(est, B1, truth, labels):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--device", default="cpu", help="torch device for the fits, e.g. cuda")
+    ap.add_argument("--chunk", type=int, default=None,
+                    help="voxels per batch (default 4096 on CPU, all voxels on a GPU)")
+    args = ap.parse_args()
+    dev = set_device(args.device)
     ph = make_phantom()
     m = ph.mask
     V, H = int(m.sum()), m.shape[0]
@@ -47,6 +56,8 @@ def main():
     c = (torch.arange(H, dtype=torch.float64) - (H - 1) / 2) / (H / 2)
     yy, xx = torch.meshgrid(c, c, indexing="ij")
     Phi = polynomial_basis(torch.stack([xx[m], yy[m]], 1))
+    chunk = args.chunk or (4096 if dev.type == "cpu" else V)
+    run = lambda fn: chunked(fn, V, chunk)
     base = paper_protocol()
     s1 = base.scans[0]
     pr = Protocol(base.pathways, (s1, Scan(ALPHA2, s1.TR, s1.echo_times)))
@@ -58,8 +69,8 @@ def main():
         Sv = Sn[m]
         row, times = {}, {}
         t = time.time()
-        init = sanitize(analytic_reconstruction(Sv, pr))
-        vox = best_of([chunked(lambda sl, s=s: joint_fit(Sv[sl], pr, sub(s, sl), **FIT), V)
+        init = sanitize(cpu(analytic_reconstruction(D(Sv), pr)))
+        vox = best_of([run(lambda sl, s=s: joint_fit(D(Sv[sl]), pr, sub(s, sl), **FIT))
                        for s in starts_from(init, None)])
         times["per-voxel ML"] = time.time() - t
         row["per-voxel ML"] = summarise(vox, vox["B1"], truth, ph.labels[m])
@@ -69,12 +80,12 @@ def main():
         Bs = polyfit_2d(Bm, m)[m]
         st = [{**vox}] + [{**vox, "T1": torch.full_like(vox["T1"], t1)} for t1 in (700.0, 2000.0)]
         S1 = Sv[:, :1].contiguous()
-        two1 = best_of([chunked(lambda sl, s=s: joint_fit(S1[sl], scan1, sub(s, sl), fixed_B1=Bs[sl], **FIT), V)
+        two1 = best_of([run(lambda sl, s=s: joint_fit(D(S1[sl]), scan1, sub(s, sl), fixed_B1=D(Bs[sl]), **FIT))
                         for s in st])
         times["two-stage, scan 1"] = time.time() - t
         row["two-stage, scan 1"] = summarise(two1, Bs, truth, ph.labels[m])
         t = time.time()
-        two2 = best_of([chunked(lambda sl, s=s: joint_fit(Sv[sl], pr, sub(s, sl), fixed_B1=Bs[sl], **FIT), V)
+        two2 = best_of([run(lambda sl, s=s: joint_fit(D(Sv[sl]), pr, sub(s, sl), fixed_B1=D(Bs[sl]), **FIT))
                         for s in st])
         times["two-stage, both scans"] = time.time() - t
         row["two-stage, both scans"] = summarise(two2, Bs, truth, ph.labels[m])
@@ -83,11 +94,13 @@ def main():
         coef0 = torch.linalg.lstsq(Phi, polyfit_2d(Lm, m)[m][:, None]).solution[:, 0]
         k = vox["B1"] / (Phi @ coef0).exp()
         t = time.time()
-        jt = polynomial_b1_fit(Sv, pr, Phi, {**vox, "T1": vox["T1"] * k**2, "M0": vox["M0"] * k}, coef0)
+        start = {**vox, "T1": vox["T1"] * k**2, "M0": vox["M0"] * k}
+        jt = cpu(polynomial_b1_fit(D(Sv), pr, D(Phi), sub(start, slice(None)), D(coef0), chunk=chunk))
         times["joint polynomial-B1 ML"] = time.time() - t
         row["joint polynomial-B1 ML"] = summarise(jt, jt["B1"].double(), truth, ph.labels[m])
         row["joint_history"] = jt["history"]
         row["joint_downweighted"] = int((jt["weight"] < 1).sum())
+        row["device"] = str(dev)
         row["times_s"] = times
         out[f"SNR {snr:g}"] = row
         for k_, v in row.items():

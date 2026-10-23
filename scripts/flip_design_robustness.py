@@ -18,12 +18,13 @@ relative to the T1 SD at SNR(M0) = 300 (CRLB / 300), and the probability that a 
 Also a sweep of the pulse duration (a 330° pulse lasting 0.125-4 ms at the same peak B1) for
 two designs, WM at B1 = 1.
 
-    PYTHONPATH=src:scripts python3 scripts/flip_design_robustness.py
+    PYTHONPATH=src:scripts python3 scripts/flip_design_robustness.py [--device cuda]
     → results/flip_design_robustness.json, docs/flipnote/tables/robustness.tex
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import time
@@ -52,6 +53,7 @@ SNR = 300.0
 BOX = (0.6, 1.4)
 DW_PULSE = 2 * math.pi * 50 / 1000          # rad/ms
 THRESHOLD = chi2.ppf(0.999, 36 - 7)
+DEVICE = torch.device("cpu")      # where the fits run (--device); data are simulated on the CPU
 
 
 def protocol(a1, a2, shift=(0.0, 0.0)):
@@ -90,9 +92,10 @@ def fit(S, a1, a2, tissue, b1, dw):
             "T1": torch.tensor([tissue["T1"] * f for _, f in starts]),
             "T2": torch.full((n,), tissue["T2"]), "T2star": torch.full((n,), tissue["T2star"]),
             "dw": torch.full((n,), dw)}
-    run = lambda sel: joint_fit(S.expand(len(sel), -1, -1, -1).contiguous(), protocol(a1, a2),
-                                {q: v[sel] for q, v in init.items()}, n_iter=200, n_iso=256,
-                                jacobian="implicit", b1_max=BOX[1])
+    run = lambda sel: {q: v.cpu() for q, v in joint_fit(
+        S.expand(len(sel), -1, -1, -1).contiguous().to(DEVICE), protocol(a1, a2),
+        {q: v[sel].to(DEVICE) for q, v in init.items()}, n_iter=200, n_iso=256,
+        jacobian="implicit", b1_max=BOX[1]).items()}
     try:
         out = run(list(range(n)))
     except torch.linalg.LinAlgError:           # a start that drives the damped system singular:
@@ -182,6 +185,10 @@ def table(out):
 
 
 def main():
+    global DEVICE
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--device", default="cpu", help="torch device for the fits, e.g. cuda")
+    DEVICE = torch.device(ap.parse_args().device)
     t0 = time.time()
     designs = json.loads((RES / "flip_design.json").read_text())["shortlist"]
     angles = {k: tuple(v["angles"]) for k, v in designs.items()}

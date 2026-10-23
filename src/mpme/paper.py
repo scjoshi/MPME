@@ -33,10 +33,11 @@ def fit_eq1(S: Tensor, protocol: Protocol, scan: int = 0) -> tuple[Tensor, Tenso
     """R2, R2′ (1/ms) from Eq. 1, log-linear, weighted by |S| as in the paper."""
     mag = S[..., scan, :, :].abs().clamp_min(_TINY)
     P, J = mag.shape[-2:]
-    t = protocol.echo_times(scan, mag.dtype)
-    sgn = torch.tensor([1.0 if p >= 0 else -1.0 for p in protocol.pathways], dtype=mag.dtype)
+    t = protocol.echo_times(scan, mag.dtype, mag.device)
+    sgn = torch.tensor([1.0 if p >= 0 else -1.0 for p in protocol.pathways], dtype=mag.dtype,
+                       device=mag.device)
     X = torch.cat([
-        torch.eye(P, dtype=mag.dtype).repeat_interleave(J, 0),             # log F⁺_k
+        torch.eye(P, dtype=mag.dtype, device=mag.device).repeat_interleave(J, 0),             # log F⁺_k
         -t.reshape(-1, 1),                                                  # R2
         -(sgn[:, None] * t).reshape(-1, 1),                                 # ±R2′
     ], dim=1)
@@ -49,12 +50,13 @@ def fit_eq1(S: Tensor, protocol: Protocol, scan: int = 0) -> tuple[Tensor, Tenso
 
 def f_states(S: Tensor, protocol: Protocol, R2: Tensor, R2p: Tensor):
     """Signed real F⁺ and F⇒ for every scan and pathway, each [..., n_scans, P] (Eqs. 1, 18)."""
-    sgn = torch.tensor([1.0 if p >= 0 else -1.0 for p in protocol.pathways], dtype=R2.dtype)
+    sgn = torch.tensor([1.0 if p >= 0 else -1.0 for p in protocol.pathways], dtype=R2.dtype,
+                       device=R2.device)
     rate = R2[..., None] + sgn * R2p[..., None]                             # [..., P]
     Fp, Fd = [], []
     for i, scan in enumerate(protocol.scans):
         mag = S[..., i, :, :].abs().clamp_min(_TINY)
-        t = protocol.echo_times(i, mag.dtype)
+        t = protocol.echo_times(i, mag.dtype, mag.device)
         logF = mag.log() + rate[..., None] * t                              # Eq. 1 at TE = 0
         w = mag
         F = sgn * torch.exp((w * logF).sum(-1) / w.sum(-1))
@@ -111,7 +113,7 @@ def solve_flip(
     X1, X2 = X[..., 0].reshape(-1), X[..., 1].reshape(-1)
     bh = branch_high.reshape(-1)
     out = torch.empty_like(X1)
-    u = torch.linspace(0, 1, n_grid, dtype=X.dtype)[1:-1]
+    u = torch.linspace(0, 1, n_grid, dtype=X.dtype, device=X.device)[1:-1]
     for s in range(0, len(X1), chunk):
         sl = slice(s, s + chunk)
         a_lo = torch.where(bh[sl], mid, lo)[:, None]
@@ -178,7 +180,7 @@ def paper_reconstruction(
             branch_high = (S[..., 0, i0, :] * S[..., 1, i0, :].conj()).sum(-1).real > 0
             a1 = solve_flip(X, protocol, branch_high, beta=beta)
         else:
-            a1 = torch.as_tensor(B1, dtype=X.dtype).expand(X.shape[:-1]) * s1.alpha
+            a1 = torch.as_tensor(B1, dtype=X.dtype, device=X.device).expand(X.shape[:-1]) * s1.alpha
         c1 = torch.cos(a1)
         T1 = s1.TR / _log_ratio(X[..., 0], c1)                              # Eq. 16 (step 5)
         E1 = torch.exp(-s1.TR / T1)

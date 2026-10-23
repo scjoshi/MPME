@@ -31,17 +31,20 @@ PARAMS = ("M0", "B1", "T1", "T2", "T2star", "dw", "phi0")
 
 def single_scan_fisher(angles_deg, tissue: Mapping[str, float], TR: float,
                        echo_times: tuple[tuple[float, ...], ...], pathways: Sequence[int],
-                       n_iso: int = 256) -> Tensor:
+                       n_iso: int = 256, device=None) -> Tensor:
     """Information of one scan at actual flip angles ``angles_deg`` (any shape) → [..., 7, 7].
 
     Evaluated with a 1° nominal pulse and B1 = x, so the log-B1 column is ∂/∂ln x. Δω and φ0 do
     not affect the information; they are set from ``tissue`` if present (default 0).
+    ``device``: where to compute (default: that of ``angles_deg`` if a tensor, else the CPU).
     """
-    x = torch.as_tensor(angles_deg, dtype=torch.float64)
+    if device is None and torch.is_tensor(angles_deg):
+        device = angles_deg.device
+    x = torch.as_tensor(angles_deg, dtype=torch.float64, device=device)
     shape = x.shape
     x = x.flatten()
     proto = Protocol(tuple(pathways), (Scan(1.0, TR, echo_times),))
-    th = torch.empty(len(x), 7, dtype=torch.float64)
+    th = torch.empty(len(x), 7, dtype=torch.float64, device=x.device)
     th[:, 0] = math.log(tissue.get("M0", 1.0))
     th[:, 1] = x.log()
     th[:, 2] = math.log(tissue["T1"])
@@ -66,7 +69,7 @@ def bounds(F: Tensor, known: Sequence[str] = ()) -> Tensor:
     d = C.diagonal(dim1=-2, dim2=-1) / scale**2
     ok = (info == 0) & (d > 0).all(-1) & torch.isfinite(d).all(-1)
     d = torch.where(ok[..., None], d, torch.full_like(d, math.inf))
-    out = torch.full((*F.shape[:-2], 7), math.nan, dtype=F.dtype)
+    out = torch.full((*F.shape[:-2], 7), math.nan, dtype=F.dtype, device=F.device)
     out[..., keep] = d.sqrt()
     return out
 
